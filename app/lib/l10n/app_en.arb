@@ -17,12 +17,12 @@
 
   "addMembersScreen_title": "Add members",
   "addMembersScreen_addMembers": "Add member(s)",
-  "addMembersScreen_error_noActiveConversation": "an active conversation is obligatory",
+  "addMembersScreen_error_noActiveChat": "an active chat is obligatory",
 
-  "conversationDetailsScreen_title": "Details",
-  "conversationDetailsScreen_unknownConversation": "Unknown conversation",
+  "chatDetailsScreen_title": "Details",
+  "chatDetailsScreen_unknownChat": "Unknown chat",
 
-  "conversationScreen_emptyConversation": "Select a conversation to start messaging",
+  "chatScreen_emptyChat": "Select a chat to start messaging",
 
   "memberDetailsScreen_title": "Member details",
   "removeUserDialog_title": "Remove user",
@@ -42,6 +42,7 @@
   "userHandleScreen_title": "Username",
   "userHandleScreen_inputHint": "Username",
   "userHandleScreen_error_emptyHandle": "Username cannot be empty",
+  "userHandleScreen_error_alreadyExists": "Username already exists",
   "userHandleScreen_description": "Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.",
   "userHandleScreen_save": "Save",
 
@@ -61,24 +62,24 @@
   "timestamp_now": "Now",
   "timestamp_yesterday": "Yesterday",
 
-  "conversationList_newContact": "New contact",
-  "conversationList_newGroup": "New group",
-  "conversationList_emptyMessage": "Create a new connection to get started",
+  "chatList_newContact": "New contact",
+  "chatList_newGroup": "New group",
+  "chatList_emptyMessage": "Create a new connection to get started",
 
-  "conversationList_draft": "Draft",
-  "conversationList_you": "You",
-  "conversationList_imageEmoji": "🖼️",
-  "conversationList_fileEmoji": "📎",
+  "chatList_draft": "Draft",
+  "chatList_you": "You",
+  "chatList_imageEmoji": "🖼️",
+  "chatList_fileEmoji": "📎",
 
   "settings_profile": "Profile",
   "settings_developerSettings": "Settings (developer)",
 
-  "newConversationDialog_newConversationTitle": "New conversation",
-  "newConversationDialog_newConversationDescription": "Choose a name for the new conversation",
-  "newConversationDialog_conversationNamePlaceholder": "Conversation name",
-  "newConversationDialog_actionButton": "Create conversation",
-  "newConversationDialog_error": "Failed to add conversation with name {conversationName}",
-  "newConversationDialog_error_emptyGroupName": "Conversation name cannot be empty",
+  "newChatDialog_newChatTitle": "New chat",
+  "newChatDialog_newChatDescription": "Choose a name for the new chat",
+  "newChatDialog_chatNamePlaceholder": "Chat name",
+  "newChatDialog_actionButton": "Create chat",
+  "newChatDialog_error": "Failed to add chat with name {chatName}",
+  "newChatDialog_error_emptyGroupName": "Chat name cannot be empty",
 
   "newConnectionDialog_newConnectionTitle": "New connection",
   "newConnectionDialog_newConnectionDescription": "Enter the username of the user you want to connect to",
@@ -88,7 +89,7 @@
   "newConnectionDialog_error_emptyHandle": "Username cannot be empty",
   "newConnectionDialog_error_handleNotFound": "Username {username} does not exist",
 
-  "composer_inputHint": "Message {conversationTitle}",
+  "composer_inputHint": "Message {chatTitle}",
   "composer_editMessage": "Edit Message",
   "composer_error_attachment": "Failed to upload attachment. Please try again.",
 
@@ -139,18 +140,18 @@
 
   "groupDetails_members": "Members",
   "groupDetails_addMembers": "Add Members",
-  "groupDetails_leaveConversation": "Leave Conversation",
-  "groupDetails_deleteConversation": "Delete Conversation",
+  "groupDetails_leaveChat": "Leave Chat",
+  "groupDetails_deleteChat": "Delete Chat",
 
-  "leaveConversationDialog_title": "Leave Conversation",
-  "leaveConversationDialog_content": "Are you sure you want to leave this conversation?",
-  "leaveConversationDialog_cancel": "Cancel",
-  "leaveConversationDialog_leave": "Leave",
+  "leaveChatDialog_title": "Leave Chat",
+  "leaveChatDialog_content": "Are you sure you want to leave this chat?",
+  "leaveChatDialog_cancel": "Cancel",
+  "leaveChatDialog_leave": "Leave",
 
-  "deleteConversationDialog_title": "Delete Conversation",
-  "deleteConversationDialog_content": "Are you sure you want to delete this conversation? The message history will be also deleted.",
-  "deleteConversationDialog_cancel": "Cancel",
-  "deleteConversationDialog_delete": "Delete",
+  "deleteChatDialog_title": "Delete Chat",
+  "deleteChatDialog_content": "Are you sure you want to delete this chat? The message history will be also deleted.",
+  "deleteChatDialog_cancel": "Cancel",
+  "deleteChatDialog_delete": "Delete",
   "byteUnit_B": "B",
   "byteUnit_KB": "KB",
   "byteUnit_MB": "MB",

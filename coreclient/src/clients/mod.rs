@@ -52,12 +52,12 @@ use crate::{
 use crate::{ChatId, key_stores::as_credentials::AsCredentials};
 use crate::{
     MessageId,
-    clients::connection_offer::FriendshipPackage,
-    contacts::Contact,
-    conversations::{
+    chats::{
         Chat, ChatAttributes,
         messages::{ChatMessage, TimestampedMessage},
     },
+    clients::connection_offer::FriendshipPackage,
+    contacts::Contact,
     groups::openmls_provider::AirOpenMlsProvider,
     key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
     store::{StoreNotification, StoreNotifier},
@@ -71,8 +71,8 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 mod add_contact;
 pub(crate) mod api_clients;
 pub(crate) mod attachment;
+pub mod chats;
 pub(crate) mod connection_offer;
-pub mod conversations;
 mod create_user;
 mod invite_users;
 mod message;

@@ -28,7 +28,7 @@ Future<void> _handleMethod(
     case 'receivedNotification':
       // Handle notification data
       final String? identifier = call.arguments["identifier"];
-      final String? chatIdStr = call.arguments["conversationId"];
+      final String? chatIdStr = call.arguments["chatId"];
       _log.info(
         'Received notification: identifier = $identifier, chatId = $chatIdStr',
       );
@@ -37,7 +37,7 @@ Future<void> _handleMethod(
     case 'openedNotification':
       // Handle notification opened
       final String? identifier = call.arguments["identifier"];
-      final String? chatIdStr = call.arguments["conversationId"];
+      final String? chatIdStr = call.arguments["chatId"];
       _log.fine(
         'Notification opened: identifier = $identifier, chatId = $chatIdStr',
       );
@@ -96,7 +96,7 @@ FutureOr<void> sendNotification(NotificationContent content) async {
       'identifier': content.identifier.field0.toString(),
       'title': content.title,
       'body': content.body,
-      'conversationId': content.chatId?.uuid.toString(),
+      'chatId': content.chatId?.uuid.toString(),
     };
     await platform.invokeMethod('sendNotification', arguments);
   } on PlatformException catch (e, stacktrace) {

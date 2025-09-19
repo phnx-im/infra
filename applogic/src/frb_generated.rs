@@ -26,8 +26,8 @@
 // Section: imports
 
 use crate::api::attachments_repository::*;
-use crate::api::conversation_details_cubit::*;
-use crate::api::conversation_list_cubit::*;
+use crate::api::chat_details_cubit::*;
+use crate::api::chat_list_cubit::*;
 use crate::api::logging::*;
 use crate::api::message_cubit::*;
 use crate::api::message_list_cubit::*;
@@ -49,7 +49,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -180802667;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1538953529;
 
 // Section: executor
 
@@ -135,7 +135,7 @@ fn wire__crate__api__attachments_repository__AttachmentsRepository_new_impl(
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_close_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_close_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -143,7 +143,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_cl
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationDetailsCubitBase_close",
+            debug_name: "ChatDetailsCubitBase_close",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -158,9 +158,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_cl
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<
-                    ConversationDetailsCubitBase,
-                >,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
@@ -180,7 +178,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_cl
                     }
                     let mut api_that_guard = api_that_guard.unwrap();
                     let output_ok = Result::<_, ()>::Ok({
-                        crate::api::conversation_details_cubit::ConversationDetailsCubitBase::close(
+                        crate::api::chat_details_cubit::ChatDetailsCubitBase::close(
                             &mut *api_that_guard,
                         );
                     })?;
@@ -190,39 +188,76 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_cl
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_edit_message_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_edit_message_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_edit_message", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_message_id = <Option<crate::api::types::MessageId>>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_edit_message",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_message_id =
+                <Option<crate::api::types::MessageId>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::edit_message(
+                                &*api_that_guard,
+                                api_message_id,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::edit_message(&*api_that_guard, api_message_id).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is_closed_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_is_closed_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationDetailsCubitBase_is_closed",
+            debug_name: "ChatDetailsCubitBase_is_closed",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -237,9 +272,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<
-                    ConversationDetailsCubitBase,
-                >,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
@@ -258,7 +291,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_details_cubit::ConversationDetailsCubitBase::is_closed(
+                    crate::api::chat_details_cubit::ChatDetailsCubitBase::is_closed(
                         &*api_that_guard,
                     ),
                 )?;
@@ -267,40 +300,79 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_mark_as_read_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_mark_as_read_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_mark_as_read", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_until_message_id = <crate::api::types::MessageId>::sse_decode(&mut deserializer);
-let api_until_timestamp = <chrono::DateTime::<chrono::Utc>>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_mark_as_read",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_until_message_id =
+                <crate::api::types::MessageId>::sse_decode(&mut deserializer);
+            let api_until_timestamp =
+                <chrono::DateTime<chrono::Utc>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::mark_as_read(
+                                &*api_that_guard,
+                                api_until_message_id,
+                                api_until_timestamp,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::mark_as_read(&*api_that_guard, api_until_message_id, api_until_timestamp).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_new_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_new_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationDetailsCubitBase_new",
+            debug_name: "ChatDetailsCubitBase_new",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -337,7 +409,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_ne
                 }
                 let api_user_cubit_guard = api_user_cubit_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_details_cubit::ConversationDetailsCubitBase::new(
+                    crate::api::chat_details_cubit::ChatDetailsCubitBase::new(
                         &*api_user_cubit_guard,
                         api_chat_id,
                     ),
@@ -347,88 +419,196 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_ne
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_reset_draft_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_reset_draft_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_reset_draft", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, ()>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_reset_draft",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = Result::<_, ()>::Ok({
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::reset_draft(
+                                &*api_that_guard,
+                            )
+                            .await;
+                        })?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = Result::<_,()>::Ok({ crate::api::conversation_details_cubit::ConversationDetailsCubitBase::reset_draft(&*api_that_guard).await; })?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_send_message_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_send_message_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_send_message", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_message_text = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_send_message",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_message_text = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::send_message(
+                                &*api_that_guard,
+                                api_message_text,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::send_message(&*api_that_guard, api_message_text).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_set_chat_picture_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_set_chat_picture_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_set_chat_picture", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_bytes = <Option<Vec<u8>>>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_set_chat_picture",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_bytes = <Option<Vec<u8>>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, true)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref_mut().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, true,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref_mut().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let mut api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::set_chat_picture(
+                                &mut *api_that_guard,
+                                api_bytes,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let mut api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::set_chat_picture(&mut *api_that_guard, api_bytes).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_state_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_state_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationDetailsCubitBase_state",
+            debug_name: "ChatDetailsCubitBase_state",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -443,9 +623,7 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_st
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<
-                    ConversationDetailsCubitBase,
-                >,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
@@ -464,99 +642,22 @@ fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_st
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_details_cubit::ConversationDetailsCubitBase::state(
-                        &*api_that_guard,
-                    ),
+                    crate::api::chat_details_cubit::ChatDetailsCubitBase::state(&*api_that_guard),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_store_draft_impl(
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_store_draft_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_store_draft", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_draft_message = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
-                        let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
-            }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::store_draft(&*api_that_guard, api_draft_message).await?;   Ok(output_ok)
-                    })().await)
-                } })
-}
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_stream_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_stream", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_sink = <StreamSink<crate::api::conversation_details_cubit::ConversationDetailsState,flutter_rust_bridge::for_generated::SseCodec>>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, ()>((move || async move {
-                        let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, true)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref_mut().await),
-                _ => unreachable!(),
-            }
-        }
-        let mut api_that_guard = api_that_guard.unwrap();
- let output_ok = Result::<_,()>::Ok({ crate::api::conversation_details_cubit::ConversationDetailsCubitBase::stream(&mut *api_that_guard, api_sink).await; })?;   Ok(output_ok)
-                    })().await)
-                } })
-}
-fn wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_upload_attachment_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationDetailsCubitBase_upload_attachment", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>>>::sse_decode(&mut deserializer);
-let api_path = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
-                        let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
-            }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_details_cubit::ConversationDetailsCubitBase::upload_attachment(&*api_that_guard, api_path).await?;   Ok(output_ok)
-                    })().await)
-                } })
-}
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_close_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationListCubitBase_close",
+            debug_name: "ChatDetailsCubitBase_store_draft",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -571,7 +672,158 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_close_im
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_draft_message = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::store_draft(
+                                &*api_that_guard,
+                                api_draft_message,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_stream_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatDetailsCubitBase_stream",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_sink = <StreamSink<
+                crate::api::chat_details_cubit::ChatDetailsState,
+                flutter_rust_bridge::for_generated::SseCodec,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, true,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref_mut().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let mut api_that_guard = api_that_guard.unwrap();
+                        let output_ok = Result::<_, ()>::Ok({
+                            crate::api::chat_details_cubit::ChatDetailsCubitBase::stream(
+                                &mut *api_that_guard,
+                                api_sink,
+                            )
+                            .await;
+                        })?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_upload_attachment_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ChatDetailsCubitBase_upload_attachment", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>>::sse_decode(&mut deserializer);
+let api_path = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
+                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+                        let mut api_that_guard = None;
+let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
+        for i in decode_indices_ {
+            match i {
+                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
+                _ => unreachable!(),
+            }
+        }
+        let api_that_guard = api_that_guard.unwrap();
+ let output_ok = crate::api::chat_details_cubit::ChatDetailsCubitBase::upload_attachment(&*api_that_guard, api_path).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_close_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatListCubitBase_close",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
@@ -591,9 +843,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_close_im
                     }
                     let mut api_that_guard = api_that_guard.unwrap();
                     let output_ok = Result::<_, ()>::Ok({
-                        crate::api::conversation_list_cubit::ConversationListCubitBase::close(
-                            &mut *api_that_guard,
-                        );
+                        crate::api::chat_list_cubit::ChatListCubitBase::close(&mut *api_that_guard);
                     })?;
                     Ok(output_ok)
                 })())
@@ -601,64 +851,136 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_close_im
         },
     )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_contact_chat_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_create_contact_chat_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationListCubitBase_create_contact_chat", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>>::sse_decode(&mut deserializer);
-let api_handle = <crate::api::types::UiUserHandle>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatListCubitBase_create_contact_chat",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_handle = <crate::api::types::UiUserHandle>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_list_cubit::ChatListCubitBase::create_contact_chat(
+                                &*api_that_guard,
+                                api_handle,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_contact_chat(&*api_that_guard, api_handle).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_group_chat_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_create_group_chat_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "ConversationListCubitBase_create_group_chat", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>>::sse_decode(&mut deserializer);
-let api_group_name = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context| async move {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move || async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "ChatListCubitBase_create_group_chat",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
+            >>::sse_decode(&mut deserializer);
+            let api_group_name = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || async move {
                         let mut api_that_guard = None;
-let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
-        for i in decode_indices_ {
-            match i {
-                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
-                _ => unreachable!(),
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::chat_list_cubit::ChatListCubitBase::create_group_chat(
+                                &*api_that_guard,
+                                api_group_name,
+                            )
+                            .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
-        }
-        let api_that_guard = api_that_guard.unwrap();
- let output_ok = crate::api::conversation_list_cubit::ConversationListCubitBase::create_group_chat(&*api_that_guard, api_group_name).await?;   Ok(output_ok)
-                    })().await)
-                } })
+        },
+    )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_is_closed_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_is_closed_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationListCubitBase_is_closed",
+            debug_name: "ChatListCubitBase_is_closed",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -673,7 +995,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_is_close
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
@@ -692,23 +1014,21 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_is_close
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_list_cubit::ConversationListCubitBase::is_closed(
-                        &*api_that_guard,
-                    ),
+                    crate::api::chat_list_cubit::ChatListCubitBase::is_closed(&*api_that_guard),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_new_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_new_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationListCubitBase_new",
+            debug_name: "ChatListCubitBase_new",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -744,23 +1064,21 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_new_impl
                 }
                 let api_user_cubit_guard = api_user_cubit_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_list_cubit::ConversationListCubitBase::new(
-                        &*api_user_cubit_guard,
-                    ),
+                    crate::api::chat_list_cubit::ChatListCubitBase::new(&*api_user_cubit_guard),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_state_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_state_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationListCubitBase_state",
+            debug_name: "ChatListCubitBase_state",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -775,7 +1093,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_state_im
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
@@ -794,16 +1112,14 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_state_im
                 }
                 let api_that_guard = api_that_guard.unwrap();
                 let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_list_cubit::ConversationListCubitBase::state(
-                        &*api_that_guard,
-                    ),
+                    crate::api::chat_list_cubit::ChatListCubitBase::state(&*api_that_guard),
                 )?;
                 Ok(output_ok)
             })())
         },
     )
 }
-fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_stream_impl(
+fn wire__crate__api__chat_list_cubit__ChatListCubitBase_stream_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -811,7 +1127,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_stream_i
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "ConversationListCubitBase_stream",
+            debug_name: "ChatListCubitBase_stream",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -826,10 +1142,10 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_stream_i
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
             >>::sse_decode(&mut deserializer);
             let api_sink = <StreamSink<
-                crate::api::conversation_list_cubit::ConversationListState,
+                crate::api::chat_list_cubit::ChatListState,
                 flutter_rust_bridge::for_generated::SseCodec,
             >>::sse_decode(&mut deserializer);
             deserializer.end();
@@ -854,7 +1170,7 @@ fn wire__crate__api__conversation_list_cubit__ConversationListCubitBase_stream_i
                         }
                         let mut api_that_guard = api_that_guard.unwrap();
                         let output_ok = Result::<_, ()>::Ok({
-                            crate::api::conversation_list_cubit::ConversationListCubitBase::stream(
+                            crate::api::chat_list_cubit::ChatListCubitBase::stream(
                                 &mut *api_that_guard,
                                 api_sink,
                             )
@@ -2612,7 +2928,7 @@ fn wire__crate__api__navigation_cubit__NavigationCubitBase_stream_impl(
         },
     )
 }
-fn wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(
+fn wire__crate__api__chat_details_cubit__UiRoomState_can_kick_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
@@ -2653,12 +2969,11 @@ fn wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(
                     }
                 }
                 let api_that_guard = api_that_guard.unwrap();
-                let output_ok = Result::<_, ()>::Ok(
-                    crate::api::conversation_details_cubit::UiRoomState::can_kick(
+                let output_ok =
+                    Result::<_, ()>::Ok(crate::api::chat_details_cubit::UiRoomState::can_kick(
                         &*api_that_guard,
                         &api_target,
-                    ),
-                )?;
+                    ))?;
                 Ok(output_ok)
             })())
         },
@@ -4898,6 +5213,73 @@ fn wire__crate__api__users_cubit__UsersState_profile_picture_impl(
         },
     )
 }
+fn wire__crate__api__chat_details_cubit__chat_details_state_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "chat_details_state_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Result::<_, ()>::Ok(
+                        crate::api::chat_details_cubit::ChatDetailsState::default(),
+                    )?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__chat_list_cubit__chat_list_state_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "chat_list_state_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Result::<_, ()>::Ok(crate::api::chat_list_cubit::ChatListState::default())?;
+                    Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__logging__clear_app_logs_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4963,74 +5345,6 @@ fn wire__crate__api__logging__clear_background_logs_impl(
                         Ok(output_ok)
                     })(),
                 )
-            }
-        },
-    )
-}
-fn wire__crate__api__conversation_details_cubit__conversation_details_state_default_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "conversation_details_state_default",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok(
-                        crate::api::conversation_details_cubit::ConversationDetailsState::default(),
-                    )?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__api__conversation_list_cubit__conversation_list_state_default_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "conversation_list_state_default",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok(
-                        crate::api::conversation_list_cubit::ConversationListState::default(),
-                    )?;
-                    Ok(output_ok)
-                })())
             }
         },
     )
@@ -5643,10 +5957,10 @@ flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
     flutter_rust_bridge::for_generated::RustAutoOpaqueInner<AttachmentsRepository>
 );
 flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
-    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>
+    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>
 );
 flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
-    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>
+    flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>
 );
 flutter_rust_bridge::frb_generated_moi_arc_impl_value!(
     flutter_rust_bridge::for_generated::RustAutoOpaqueInner<DartNotificationService>
@@ -5708,21 +6022,21 @@ impl SseDecode for AttachmentsRepository {
     }
 }
 
-impl SseDecode for ConversationDetailsCubitBase {
+impl SseDecode for ChatDetailsCubitBase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <RustOpaqueMoi<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
+            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
         >>::sse_decode(deserializer);
         return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
     }
 }
 
-impl SseDecode for ConversationListCubitBase {
+impl SseDecode for ChatListCubitBase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <RustOpaqueMoi<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
+            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>,
         >>::sse_decode(deserializer);
         return flutter_rust_bridge::for_generated::rust_auto_opaque_decode_owned(inner);
     }
@@ -5892,9 +6206,7 @@ impl SseDecode
 }
 
 impl SseDecode
-    for RustOpaqueMoi<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-    >
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5904,9 +6216,7 @@ impl SseDecode
 }
 
 impl SseDecode
-    for RustOpaqueMoi<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
-    >
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6071,7 +6381,7 @@ impl SseDecode for StreamSink<UsersState, flutter_rust_bridge::for_generated::Ss
 
 impl SseDecode
     for StreamSink<
-        crate::api::conversation_details_cubit::ConversationDetailsState,
+        crate::api::chat_details_cubit::ChatDetailsState,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -6084,7 +6394,7 @@ impl SseDecode
 
 impl SseDecode
     for StreamSink<
-        crate::api::conversation_list_cubit::ConversationListState,
+        crate::api::chat_list_cubit::ChatListState,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -6258,6 +6568,20 @@ impl SseDecode for Box<crate::api::types::UiContentMessage> {
     }
 }
 
+impl SseDecode for crate::api::chat_details_cubit::ChatDetailsState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_chat = <Option<crate::api::types::UiChatDetails>>::sse_decode(deserializer);
+        let mut var_members = <Vec<crate::api::types::UiUserId>>::sse_decode(deserializer);
+        let mut var_roomState = <Option<UiRoomState>>::sse_decode(deserializer);
+        return crate::api::chat_details_cubit::ChatDetailsState {
+            chat: var_chat,
+            members: var_members,
+            room_state: var_roomState,
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::ChatId {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6266,25 +6590,11 @@ impl SseDecode for crate::api::types::ChatId {
     }
 }
 
-impl SseDecode for crate::api::conversation_details_cubit::ConversationDetailsState {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_chat = <Option<crate::api::types::UiChatDetails>>::sse_decode(deserializer);
-        let mut var_members = <Vec<crate::api::types::UiUserId>>::sse_decode(deserializer);
-        let mut var_roomState = <Option<UiRoomState>>::sse_decode(deserializer);
-        return crate::api::conversation_details_cubit::ConversationDetailsState {
-            chat: var_chat,
-            members: var_members,
-            room_state: var_roomState,
-        };
-    }
-}
-
-impl SseDecode for crate::api::conversation_list_cubit::ConversationListState {
+impl SseDecode for crate::api::chat_list_cubit::ChatListState {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_chats = <Vec<crate::api::types::UiChatDetails>>::sse_decode(deserializer);
-        return crate::api::conversation_list_cubit::ConversationListState { chats: var_chats };
+        return crate::api::chat_list_cubit::ChatListState { chats: var_chats };
     }
 }
 
@@ -6838,6 +7148,17 @@ impl SseDecode for Option<crate::api::navigation_cubit::DeveloperSettingsScreenT
                     deserializer,
                 ),
             );
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<f64>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -7444,7 +7765,7 @@ impl SseDecode for () {
 impl SseDecode for crate::api::user_settings_cubit::UserSettings {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_interfaceScale = <f64>::sse_decode(deserializer);
+        let mut var_interfaceScale = <Option<f64>>::sse_decode(deserializer);
         let mut var_sidebarWidth = <f64>::sse_decode(deserializer);
         let mut var_sendOnEnter = <bool>::sse_decode(deserializer);
         return crate::api::user_settings_cubit::UserSettings {
@@ -7486,19 +7807,19 @@ fn pde_ffi_dispatcher_primary_impl(
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
                         1 => wire__crate__api__attachments_repository__AttachmentsRepository_load_image_attachment_impl(port, ptr, rust_vec_len, data_len),
-3 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
-4 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_edit_message_impl(port, ptr, rust_vec_len, data_len),
-6 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_mark_as_read_impl(port, ptr, rust_vec_len, data_len),
-8 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_reset_draft_impl(port, ptr, rust_vec_len, data_len),
-9 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_send_message_impl(port, ptr, rust_vec_len, data_len),
-10 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_set_chat_picture_impl(port, ptr, rust_vec_len, data_len),
-12 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_store_draft_impl(port, ptr, rust_vec_len, data_len),
-13 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
-14 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_upload_attachment_impl(port, ptr, rust_vec_len, data_len),
-15 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
-16 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_contact_chat_impl(port, ptr, rust_vec_len, data_len),
-17 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_create_group_chat_impl(port, ptr, rust_vec_len, data_len),
-21 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
+3 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
+4 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_edit_message_impl(port, ptr, rust_vec_len, data_len),
+6 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_mark_as_read_impl(port, ptr, rust_vec_len, data_len),
+8 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_reset_draft_impl(port, ptr, rust_vec_len, data_len),
+9 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_send_message_impl(port, ptr, rust_vec_len, data_len),
+10 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_set_chat_picture_impl(port, ptr, rust_vec_len, data_len),
+12 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_store_draft_impl(port, ptr, rust_vec_len, data_len),
+13 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
+14 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_upload_attachment_impl(port, ptr, rust_vec_len, data_len),
+15 => wire__crate__api__chat_list_cubit__ChatListCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
+16 => wire__crate__api__chat_list_cubit__ChatListCubitBase_create_contact_chat_impl(port, ptr, rust_vec_len, data_len),
+17 => wire__crate__api__chat_list_cubit__ChatListCubitBase_create_group_chat_impl(port, ptr, rust_vec_len, data_len),
+21 => wire__crate__api__chat_list_cubit__ChatListCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
 23 => wire__crate__api__logging__LogWriter_write_line_impl(port, ptr, rust_vec_len, data_len),
 24 => wire__crate__api__message_cubit__MessageCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
 28 => wire__crate__api__message_cubit__MessageCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
@@ -7545,10 +7866,10 @@ fn pde_ffi_dispatcher_primary_impl(
 89 => wire__crate__api__user__User_update_push_token_impl(port, ptr, rust_vec_len, data_len),
 91 => wire__crate__api__users_cubit__UsersCubitBase_close_impl(port, ptr, rust_vec_len, data_len),
 95 => wire__crate__api__users_cubit__UsersCubitBase_stream_impl(port, ptr, rust_vec_len, data_len),
-99 => wire__crate__api__logging__clear_app_logs_impl(port, ptr, rust_vec_len, data_len),
-100 => wire__crate__api__logging__clear_background_logs_impl(port, ptr, rust_vec_len, data_len),
-101 => wire__crate__api__conversation_details_cubit__conversation_details_state_default_impl(port, ptr, rust_vec_len, data_len),
-102 => wire__crate__api__conversation_list_cubit__conversation_list_state_default_impl(port, ptr, rust_vec_len, data_len),
+99 => wire__crate__api__chat_details_cubit__chat_details_state_default_impl(port, ptr, rust_vec_len, data_len),
+100 => wire__crate__api__chat_list_cubit__chat_list_state_default_impl(port, ptr, rust_vec_len, data_len),
+101 => wire__crate__api__logging__clear_app_logs_impl(port, ptr, rust_vec_len, data_len),
+102 => wire__crate__api__logging__clear_background_logs_impl(port, ptr, rust_vec_len, data_len),
 103 => wire__crate__api__logging__create_log_stream_impl(port, ptr, rust_vec_len, data_len),
 104 => wire__crate__api__utils__delete_client_database_impl(port, ptr, rust_vec_len, data_len),
 105 => wire__crate__api__utils__delete_databases_impl(port, ptr, rust_vec_len, data_len),
@@ -7570,50 +7891,172 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-                        2 => wire__crate__api__attachments_repository__AttachmentsRepository_new_impl(ptr, rust_vec_len, data_len),
-5 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-7 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_new_impl(ptr, rust_vec_len, data_len),
-11 => wire__crate__api__conversation_details_cubit__ConversationDetailsCubitBase_state_impl(ptr, rust_vec_len, data_len),
-18 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-19 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_new_impl(ptr, rust_vec_len, data_len),
-20 => wire__crate__api__conversation_list_cubit__ConversationListCubitBase_state_impl(ptr, rust_vec_len, data_len),
-22 => wire__crate__api__notifications__DartNotificationService_new_impl(ptr, rust_vec_len, data_len),
-25 => wire__crate__api__message_cubit__MessageCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-26 => wire__crate__api__message_cubit__MessageCubitBase_new_impl(ptr, rust_vec_len, data_len),
-27 => wire__crate__api__message_cubit__MessageCubitBase_state_impl(ptr, rust_vec_len, data_len),
-30 => wire__crate__api__message_list_cubit__MessageListCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-31 => wire__crate__api__message_list_cubit__MessageListCubitBase_new_impl(ptr, rust_vec_len, data_len),
-32 => wire__crate__api__message_list_cubit__MessageListCubitBase_state_impl(ptr, rust_vec_len, data_len),
-35 => wire__crate__api__message_list_cubit__MessageListState_is_new_message_impl(ptr, rust_vec_len, data_len),
-36 => wire__crate__api__message_list_cubit__MessageListState_loaded_messages_count_impl(ptr, rust_vec_len, data_len),
-37 => wire__crate__api__message_list_cubit__MessageListState_message_at_impl(ptr, rust_vec_len, data_len),
-38 => wire__crate__api__message_list_cubit__MessageListState_message_id_index_impl(ptr, rust_vec_len, data_len),
-41 => wire__crate__api__navigation_cubit__NavigationCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-42 => wire__crate__api__navigation_cubit__NavigationCubitBase_new_impl(ptr, rust_vec_len, data_len),
-52 => wire__crate__api__navigation_cubit__NavigationCubitBase_pop_impl(ptr, rust_vec_len, data_len),
-53 => wire__crate__api__navigation_cubit__NavigationCubitBase_state_impl(ptr, rust_vec_len, data_len),
-55 => wire__crate__api__conversation_details_cubit__UiRoomState_can_kick_impl(ptr, rust_vec_len, data_len),
-56 => wire__crate__api__user_cubit__UiUser_user_handles_impl(ptr, rust_vec_len, data_len),
-57 => wire__crate__api__user_cubit__UiUser_user_id_impl(ptr, rust_vec_len, data_len),
-64 => wire__crate__api__user_cubit__UserCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-66 => wire__crate__api__user_cubit__UserCubitBase_new_impl(ptr, rust_vec_len, data_len),
-72 => wire__crate__api__user_cubit__UserCubitBase_state_impl(ptr, rust_vec_len, data_len),
-75 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-77 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_new_impl(ptr, rust_vec_len, data_len),
-82 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_state_impl(ptr, rust_vec_len, data_len),
-90 => wire__crate__api__user__User_user_id_impl(ptr, rust_vec_len, data_len),
-92 => wire__crate__api__users_cubit__UsersCubitBase_is_closed_impl(ptr, rust_vec_len, data_len),
-93 => wire__crate__api__users_cubit__UsersCubitBase_new_impl(ptr, rust_vec_len, data_len),
-94 => wire__crate__api__users_cubit__UsersCubitBase_state_impl(ptr, rust_vec_len, data_len),
-96 => wire__crate__api__users_cubit__UsersState_display_name_impl(ptr, rust_vec_len, data_len),
-97 => wire__crate__api__users_cubit__UsersState_profile_impl(ptr, rust_vec_len, data_len),
-98 => wire__crate__api__users_cubit__UsersState_profile_picture_impl(ptr, rust_vec_len, data_len),
-107 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
-108 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
-111 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(ptr, rust_vec_len, data_len),
-115 => wire__crate__api__types__ui_user_handle_validation_error_impl(ptr, rust_vec_len, data_len),
-                        _ => unreachable!(),
-                    }
+        2 => wire__crate__api__attachments_repository__AttachmentsRepository_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        5 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        7 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        11 => wire__crate__api__chat_details_cubit__ChatDetailsCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        18 => wire__crate__api__chat_list_cubit__ChatListCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        19 => wire__crate__api__chat_list_cubit__ChatListCubitBase_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        20 => wire__crate__api__chat_list_cubit__ChatListCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        22 => wire__crate__api__notifications__DartNotificationService_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        25 => wire__crate__api__message_cubit__MessageCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        26 => {
+            wire__crate__api__message_cubit__MessageCubitBase_new_impl(ptr, rust_vec_len, data_len)
+        }
+        27 => wire__crate__api__message_cubit__MessageCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        30 => wire__crate__api__message_list_cubit__MessageListCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        31 => wire__crate__api__message_list_cubit__MessageListCubitBase_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        32 => wire__crate__api__message_list_cubit__MessageListCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        35 => wire__crate__api__message_list_cubit__MessageListState_is_new_message_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        36 => wire__crate__api__message_list_cubit__MessageListState_loaded_messages_count_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        37 => wire__crate__api__message_list_cubit__MessageListState_message_at_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        38 => wire__crate__api__message_list_cubit__MessageListState_message_id_index_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        41 => wire__crate__api__navigation_cubit__NavigationCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        42 => wire__crate__api__navigation_cubit__NavigationCubitBase_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        52 => wire__crate__api__navigation_cubit__NavigationCubitBase_pop_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        53 => wire__crate__api__navigation_cubit__NavigationCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        55 => wire__crate__api__chat_details_cubit__UiRoomState_can_kick_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        56 => wire__crate__api__user_cubit__UiUser_user_handles_impl(ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__user_cubit__UiUser_user_id_impl(ptr, rust_vec_len, data_len),
+        64 => {
+            wire__crate__api__user_cubit__UserCubitBase_is_closed_impl(ptr, rust_vec_len, data_len)
+        }
+        66 => wire__crate__api__user_cubit__UserCubitBase_new_impl(ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__user_cubit__UserCubitBase_state_impl(ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        77 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_new_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        82 => wire__crate__api__user_settings_cubit__UserSettingsCubitBase_state_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        90 => wire__crate__api__user__User_user_id_impl(ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__users_cubit__UsersCubitBase_is_closed_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        93 => wire__crate__api__users_cubit__UsersCubitBase_new_impl(ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__users_cubit__UsersCubitBase_state_impl(ptr, rust_vec_len, data_len),
+        96 => {
+            wire__crate__api__users_cubit__UsersState_display_name_impl(ptr, rust_vec_len, data_len)
+        }
+        97 => wire__crate__api__users_cubit__UsersState_profile_impl(ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__users_cubit__UsersState_profile_picture_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        107 => wire__crate__api__types__image_data_compute_hash_impl(ptr, rust_vec_len, data_len),
+        108 => wire__crate__api__logging__init_rust_logging_impl(ptr, rust_vec_len, data_len),
+        111 => wire__crate__api__markdown__message_content_parse_markdown_raw_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        115 => wire__crate__api__types__ui_user_handle_validation_error_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        _ => unreachable!(),
+    }
 }
 
 // Section: rust2dart
@@ -7639,41 +8082,34 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<AttachmentsRepository>>
 }
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<ConversationDetailsCubitBase> {
+impl flutter_rust_bridge::IntoDart for FrbWrapper<ChatDetailsCubitBase> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self.0)
             .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for FrbWrapper<ConversationDetailsCubitBase>
+    for FrbWrapper<ChatDetailsCubitBase>
 {
 }
 
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ConversationDetailsCubitBase>>
-    for ConversationDetailsCubitBase
-{
-    fn into_into_dart(self) -> FrbWrapper<ConversationDetailsCubitBase> {
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ChatDetailsCubitBase>> for ChatDetailsCubitBase {
+    fn into_into_dart(self) -> FrbWrapper<ChatDetailsCubitBase> {
         self.into()
     }
 }
 
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for FrbWrapper<ConversationListCubitBase> {
+impl flutter_rust_bridge::IntoDart for FrbWrapper<ChatListCubitBase> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self.0)
             .into_dart()
     }
 }
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for FrbWrapper<ConversationListCubitBase>
-{
-}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for FrbWrapper<ChatListCubitBase> {}
 
-impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ConversationListCubitBase>>
-    for ConversationListCubitBase
-{
-    fn into_into_dart(self) -> FrbWrapper<ConversationListCubitBase> {
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ChatListCubitBase>> for ChatListCubitBase {
+    fn into_into_dart(self) -> FrbWrapper<ChatListCubitBase> {
         self.into()
     }
 }
@@ -7980,6 +8416,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::markdown::BlockElement>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::chat_details_cubit::ChatDetailsState {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.chat.into_into_dart().into_dart(),
+            self.members.into_into_dart().into_dart(),
+            self.room_state.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::chat_details_cubit::ChatDetailsState
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::chat_details_cubit::ChatDetailsState>
+    for crate::api::chat_details_cubit::ChatDetailsState
+{
+    fn into_into_dart(self) -> crate::api::chat_details_cubit::ChatDetailsState {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::api::types::ChatId> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [self.0.uuid.into_into_dart().into_dart()].into_dart()
@@ -7997,45 +8455,19 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<crate::api::types::ChatId>>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart
-    for crate::api::conversation_details_cubit::ConversationDetailsState
-{
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.chat.into_into_dart().into_dart(),
-            self.members.into_into_dart().into_dart(),
-            self.room_state.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::conversation_details_cubit::ConversationDetailsState
-{
-}
-impl
-    flutter_rust_bridge::IntoIntoDart<
-        crate::api::conversation_details_cubit::ConversationDetailsState,
-    > for crate::api::conversation_details_cubit::ConversationDetailsState
-{
-    fn into_into_dart(self) -> crate::api::conversation_details_cubit::ConversationDetailsState {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::api::conversation_list_cubit::ConversationListState {
+impl flutter_rust_bridge::IntoDart for crate::api::chat_list_cubit::ChatListState {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [self.chats.into_into_dart().into_dart()].into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::api::conversation_list_cubit::ConversationListState
+    for crate::api::chat_list_cubit::ChatListState
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::api::conversation_list_cubit::ConversationListState>
-    for crate::api::conversation_list_cubit::ConversationListState
+impl flutter_rust_bridge::IntoIntoDart<crate::api::chat_list_cubit::ChatListState>
+    for crate::api::chat_list_cubit::ChatListState
 {
-    fn into_into_dart(self) -> crate::api::conversation_list_cubit::ConversationListState {
+    fn into_into_dart(self) -> crate::api::chat_list_cubit::ChatListState {
         self
     }
 }
@@ -9049,11 +9481,11 @@ impl SseEncode for AttachmentsRepository {
     }
 }
 
-impl SseEncode for ConversationDetailsCubitBase {
+impl SseEncode for ChatDetailsCubitBase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <RustOpaqueMoi<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
+            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>,
         >>::sse_encode(
             flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self),
             serializer,
@@ -9061,15 +9493,10 @@ impl SseEncode for ConversationDetailsCubitBase {
     }
 }
 
-impl SseEncode for ConversationListCubitBase {
+impl SseEncode for ChatListCubitBase {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <RustOpaqueMoi<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
-        >>::sse_encode(
-            flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self),
-            serializer,
-        );
+        <RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>>::sse_encode(flutter_rust_bridge::for_generated::rust_auto_opaque_encode::<_, MoiArc<_>>(self), serializer);
     }
 }
 
@@ -9210,9 +9637,7 @@ impl SseEncode
 }
 
 impl SseEncode
-    for RustOpaqueMoi<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-    >
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -9223,9 +9648,7 @@ impl SseEncode
 }
 
 impl SseEncode
-    for RustOpaqueMoi<
-        flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>,
-    >
+    for RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>
 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -9401,7 +9824,7 @@ impl SseEncode for StreamSink<UsersState, flutter_rust_bridge::for_generated::Ss
 
 impl SseEncode
     for StreamSink<
-        crate::api::conversation_details_cubit::ConversationDetailsState,
+        crate::api::chat_details_cubit::ChatDetailsState,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -9413,7 +9836,7 @@ impl SseEncode
 
 impl SseEncode
     for StreamSink<
-        crate::api::conversation_list_cubit::ConversationListState,
+        crate::api::chat_list_cubit::ChatListState,
         flutter_rust_bridge::for_generated::SseCodec,
     >
 {
@@ -9573,14 +9996,7 @@ impl SseEncode for Box<crate::api::types::UiContentMessage> {
     }
 }
 
-impl SseEncode for crate::api::types::ChatId {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <uuid::Uuid>::sse_encode(self.uuid, serializer);
-    }
-}
-
-impl SseEncode for crate::api::conversation_details_cubit::ConversationDetailsState {
+impl SseEncode for crate::api::chat_details_cubit::ChatDetailsState {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Option<crate::api::types::UiChatDetails>>::sse_encode(self.chat, serializer);
@@ -9589,7 +10005,14 @@ impl SseEncode for crate::api::conversation_details_cubit::ConversationDetailsSt
     }
 }
 
-impl SseEncode for crate::api::conversation_list_cubit::ConversationListState {
+impl SseEncode for crate::api::types::ChatId {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <uuid::Uuid>::sse_encode(self.uuid, serializer);
+    }
+}
+
+impl SseEncode for crate::api::chat_list_cubit::ChatListState {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<crate::api::types::UiChatDetails>>::sse_encode(self.chats, serializer);
@@ -10049,6 +10472,16 @@ impl SseEncode for Option<crate::api::navigation_cubit::DeveloperSettingsScreenT
             <crate::api::navigation_cubit::DeveloperSettingsScreenType>::sse_encode(
                 value, serializer,
             );
+        }
+    }
+}
+
+impl SseEncode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <f64>::sse_encode(value, serializer);
         }
     }
 }
@@ -10535,7 +10968,7 @@ impl SseEncode for () {
 impl SseEncode for crate::api::user_settings_cubit::UserSettings {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <f64>::sse_encode(self.interface_scale, serializer);
+        <Option<f64>>::sse_encode(self.interface_scale, serializer);
         <f64>::sse_encode(self.sidebar_width, serializer);
         <bool>::sse_encode(self.send_on_enter, serializer);
     }
@@ -10578,8 +11011,8 @@ mod io {
 
     use super::*;
     use crate::api::attachments_repository::*;
-    use crate::api::conversation_details_cubit::*;
-    use crate::api::conversation_list_cubit::*;
+    use crate::api::chat_details_cubit::*;
+    use crate::api::chat_list_cubit::*;
     use crate::api::logging::*;
     use crate::api::message_cubit::*;
     use crate::api::message_list_cubit::*;
@@ -10614,35 +11047,31 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_air_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    pub extern "C" fn frbgen_air_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatDetailsCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-        >::increment_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>::increment_strong_count(ptr as _);
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_air_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    pub extern "C" fn frbgen_air_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatDetailsCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-        >::decrement_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>::decrement_strong_count(ptr as _);
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_air_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    pub extern "C" fn frbgen_air_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatListCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>::increment_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>::increment_strong_count(ptr as _);
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_air_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    pub extern "C" fn frbgen_air_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatListCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>::decrement_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>::decrement_strong_count(ptr as _);
     }
 
     #[unsafe(no_mangle)]
@@ -10840,8 +11269,8 @@ mod web {
 
     use super::*;
     use crate::api::attachments_repository::*;
-    use crate::api::conversation_details_cubit::*;
-    use crate::api::conversation_list_cubit::*;
+    use crate::api::chat_details_cubit::*;
+    use crate::api::chat_list_cubit::*;
     use crate::api::logging::*;
     use crate::api::message_cubit::*;
     use crate::api::message_list_cubit::*;
@@ -10878,35 +11307,31 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatDetailsCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-        >::increment_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>::increment_strong_count(ptr as _);
     }
 
     #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationDetailsCubitBase(
+    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatDetailsCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<
-            flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationDetailsCubitBase>,
-        >::decrement_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatDetailsCubitBase>>::decrement_strong_count(ptr as _);
     }
 
     #[wasm_bindgen]
-    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    pub fn rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatListCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>::increment_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>::increment_strong_count(ptr as _);
     }
 
     #[wasm_bindgen]
-    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerConversationListCubitBase(
+    pub fn rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerChatListCubitBase(
         ptr: *const std::ffi::c_void,
     ) {
-        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ConversationListCubitBase>>::decrement_strong_count(ptr as _);
+        MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<ChatListCubitBase>>::decrement_strong_count(ptr as _);
     }
 
     #[wasm_bindgen]

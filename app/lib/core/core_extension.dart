@@ -9,14 +9,14 @@ import 'package:air/util/platform.dart';
 import 'package:uuid/uuid.dart';
 
 extension UiChatDetailsExtension on UiChatDetails {
-  /// ClientId of the conversation (for group it is null)
+  /// ClientId of the chat (for group it is null)
   UiUserId? get userId => switch (chatType) {
     UiChatType_HandleConnection() => null,
     UiChatType_Connection(field0: final profile) => profile.userId,
     UiChatType_Group() => null,
   };
 
-  /// Title of the conversation
+  /// Title of the chat
   String get title => switch (chatType) {
     UiChatType_HandleConnection(field0: final handle) =>
       "⏳ ${handle.plaintext}",
@@ -24,10 +24,10 @@ extension UiChatDetailsExtension on UiChatDetails {
     UiChatType_Group() => attributes.title,
   };
 
-  /// Picture of the conversation
+  /// Picture of the chat
   ///
-  /// The picture is either the one from the conversation attributes (when this is a group
-  /// conversation) or the one from the user profile (when this is a 1:1 conversation).
+  /// The picture is either the one from the chat attributes (when this is a group
+  /// chat) or the one from the user profile (when this is a 1:1 chat).
   ImageData? get picture => switch (chatType) {
     UiChatType_Connection(field0: final profile) => profile.profilePicture,
     UiChatType_HandleConnection() => null,
@@ -36,11 +36,11 @@ extension UiChatDetailsExtension on UiChatDetails {
 }
 
 extension UiChatTypeExtension on UiChatType {
-  /// Description of the conversation type which can show in the UI
+  /// Description of the chat type which can show in the UI
   String get description => switch (this) {
     UiChatType_HandleConnection() => "Pending connection request",
-    UiChatType_Connection() => "1:1 conversation",
-    UiChatType_Group() => 'Group conversation',
+    UiChatType_Connection() => "1:1 chat",
+    UiChatType_Group() => 'Group chat',
   };
 }
 
@@ -119,7 +119,7 @@ extension NotificationHandleExtension on NotificationHandle {
     if (identifier == null) {
       return null;
     }
-    final ChatId? chatId = switch (map['conversationId']) {
+    final ChatId? chatId = switch (map['chatId']) {
       String s => ChatIdExtension.fromString(s),
       _ => null,
     };

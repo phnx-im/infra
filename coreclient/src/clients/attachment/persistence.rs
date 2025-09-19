@@ -368,7 +368,7 @@ mod test {
     use sqlx::Pool;
     use uuid::Uuid;
 
-    use crate::conversations::{
+    use crate::chats::{
         messages::persistence::tests::test_chat_message, persistence::tests::test_chat,
     };
 

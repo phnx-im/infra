@@ -292,9 +292,15 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
   @override
   void initState() {
     super.initState();
+
     setState(() {
+      final interfaceScale =
+          context.read<UserSettingsCubit>().state.interfaceScale;
+      var isLinuxAndScaled =
+          Platform.isLinux &&
+          WidgetsBinding.instance.platformDispatcher.textScaleFactor >= 1.5;
       _interfaceScaleSliderValue =
-          context.read<UserSettingsCubit>().state.interfaceScale * 100;
+          100 * (interfaceScale ?? (isLinuxAndScaled ? 1.5 : 1.0));
     });
   }
 

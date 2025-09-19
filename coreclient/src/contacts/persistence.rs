@@ -219,8 +219,7 @@ mod tests {
     use sqlx::SqlitePool;
 
     use crate::{
-        ChatId, conversations::persistence::tests::test_chat,
-        key_stores::indexed_keys::StorableIndexedKey,
+        ChatId, chats::persistence::tests::test_chat, key_stores::indexed_keys::StorableIndexedKey,
     };
 
     use super::*;
