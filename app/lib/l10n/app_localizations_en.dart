@@ -165,6 +165,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userHandleScreen_error_emptyHandle => 'Username cannot be empty';
 
   @override
+  String get userHandleScreen_error_alreadyExists => 'Username already exists';
+
+  @override
   String get userHandleScreen_description =>
       'Choose a username that others can use to connect with you.\n\nUse letters, numbers, or underscores. Minimum 5 characters.';
 

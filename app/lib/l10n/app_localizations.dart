@@ -388,6 +388,12 @@ abstract class AppLocalizations {
   /// **'Username cannot be empty'**
   String get userHandleScreen_error_emptyHandle;
 
+  /// No description provided for @userHandleScreen_error_alreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'Username already exists'**
+  String get userHandleScreen_error_alreadyExists;
+
   /// No description provided for @userHandleScreen_description.
   ///
   /// In en, this message translates to:
