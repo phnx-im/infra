@@ -200,13 +200,13 @@ void main() {
 
       when(() => navigationCubit.state).thenReturn(
         NavigationState.home(
-          home: HomeNavigationState(chatOpen: true, chatId: chats[1].id),
+          home: HomeNavigationState(chatOpen: true, chatId: chats[4].id),
         ),
       );
       when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
       when(
         () => chatDetailsCubit.state,
-      ).thenReturn(ChatDetailsState(chat: chats[1], members: members));
+      ).thenReturn(ChatDetailsState(chat: chats[4], members: members));
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(messages));

@@ -4,7 +4,7 @@
 
 //! A single chat details feature
 
-use std::{path::PathBuf, time::Instant};
+use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
 use aircommon::{OpenMlsRand, RustCrypto, identifiers::UserId};
@@ -20,7 +20,7 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::api::types::{UiChatType, UiMessageDraft};
+use crate::api::types::UiMessageDraft;
 use crate::message_content::MimiContentExt;
 use crate::util::{Cubit, CubitCore, spawn_from_sync};
 use crate::{StreamSink, api::types::UiMessageDraftSource};

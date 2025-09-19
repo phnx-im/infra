@@ -25,9 +25,11 @@ final userProfiles = [
   UiUserProfile(userId: 1.userId(), displayName: 'Alice'),
   UiUserProfile(userId: 2.userId(), displayName: 'Bob'),
   UiUserProfile(userId: 3.userId(), displayName: 'Eve'),
+  UiUserProfile(userId: 4.userId(), displayName: 'Charlie'),
 ];
 
 final chats = [
+  // A contact
   UiChatDetails(
     id: 1.chatId(),
     status: const UiChatStatus.active(),
@@ -57,10 +59,13 @@ final chats = [
       status: UiMessageStatus.sent,
     ),
   ),
+  // Connection request
   UiChatDetails(
     id: 2.chatId(),
-    status: const UiChatStatus.blocked(),
-    chatType: UiChatType_Connection(userProfiles[2]),
+    status: const UiChatStatus.active(),
+    chatType: const UiChatType_HandleConnection(
+      UiUserHandle(plaintext: 'eve_03'),
+    ),
     unreadMessages: 0,
     messagesCount: 10,
     attributes: const UiChatAttributes(title: 'Eve', picture: null),
@@ -89,6 +94,7 @@ final chats = [
       status: UiMessageStatus.sent,
     ),
   ),
+  // Group chat
   UiChatDetails(
     id: 3.chatId(),
     status: const UiChatStatus.active(),
@@ -118,6 +124,7 @@ final chats = [
       status: UiMessageStatus.sent,
     ),
   ),
+  // Group chat with a draft
   UiChatDetails(
     id: 4.chatId(),
     status: const UiChatStatus.active(),
@@ -152,6 +159,17 @@ final chats = [
       updatedAt: DateTime.now(),
       source: UiMessageDraftSource.system,
     ),
+  ),
+  // A blocked contact
+  UiChatDetails(
+    id: 5.chatId(),
+    status: const UiChatStatus.blocked(),
+    chatType: UiChatType_Connection(userProfiles[3]),
+    unreadMessages: 0,
+    messagesCount: 10,
+    attributes: const UiChatAttributes(title: 'Charlie', picture: null),
+    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastMessage: null,
   ),
 ];
 
