@@ -20,6 +20,7 @@ pub mod swift_api;
 )]
 pub(crate) mod processing;
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct IncomingNotificationContent {
