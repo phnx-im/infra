@@ -152,15 +152,13 @@ impl CoreUser {
 
         // Delete the connection package if it's not last resort
         connection
-            .with_transaction(async |mut txn| {
+            .with_transaction(async |txn| {
                 let is_last_resort =
-                    <ConnectionPackage as StorableConnectionPackage>::is_last_resort(
-                        &mut txn, &hash,
-                    )
-                    .await?
-                    .unwrap_or(false);
+                    <ConnectionPackage as StorableConnectionPackage>::is_last_resort(txn, &hash)
+                        .await?
+                        .unwrap_or(false);
                 if !is_last_resort {
-                    ConnectionPackage::delete(&mut txn, &hash)
+                    ConnectionPackage::delete(txn, &hash)
                         .await
                         .context("Failed to delete connection package")?;
                 }
