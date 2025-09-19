@@ -26,6 +26,7 @@ pub use crate::{
         AttachmentContent, AttachmentStatus, AttachmentUrl, AttachmentUrlParseError,
         DownloadProgress, DownloadProgressEvent, MimiContentExt,
     },
+    clients::block_contact::BlockedContactError,
     contacts::Contact,
     user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
