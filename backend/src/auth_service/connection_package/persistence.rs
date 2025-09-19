@@ -130,7 +130,7 @@ pub(crate) mod tests {
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub(crate) enum ConnectionPackageType {
         V1,
-        V2(bool), // is_last_resort
+        V2 { is_last_resort: bool }, // is_last_resort
     }
 
     async fn store_connection_packages_for_handle(
@@ -152,7 +152,7 @@ pub(crate) mod tests {
         package_type: ConnectionPackageType,
     ) -> VersionedConnectionPackage {
         match package_type {
-            ConnectionPackageType::V2(is_last_resort) => {
+            ConnectionPackageType::V2 { is_last_resort } => {
                 VersionedConnectionPackage::V2(ConnectionPackage::new_for_test(
                     ConnectionPackagePayload {
                         verifying_key,
@@ -235,7 +235,7 @@ pub(crate) mod tests {
             ConnectionPackageType::V1 => {
                 assert!(matches!(loaded, VersionedConnectionPackage::V1(_)))
             }
-            ConnectionPackageType::V2(is_last_resort) => {
+            ConnectionPackageType::V2 { is_last_resort } => {
                 let VersionedConnectionPackage::V2(pkg) = &loaded else {
                     panic!("Expected V2 package");
                 };
@@ -273,7 +273,13 @@ pub(crate) mod tests {
 
     #[sqlx::test]
     async fn handle_connection_packages(pool: PgPool) -> anyhow::Result<()> {
-        test_loading_and_deleting_connection_packages(&pool, ConnectionPackageType::V2(false)).await
+        test_loading_and_deleting_connection_packages(
+            &pool,
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
+        )
+        .await
     }
 
     #[sqlx::test]
@@ -286,7 +292,9 @@ pub(crate) mod tests {
             &hash,
             verifying_key.clone(),
             2,
-            ConnectionPackageType::V2(false),
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
         )
         .await?;
         let lr_pkgs = store_connection_packages_for_handle(
@@ -294,7 +302,9 @@ pub(crate) mod tests {
             &hash,
             verifying_key,
             1,
-            ConnectionPackageType::V2(true),
+            ConnectionPackageType::V2 {
+                is_last_resort: true,
+            },
         )
         .await?;
         let mut expected_num_packages = pkgs.len() + lr_pkgs.len();

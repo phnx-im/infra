@@ -319,7 +319,9 @@ mod tests {
         let expiration_data = ExpirationData::new(Duration::days(1));
         let connection_package = random_connection_package(
             signing_key.verifying_key().clone(),
-            ConnectionPackageType::V2(false),
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
         );
         let connection_offer = ConnectionOfferMessage::default();
 
@@ -496,7 +498,9 @@ mod tests {
         let expiration_data = ExpirationData::new(Duration::days(1));
         let connection_package = random_connection_package(
             signing_key.verifying_key().clone(),
-            ConnectionPackageType::V2(false),
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
         );
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
