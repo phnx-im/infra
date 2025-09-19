@@ -22,7 +22,7 @@ use aircommon::{
     messages::{
         client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
-        connection_package::ConnectionPackage,
+        connection_package_v1::ConnectionPackageV1,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
@@ -268,7 +268,7 @@ pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
     server_url: String,
     qs_initial_ratchet_secret: RatchetSecret,
-    connection_packages: Vec<ConnectionPackage>,
+    connection_packages: Vec<ConnectionPackageV1>,
     encrypted_push_token: Option<EncryptedPushToken>,
 }
 
