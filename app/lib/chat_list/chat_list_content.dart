@@ -145,23 +145,44 @@ class _ListTileBottom extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ownClientId = context.select((UserCubit cubit) => cubit.state.userId);
+    final isBlocked = chat.status == const UiChatStatus.blocked();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: Spacings.s,
       children: [
-        Expanded(
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: _LastMessage(chat: chat, ownClientId: ownClientId),
+        if (!isBlocked)
+          Expanded(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _LastMessage(chat: chat, ownClientId: ownClientId),
+            ),
           ),
-        ),
-        Align(
-          alignment: Alignment.center,
-          child: _UnreadBadge(chatId: chat.id, count: chat.unreadMessages),
-        ),
+        if (!isBlocked)
+          Align(
+            alignment: Alignment.center,
+            child: _UnreadBadge(chatId: chat.id, count: chat.unreadMessages),
+          ),
+        if (isBlocked)
+          const Align(alignment: Alignment.topLeft, child: _BlockedBadge()),
       ],
+    );
+  }
+}
+
+class _BlockedBadge extends StatelessWidget {
+  const _BlockedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Text(
+      loc.chatList_blocked,
+      style: TextStyle(
+        fontStyle: FontStyle.italic,
+        color: CustomColorScheme.of(context).text.tertiary,
+      ),
     );
   }
 }

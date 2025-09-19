@@ -351,6 +351,14 @@ impl UserCubitBase {
     pub async fn report_spam(&self, spammer_id: UiUserId) -> anyhow::Result<()> {
         self.context.core_user.report_spam(spammer_id.into()).await
     }
+
+    pub async fn block_contact(&self, user_id: UiUserId) -> anyhow::Result<()> {
+        self.context.core_user.block_contact(user_id.into()).await
+    }
+
+    pub async fn unblock_contact(&self, user_id: UiUserId) -> anyhow::Result<()> {
+        self.context.core_user.unblock_contact(user_id.into()).await
+    }
 }
 
 impl Drop for UserCubitBase {
