@@ -28,7 +28,7 @@ tokio = "1"
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
-tokio-stream = "0.1.17"
+tokio-stream = { workspace = true }
 tonic = { workspace = true }
 rand = "0.8"
 tokio-util.workspace = true

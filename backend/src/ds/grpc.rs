@@ -861,10 +861,8 @@ impl From<InvalidSignature> for Status {
 
 /// Protobuf containing a qualified group id
 trait WithQualifiedGroupId {
-    #[expect(clippy::result_large_err)]
     fn qgid(&self) -> Result<QualifiedGroupId, Status>;
 
-    #[expect(clippy::result_large_err)]
     fn validated_qgid(&self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
         let qgid = self.qgid()?;
         if qgid.owning_domain() == own_domain {
@@ -947,7 +945,6 @@ impl WithQualifiedGroupId for GetAttachmentUrlPayload {
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
 
-    #[expect(clippy::result_large_err)]
     fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
         self.ear_key_proto()
             .ok_or_missing_field("group_state_ear_key")?
@@ -1018,7 +1015,6 @@ impl WithGroupStateEarKey for GetAttachmentUrlRequest {
 
 /// Request containing an MLS message
 trait WithMessage {
-    #[expect(clippy::result_large_err)]
     fn message(&self) -> Result<AssistedMessageIn, Status>;
 }
 
