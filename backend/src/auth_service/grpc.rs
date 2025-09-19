@@ -101,7 +101,6 @@ impl GrpcAs {
             .ok_or_else(|| Status::not_found("unknown handle"))
     }
 
-    #[expect(clippy::result_large_err)]
     fn verify_request<R, P>(
         &self,
         request: R,
@@ -458,7 +457,6 @@ impl From<ListenHandleProtocolViolation> for Status {
 trait WithUserId {
     fn user_id_proto(&self) -> Option<UserId>;
 
-    #[expect(clippy::result_large_err)]
     fn user_id(&self) -> Result<identifiers::UserId, Status> {
         Ok(self
             .user_id_proto()
@@ -500,7 +498,6 @@ impl WithUserId for ReportSpamRequest {
 trait WithUserHandleHash {
     fn user_handle_hash_proto(&self) -> Option<UserHandleHash>;
 
-    #[expect(clippy::result_large_err)]
     fn user_handle_hash(&self) -> Result<identifiers::UserHandleHash, Status> {
         Ok(self
             .user_handle_hash_proto()

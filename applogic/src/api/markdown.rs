@@ -367,6 +367,8 @@ where
             return Err(Error::FootnotesNotSupported);
         }
 
+        Event::Start(Tag::Superscript | Tag::Subscript) => return Err(Error::MathNotSupported),
+
         Event::Start(Tag::DefinitionList)
         | Event::Start(Tag::DefinitionListTitle)
         | Event::Start(Tag::DefinitionListDefinition) => {
@@ -561,6 +563,8 @@ where
             Event::Start(Tag::FootnoteDefinition(_)) | Event::FootnoteReference(_) => {
                 return Err(Error::FootnotesNotSupported);
             }
+
+            Event::Start(Tag::Superscript | Tag::Subscript) => return Err(Error::MathNotSupported),
 
             Event::Start(Tag::DefinitionList)
             | Event::Start(Tag::DefinitionListTitle)

@@ -63,26 +63,28 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 
 tokio = { version = "1.18.2", features = ["macros"] }
-tokio-stream = "0.1.17"
 tokio-util = "0.7.13"
+tokio-stream = { version = "0.1.17", features = ["sync"] }
 derive_more = { version = "0.99.19", features = ["from"] }
+displaydoc = "0.2.5"
 
 mimi_content = { git = "https://github.com/boxdot/mimi-content", rev = "18af569b6074ed5b63cb2d5086ffea3acfad3f02" }
 
 insta = { version = "1.42.1", features = ["json"] }
 
 # grpc/protobuf
-prost = "0.13.5"
-tonic = { version = "0.13.0", features = ["tls-ring", "tls-webpki-roots"] }
-tonic-build = "0.13.0"
+prost = "0.14.0"
+tonic = { version = "0.14.0", features = ["tls-ring", "tls-webpki-roots"] }
+tonic-prost = "0.14.0"
+tonic-prost-build = "0.14.0"
+tonic-health = "0.14.0"
 tower-http = { version = "0.6.2", features = ["trace"] }
+tower_governor = "0.8.0"
 
 [patch.crates-io]
 # PR: <https://github.com/RustCrypto/formats/pull/1656/files>
 tls_codec = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
 tls_codec_derive = { git = "https://github.com/boxdot/formats", rev = "9846c69f91e732b493dcccf92f4c163bfc711b7d" }
-# PR: <https://github.com/benwis/tower-governor/pull/53>
-tower_governor = { git = "https://github.com/boxdot/tower-governor", rev = "556d9f8" }
 
 [profile.release]
 strip = true
