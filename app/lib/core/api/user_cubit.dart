@@ -32,6 +32,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
 
   Future<List<UiContact>> addableContacts({required ChatId chatId});
 
+  Future<void> blockContact({required UiUserId userId});
+
   Future<void> close();
 
   Future<List<UiContact>> get contacts;
@@ -64,6 +66,8 @@ abstract class UserCubitBase implements RustOpaqueInterface {
   UiUser get state;
 
   Stream<UiUser> stream();
+
+  Future<void> unblockContact({required UiUserId userId});
 }
 
 enum AppState { background, foreground }

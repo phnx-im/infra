@@ -23,7 +23,7 @@ use crate::{
 
 use super::InactiveChat;
 
-struct Sqlchat {
+struct SqlChat {
     chat_id: ChatId,
     chat_title: String,
     chat_picture: Option<Vec<u8>>,
@@ -34,9 +34,10 @@ struct Sqlchat {
     connection_user_handle: Option<UserHandle>,
     is_confirmed_connection: bool,
     is_active: bool,
+    is_blocked: bool,
 }
 
-impl Sqlchat {
+impl SqlChat {
     fn convert(self, past_members: Vec<SqlPastMember>) -> Option<Chat> {
         let Self {
             chat_id,
@@ -49,6 +50,7 @@ impl Sqlchat {
             connection_user_handle,
             is_confirmed_connection,
             is_active,
+            is_blocked,
         } = self;
 
         let chat_type = match (
@@ -70,12 +72,12 @@ impl Sqlchat {
             _ => ChatType::Group,
         };
 
-        let status = if is_active {
-            ChatStatus::Active
-        } else {
-            ChatStatus::Inactive(InactiveChat::new(
+        let status = match (is_active, is_blocked) {
+            (_, true) => ChatStatus::Blocked,
+            (true, false) => ChatStatus::Active,
+            (false, false) => ChatStatus::Inactive(InactiveChat::new(
                 past_members.into_iter().map(From::from).collect(),
-            ))
+            )),
         };
 
         Some(Chat {
@@ -135,6 +137,7 @@ impl Chat {
         let (is_active, past_members) = match self.status() {
             ChatStatus::Inactive(inactive_chat) => (false, inactive_chat.past_members().to_vec()),
             ChatStatus::Active => (true, Vec::new()),
+            ChatStatus::Blocked => (false, Vec::new()),
         };
         let (
             is_confirmed_connection,
@@ -206,7 +209,7 @@ impl Chat {
     ) -> sqlx::Result<Option<Chat>> {
         let mut transaction = connection.begin().await?;
         let chat = query_as!(
-            Sqlchat,
+            SqlChat,
             r#"SELECT
                 chat_id AS "chat_id: _",
                 chat_title,
@@ -217,8 +220,12 @@ impl Chat {
                 connection_user_domain AS "connection_user_domain: _",
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
-                is_active
+                is_active,
+                blocked_contact.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM chat
+                LEFT JOIN blocked_contact
+                ON blocked_contact.user_uuid = chat.connection_user_uuid
+                AND blocked_contact.user_domain = chat.connection_user_domain
             WHERE chat_id = ?"#,
             chat_id
         )
@@ -239,7 +246,7 @@ impl Chat {
         let group_id = group_id.as_slice();
         let mut transaction = connection.begin().await?;
         let chat = query_as!(
-            Sqlchat,
+            SqlChat,
             r#"SELECT
                 chat_id AS "chat_id: _",
                 chat_title,
@@ -250,8 +257,13 @@ impl Chat {
                 connection_user_domain AS "connection_user_domain: _",
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
-                is_active
-            FROM chat WHERE group_id = ?"#,
+                is_active,
+                blocked_contact.user_uuid IS NOT NULL AS "is_blocked!: _"
+            FROM chat
+                LEFT JOIN blocked_contact
+                ON blocked_contact.user_uuid = chat.connection_user_uuid
+                AND blocked_contact.user_domain = chat.connection_user_domain
+            WHERE group_id = ?"#,
             group_id
         )
         .fetch_optional(&mut *transaction)
@@ -267,7 +279,7 @@ impl Chat {
     pub(crate) async fn load_all(connection: &mut SqliteConnection) -> sqlx::Result<Vec<Chat>> {
         let mut transaction = connection.begin().await?;
         let mut chats = query_as!(
-            Sqlchat,
+            SqlChat,
             r#"SELECT
                 chat_id AS "chat_id: _",
                 chat_title,
@@ -278,8 +290,13 @@ impl Chat {
                 connection_user_domain AS "connection_user_domain: _",
                 connection_user_handle AS "connection_user_handle: _",
                 is_confirmed_connection,
-                is_active
-            FROM chat"#,
+                is_active,
+                blocked_contact.user_uuid IS NOT NULL AS "is_blocked!: _"
+            FROM chat
+                LEFT JOIN blocked_contact
+                ON blocked_contact.user_uuid = chat.connection_user_uuid
+                AND blocked_contact.user_domain = chat.connection_user_domain
+            "#,
         )
         .fetch(&mut *transaction)
         .filter_map(|res| res.map(|chat| chat.convert(Vec::new())).transpose())
@@ -358,6 +375,9 @@ impl Chat {
                 )
                 .execute(&mut *transaction)
                 .await?;
+            }
+            ChatStatus::Blocked => {
+                // This status is a no-op
             }
         }
         transaction.commit().await?;

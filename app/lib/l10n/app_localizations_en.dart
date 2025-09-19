@@ -73,6 +73,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatDetailsScreen_unknownChat => 'Unknown chat';
 
   @override
+  String get blockedChatFooter_message =>
+      'You have blocked this chat. You will not get any messages, unless you unblock it.';
+
+  @override
+  String get blockedChatFooter_delete => 'Delete';
+
+  @override
+  String get blockedChatFooter_unblock => 'Unblock';
+
+  @override
   String get chatScreen_emptyChat => 'Select a chat to start messaging';
 
   @override
@@ -93,6 +103,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeUserButton_text => 'Remove User';
+
+  @override
+  String get blockConnectionButton_text => 'Block Contact';
+
+  @override
+  String get blockConnectionDialog_title => 'Block Contact';
+
+  @override
+  String get blockConnectionDialog_content =>
+      'Are you sure you want to block this contact? The user will not be able to send messages to you.';
+
+  @override
+  String get blockConnectionDialog_cancel => 'Cancel';
+
+  @override
+  String get blockConnectionDialog_block => 'Block';
+
+  @override
+  String get unblockConnectionButton_text => 'Unblock Contact';
+
+  @override
+  String get unblockConnectionDialog_title => 'Unblock Contact';
+
+  @override
+  String get unblockConnectionDialog_content =>
+      'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.';
+
+  @override
+  String get unblockConnectionDialog_cancel => 'Cancel';
+
+  @override
+  String get unblockConnectionDialog_unblock => 'Unblock';
 
   @override
   String get deleteConnectionButton_text => 'Delete Connection';
@@ -189,6 +231,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatList_fileEmoji => '📎';
+
+  @override
+  String get chatList_blocked => '🚫 Blocked';
 
   @override
   String get settings_profile => 'Profile';

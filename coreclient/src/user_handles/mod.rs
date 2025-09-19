@@ -130,9 +130,12 @@ fn generate_connection_packages(
     hash: UserHandleHash,
 ) -> anyhow::Result<Vec<(ConnectionDecryptionKey, ConnectionPackage)>> {
     let mut connection_packages = Vec::with_capacity(CONNECTION_PACKAGES);
-    for _ in 0..CONNECTION_PACKAGES {
-        let connection_package = ConnectionPackage::new(hash, signing_key)?;
+    for _ in 0..CONNECTION_PACKAGES - 1 {
+        let connection_package = ConnectionPackage::new(hash, signing_key, false)?;
         connection_packages.push(connection_package);
     }
+    // Last resort connection package
+    let connection_package = ConnectionPackage::new(hash, signing_key, true)?;
+    connection_packages.push(connection_package);
     Ok(connection_packages)
 }

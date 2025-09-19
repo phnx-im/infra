@@ -18,7 +18,8 @@ use aircommon::{
             AsCredentialsResponseIn, EncryptedUserProfile, GetUserProfileResponse,
             RegisterUserResponseIn, UserHandleDeleteResponse,
         },
-        connection_package::{ConnectionPackage, ConnectionPackageIn},
+        connection_package::ConnectionPackage,
+        connection_package::VersionedConnectionPackageIn,
     },
 };
 use airprotos::auth_service::v1::{
@@ -213,7 +214,7 @@ impl ApiClient {
     pub async fn as_connect_handle(
         &self,
         handle: UserHandle,
-    ) -> Result<(ConnectionPackageIn, ConnectionOfferResponder), AsRequestError> {
+    ) -> Result<(VersionedConnectionPackageIn, ConnectionOfferResponder), AsRequestError> {
         let hash = spawn_blocking(move || handle.calculate_hash())
             .await
             .map_err(|error| {
@@ -259,7 +260,7 @@ impl ApiClient {
             AsRequestError::UnexpectedResponse
         })??;
 
-        let connection_package: ConnectionPackageIn = match response {
+        let connection_package: VersionedConnectionPackageIn = match response {
             ConnectResponse {
                 step: Some(connect_response::Step::FetchResponse(fetch)),
             } => fetch
