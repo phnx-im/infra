@@ -14,7 +14,7 @@ use aircommon::{
     },
 };
 use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result, bail, ensure};
 use mimi_room_policy::RoleIndex;
 use openmls::prelude::MlsMessageOut;
 use sqlx::SqliteConnection;
@@ -23,7 +23,10 @@ use tls_codec::DeserializeBytes;
 use tracing::error;
 
 use crate::{
-    clients::connection_offer::{ConnectionOfferIn, payload::ConnectionOfferPayload},
+    clients::{
+        block_contact::{BlockedContact, BlockedContactError},
+        connection_offer::{ConnectionOfferIn, payload::ConnectionOfferPayload},
+    },
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -69,6 +72,12 @@ impl CoreUser {
         let (cep_payload, hash) = self
             .parse_and_verify_connection_offer(&mut connection, ecep, handle.clone())
             .await?;
+
+        // Deny connection from blocked users
+        let user_id = cep_payload.sender_client_credential.identity();
+        if BlockedContact::check_blocked(&mut *connection, user_id).await? {
+            bail!(BlockedContactError);
+        }
 
         // Prepare group
         let own_user_profile_key = UserProfileKey::load_own(&mut *connection).await?;

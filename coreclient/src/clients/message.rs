@@ -18,8 +18,9 @@ use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{
-    Chat, ChatId, ChatMessage, ContentMessage, Message, MessageId,
+    Chat, ChatId, ChatMessage, ChatStatus, ContentMessage, Message, MessageId,
     chats::{StatusRecord, messages::edit::MessageEdit},
+    clients::block_contact::BlockedContactError,
 };
 
 use super::{AirOpenMlsProvider, ApiClients, CoreUser, Group, StoreNotifier};
@@ -40,6 +41,9 @@ impl CoreUser {
                 let chat = Chat::load(txn.as_mut(), &chat_id)
                     .await?
                     .with_context(|| format!("Can't find chat with id {chat_id}"))?;
+                if let ChatStatus::Blocked = chat.status() {
+                    bail!(BlockedContactError);
+                }
                 let group_id = chat.group_id;
                 let group = Group::load_clean(txn, &group_id)
                     .await?
@@ -143,11 +147,15 @@ impl CoreUser {
             return Ok(()); // Nothing to send
         };
 
-        let (chat, group, params) = self
+        let chat = Chat::load(self.pool().acquire().await?.as_mut(), &chat_id)
+            .await?
+            .with_context(|| format!("Can't find chat with id {chat_id}"))?;
+        if let ChatStatus::Blocked = chat.status() {
+            return Ok(());
+        }
+
+        let (group, params) = self
             .with_transaction(async |txn| {
-                let chat = Chat::load(&mut *txn, &chat_id)
-                    .await?
-                    .with_context(|| format!("Can't find chat with id {chat_id}"))?;
                 let group_id = chat.group_id();
                 let mut group = Group::load_clean(txn, group_id)
                     .await?
@@ -158,7 +166,7 @@ impl CoreUser {
                     unsent_receipt.content,
                 )?;
                 group.store_update(txn.as_mut()).await?;
-                Ok((chat, group, params))
+                Ok((group, params))
             })
             .await?;
 

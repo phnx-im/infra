@@ -29,16 +29,20 @@ impl CoreUser {
     }
 }
 
-struct BlockedContact {
+pub(crate) struct BlockedContact {
     user_id: UserId,
     last_display_name: BaseDisplayName<true>,
     blocked_at: DateTime<Utc>,
 }
 
-mod persistence {
-    use sqlx::{SqliteExecutor, query};
+#[derive(Debug, thiserror::Error)]
+#[error("Blocked contact")]
+pub struct BlockedContactError;
 
-    use crate::store::StoreNotifier;
+mod persistence {
+    use sqlx::{SqliteExecutor, query, query_scalar};
+
+    use crate::{ChatId, store::StoreNotifier};
 
     use super::*;
 
@@ -68,6 +72,42 @@ mod persistence {
             notifier.add(self.user_id.clone());
 
             Ok(())
+        }
+
+        pub(crate) async fn check_blocked(
+            executor: impl SqliteExecutor<'_>,
+            user_id: &UserId,
+        ) -> sqlx::Result<bool> {
+            let user_uuid = user_id.uuid();
+            let user_domain = user_id.domain();
+            query_scalar!(
+                r#"SELECT EXISTS(
+                    SELECT 1 FROM blocked_contact
+                    WHERE user_uuid = ?1 AND user_domain = ?2
+                ) AS "exists: _""#,
+                user_uuid,
+                user_domain,
+            )
+            .fetch_one(executor)
+            .await
+        }
+
+        pub(crate) async fn check_blocked_by_chat_id(
+            executor: impl SqliteExecutor<'_>,
+            chat_id: ChatId,
+        ) -> sqlx::Result<bool> {
+            query_scalar!(
+                r#"SELECT EXISTS(
+                    SELECT 1 FROM chat c
+                    INNER JOIN blocked_contact b
+                        ON b.user_uuid = c.connection_user_uuid
+                        AND b.user_domain = c.connection_user_domain
+                    WHERE chat_id = ?1
+                ) AS "exists: _""#,
+                chat_id,
+            )
+            .fetch_one(executor)
+            .await
         }
 
         pub(super) async fn delete_by_id(

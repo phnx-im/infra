@@ -30,11 +30,12 @@ use openmls::{
 };
 use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use crate::{
-    ChatMessage, ContentMessage, Message, SystemMessage,
+    ChatMessage, ChatStatus, ContentMessage, Message, SystemMessage,
     chats::{ChatType, StatusRecord, messages::edit::MessageEdit},
+    clients::block_contact::{BlockedContact, BlockedContactError},
     contacts::HandleContact,
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
@@ -59,6 +60,15 @@ pub struct ProcessedQsMessages {
     pub changed_chats: Vec<ChatId>,
     pub new_messages: Vec<ChatMessage>,
     pub errors: Vec<anyhow::Error>,
+}
+
+impl ProcessedQsMessages {
+    pub fn is_empty(&self) -> bool {
+        self.new_chats.is_empty()
+            && self.changed_chats.is_empty()
+            && self.new_messages.is_empty()
+            && self.errors.is_empty()
+    }
 }
 
 #[derive(Default)]
@@ -235,6 +245,10 @@ impl CoreUser {
                     .await?
                     .ok_or_else(|| anyhow!("No chat found for group ID {:?}", group_id))?;
                 let chat_id = chat.id();
+
+                if let ChatStatus::Blocked = chat.status() {
+                    bail!(BlockedContactError);
+                }
 
                 let mut group = Group::load_clean(txn, &group_id)
                     .await?
@@ -612,6 +626,10 @@ impl CoreUser {
                 .await?
                 .context("No sender credential found")?;
 
+        if BlockedContact::check_blocked(&mut *connection, &sender).await? {
+            bail!(BlockedContactError);
+        }
+
         // Phase 2: Decrypt the new user profile key
         let new_user_profile_key = UserProfileKey::decrypt(
             group.identity_link_wrapper_key(),
@@ -655,6 +673,10 @@ impl CoreUser {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
             let processed = match self.process_qs_message(qs_message_plaintext).await {
                 Ok(processed) => processed,
+                Err(e) if e.downcast_ref::<BlockedContactError>().is_some() => {
+                    info!("Dropping message from blocked contact");
+                    continue;
+                }
                 Err(e) => {
                     error!(error = %e, "Processing message failed");
                     errors.push(e);

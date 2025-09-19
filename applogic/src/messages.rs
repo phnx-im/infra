@@ -17,7 +17,7 @@ pub(crate) struct ProcessedMessages {
 impl User {
     /// Fetch and process AS messages
     async fn fetch_and_process_as_messages(&self) -> Result<Vec<ChatId>> {
-        self.user.fetch_and_process_as_messages().await
+        self.user.fetch_and_process_handle_messages().await
     }
 
     /// Fetch and process QS messages

@@ -57,8 +57,14 @@ use sqlx::{SqliteConnection, SqliteExecutor, SqliteTransaction};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage, chats::messages::TimestampedMessage, clients::api_clients::ApiClients,
-    contacts::ContactAddInfos, key_stores::as_credentials::AsCredentials,
+    SystemMessage,
+    chats::messages::TimestampedMessage,
+    clients::{
+        api_clients::ApiClients,
+        block_contact::{BlockedContact, BlockedContactError},
+    },
+    contacts::ContactAddInfos,
+    key_stores::as_credentials::AsCredentials,
 };
 use std::collections::HashSet;
 
@@ -376,6 +382,10 @@ impl Group {
                     .ok_or_else(|| {
                         anyhow!("Could not find client credential of sender in database.")
                     })?;
+
+            if BlockedContact::check_blocked(txn.as_mut(), &sender_user_id).await? {
+                bail!(BlockedContactError);
+            }
 
             let welcome_attribution_info: WelcomeAttributionInfoPayload =
                 verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
