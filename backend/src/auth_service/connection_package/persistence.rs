@@ -204,10 +204,10 @@ pub(crate) mod tests {
         pool: &PgPool,
         package_type: ConnectionPackageType,
     ) -> anyhow::Result<()> {
-        let (hash, verifying_key) = setup_user_record(&pool).await?;
+        let (hash, verifying_key) = setup_user_record(pool).await?;
 
         let mut pkgs =
-            store_connection_packages_for_handle(&pool, &hash, verifying_key, 2, package_type)
+            store_connection_packages_for_handle(pool, &hash, verifying_key, 2, package_type)
                 .await?;
 
         // There should be 2 packages now
