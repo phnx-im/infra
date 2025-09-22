@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                chat_id AS \"chat_id: _\",\n                chat_title,\n                chat_picture,\n                group_id AS \"group_id: _\",\n                last_read AS \"last_read: _\",\n                connection_user_uuid AS \"connection_user_uuid: _\",\n                connection_user_domain AS \"connection_user_domain: _\",\n                connection_user_handle AS \"connection_user_handle: _\",\n                is_confirmed_connection,\n                is_active\n            FROM chat",
+  "query": "SELECT\n                chat_id AS \"chat_id: _\",\n                chat_title,\n                chat_picture,\n                group_id AS \"group_id: _\",\n                last_read AS \"last_read: _\",\n                connection_user_uuid AS \"connection_user_uuid: _\",\n                connection_user_domain AS \"connection_user_domain: _\",\n                connection_user_handle AS \"connection_user_handle: _\",\n                is_confirmed_connection,\n                is_active,\n                blocked_contact.user_uuid IS NOT NULL AS \"is_blocked!: _\"\n            FROM chat\n                LEFT JOIN blocked_contact\n                ON blocked_contact.user_uuid = chat.connection_user_uuid\n                AND blocked_contact.user_domain = chat.connection_user_domain\n            WHERE chat_id = ?",
   "describe": {
     "columns": [
       {
@@ -52,10 +52,15 @@
         "name": "is_active",
         "ordinal": 9,
         "type_info": "Bool"
+      },
+      {
+        "name": "is_blocked!: _",
+        "ordinal": 10,
+        "type_info": "Null"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
@@ -67,8 +72,9 @@
       true,
       true,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "f92d8b70804f246ac7286d7a7646e676d303251dd336ce8f9cdfbbfb5591c574"
+  "hash": "3167b3d6a585e439ba555ecc22839f98dad31677b99591b0397dfe4247ae933e"
 }

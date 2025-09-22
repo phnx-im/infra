@@ -474,6 +474,20 @@ impl ChatDetailsContext {
     async fn handle_store_notification(&self, notification: &StoreNotification) {
         if notification.ops.contains_key(&self.chat_id.into()) {
             self.load_and_emit_state().await;
+        } else {
+            let user_id = self
+                .state_tx
+                .borrow()
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.connection_user_id())
+                .cloned()
+                .map(UserId::from);
+            if let Some(user_id) = user_id
+                && notification.ops.contains_key(&user_id.into())
+            {
+                self.load_and_emit_state().await;
+            }
         }
     }
 }

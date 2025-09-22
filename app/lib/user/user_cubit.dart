@@ -75,6 +75,12 @@ class UserCubit implements StateStreamableSource<UiUser> {
   Future<List<UiContact>> addableContacts(ChatId chatId) =>
       _impl.addableContacts(chatId: chatId);
 
+  Future<void> blockContact(UiUserId userId) =>
+      _impl.blockContact(userId: userId);
+
+  Future<void> unblockContact(UiUserId userId) =>
+      _impl.unblockContact(userId: userId);
+
   Future<void> reportSpam(UiUserId spammerId) =>
       _impl.reportSpam(spammerId: spammerId);
 }
