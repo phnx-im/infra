@@ -31,14 +31,16 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final memberId = switch (chat.chatType) {
+    final userId = switch (chat.chatType) {
       UiChatType_Connection(field0: final profile) => profile.userId,
       _ => null,
     };
-    if (memberId == null) {
+    if (userId == null) {
       _log.warning("memberId is null in 1:1 connection details");
       return const SizedBox.shrink();
     }
+
+    final isBlocked = chat.status == const UiChatStatus.blocked();
 
     return Center(
       child: Column(
@@ -55,14 +57,85 @@ class ConnectionDetails extends StatelessWidget {
 
           const Spacer(),
 
+          isBlocked
+              ? _UnblockConnectionButton(userId: userId)
+              : _BlockConnectionButton(userId: userId),
+          const SizedBox(height: Spacings.s),
+
           _DeleteConnectionButton(chatId: chat.id),
           const SizedBox(height: Spacings.s),
 
-          ReportSpamButton(userId: memberId),
+          ReportSpamButton(userId: userId),
           const SizedBox(height: Spacings.s),
         ],
       ),
     );
+  }
+}
+
+class _BlockConnectionButton extends StatelessWidget {
+  const _BlockConnectionButton({required this.userId});
+
+  final UiUserId userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return OutlinedButton(
+      onPressed: () => _block(context, userId),
+      child: Text(
+        loc.blockConnectionButton_text,
+        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
+      ),
+    );
+  }
+
+  void _block(BuildContext context, UiUserId userId) async {
+    final userCubit = context.read<UserCubit>();
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: loc.blockConnectionDialog_title,
+      message: loc.blockConnectionDialog_content,
+      positiveButtonText: loc.blockConnectionDialog_block,
+      negativeButtonText: loc.blockConnectionDialog_cancel,
+    );
+    if (confirmed) {
+      userCubit.blockContact(userId);
+    }
+  }
+}
+
+class _UnblockConnectionButton extends StatelessWidget {
+  const _UnblockConnectionButton({required this.userId});
+
+  final UiUserId userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return OutlinedButton(
+      onPressed: () => unblockContactWithConfirmation(context, userId),
+      child: Text(loc.unblockConnectionButton_text),
+    );
+  }
+}
+
+void unblockContactWithConfirmation(
+  BuildContext context,
+  UiUserId userId,
+) async {
+  final userCubit = context.read<UserCubit>();
+  final loc = AppLocalizations.of(context);
+  final confirmed = await showConfirmationDialog(
+    context,
+    title: loc.unblockConnectionDialog_title,
+    message: loc.unblockConnectionDialog_content,
+    positiveButtonText: loc.unblockConnectionDialog_unblock,
+    negativeButtonText: loc.unblockConnectionDialog_cancel,
+  );
+  if (confirmed) {
+    userCubit.unblockContact(userId);
   }
 }
 
@@ -75,28 +148,28 @@ class _DeleteConnectionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     return OutlinedButton(
-      onPressed: () => _delete(context, chatId),
+      onPressed: () => deleteChatWithConfirmation(context, chatId),
       child: Text(
         loc.deleteConnectionButton_text,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
     );
   }
+}
 
-  void _delete(BuildContext context, ChatId chatId) async {
-    final userCubit = context.read<UserCubit>();
-    final navigationCubit = context.read<NavigationCubit>();
-    final loc = AppLocalizations.of(context);
-    final confirmed = await showConfirmationDialog(
-      context,
-      title: loc.deleteConnectionDialog_title,
-      message: loc.deleteConnectionDialog_content,
-      positiveButtonText: loc.deleteConnectionDialog_delete,
-      negativeButtonText: loc.deleteConnectionDialog_cancel,
-    );
-    if (confirmed) {
-      userCubit.deleteChat(chatId);
-      navigationCubit.closeChat();
-    }
+void deleteChatWithConfirmation(BuildContext context, ChatId chatId) async {
+  final userCubit = context.read<UserCubit>();
+  final navigationCubit = context.read<NavigationCubit>();
+  final loc = AppLocalizations.of(context);
+  final confirmed = await showConfirmationDialog(
+    context,
+    title: loc.deleteConnectionDialog_title,
+    message: loc.deleteConnectionDialog_content,
+    positiveButtonText: loc.deleteConnectionDialog_delete,
+    negativeButtonText: loc.deleteConnectionDialog_cancel,
+  );
+  if (confirmed) {
+    userCubit.deleteChat(chatId);
+    navigationCubit.closeChat();
   }
 }

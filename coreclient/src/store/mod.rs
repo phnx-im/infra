@@ -150,6 +150,10 @@ pub trait Store {
     /// chat, or `None` if the user handle does not exist.
     async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ChatId>>;
 
+    async fn block_contact(&self, user_id: UserId) -> StoreResult<()>;
+
+    async fn unblock_contact(&self, user_id: UserId) -> StoreResult<()>;
+
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 
     async fn contact(&self, user_id: &UserId) -> StoreResult<Option<Contact>>;

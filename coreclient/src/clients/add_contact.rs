@@ -52,6 +52,10 @@ impl CoreUser {
 
         // Phase 2: Verify the connection package
         let verified_connection_package = connection_package.verify()?;
+        // We don't need to know if the connection package is last resort here,
+        // so we can just turn it into a v2.
+        let verified_connection_package: ConnectionPackage =
+            verified_connection_package.into_current();
 
         // Phase 3: Prepare the connection locally
         let group_id = client.ds_request_group_id().await?;

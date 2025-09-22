@@ -71,6 +71,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 mod add_contact;
 pub(crate) mod api_clients;
 pub(crate) mod attachment;
+mod block_contact;
 pub mod chats;
 pub(crate) mod connection_offer;
 mod create_user;
