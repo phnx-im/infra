@@ -37,10 +37,7 @@ use tbs::{ConnectionOfferTbs, VerifiableConnectionOffer};
 use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 pub(crate) mod payload {
-    use aircommon::{
-        LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle,
-        messages::connection_package::ConnectionPackageHash,
-    };
+    use aircommon::{LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle};
 
     use super::*;
 
@@ -127,7 +124,6 @@ mod tbs {
     use aircommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
         identifiers::UserHandle,
-        messages::connection_package::ConnectionPackageHash,
     };
 
     use super::payload::ConnectionOfferPayload;

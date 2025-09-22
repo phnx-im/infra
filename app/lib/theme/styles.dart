@@ -10,11 +10,11 @@ import 'dart:io' show Platform;
 // === Devices ===
 
 bool isSmallScreen(BuildContext context) {
-  return MediaQuery.of(context).size.width <= 600;
+  return MediaQuery.sizeOf(context).width <= 600;
 }
 
 bool isLargeScreen(BuildContext context) {
-  return MediaQuery.of(context).size.width > 600;
+  return MediaQuery.sizeOf(context).width > 600;
 }
 
 bool isTouch() {

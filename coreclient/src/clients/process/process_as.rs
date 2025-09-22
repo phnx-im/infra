@@ -150,10 +150,21 @@ impl CoreUser {
         self.send_confirmation_to_ds(commit, group_info, &cep_payload, qgid)
             .await?;
 
-        // Delete the connection package
-        ConnectionPackage::delete(&mut connection, &hash)
-            .await
-            .context("Failed to delete connection package")?;
+        // Delete the connection package if it's not last resort
+        connection
+            .with_transaction(async |txn| {
+                let is_last_resort =
+                    <ConnectionPackage as StorableConnectionPackage>::is_last_resort(txn, &hash)
+                        .await?
+                        .unwrap_or(false);
+                if !is_last_resort {
+                    ConnectionPackage::delete(txn, &hash)
+                        .await
+                        .context("Failed to delete connection package")?;
+                }
+                Ok(())
+            })
+            .await?;
 
         notifier.notify();
 
@@ -168,7 +179,6 @@ impl CoreUser {
         com: ConnectionOfferMessage,
         user_handle: UserHandle,
     ) -> Result<(ConnectionOfferPayload, ConnectionPackageHash)> {
-        // TODO: Fetch the right key based on the hash in the ConnectionOfferMessage.
         let (eco, hash) = com.into_parts();
 
         let decryption_key = ConnectionPackage::load_decryption_key(connection, &hash)

@@ -205,6 +205,7 @@ impl Chat {
 pub enum ChatStatus {
     Inactive(InactiveChat),
     Active,
+    Blocked,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Serialize, Deserialize)]
