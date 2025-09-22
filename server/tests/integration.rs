@@ -999,7 +999,7 @@ async fn user_deletion_triggers() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[tracing::instrument(name = "Send message test", skip_all)]
+#[tracing::instrument(name = "Blocked contact", skip_all)]
 async fn blocked_contact() {
     info!("Setting up setup");
     let mut setup = TestBackend::single().await;
@@ -1089,4 +1089,45 @@ async fn blocked_contact() {
     // Sending messages works again
     setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
     setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Group with blocked contacts", skip_all)]
+async fn group_with_blocked_contact() {
+    let mut setup = TestBackend::single().await;
+
+    setup.add_user(&ALICE).await;
+    setup.get_user_mut(&ALICE).add_user_handle().await.unwrap();
+
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    setup.connect_users(&ALICE, &BOB).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
+
+    // Create a group with alice, bob and charlie
+    let chat_id = setup.create_group(&ALICE).await;
+    setup
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
+
+    // Sending messages works before blocking
+    setup
+        .send_message(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
+    setup
+        .send_message(chat_id, &BOB, vec![&ALICE, &CHARLIE])
+        .await;
+
+    // Block bob
+    let alice = setup.get_user(&ALICE);
+    alice.user.block_contact(BOB.clone()).await.unwrap();
+
+    // Messages are still sent and received
+    setup
+        .send_message(chat_id, &BOB, vec![&ALICE, &CHARLIE])
+        .await;
+    setup
+        .send_message(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
 }

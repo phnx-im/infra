@@ -246,10 +246,6 @@ impl CoreUser {
                     .ok_or_else(|| anyhow!("No chat found for group ID {:?}", group_id))?;
                 let chat_id = chat.id();
 
-                if let ChatStatus::Blocked = chat.status() {
-                    bail!(BlockedContactError);
-                }
-
                 let mut group = Group::load_clean(txn, &group_id)
                     .await?
                     .ok_or_else(|| anyhow!("No group found for group ID {:?}", group_id))?;
@@ -271,6 +267,11 @@ impl CoreUser {
                 let (new_messages, updated_messages, chat_changed) =
                     match processed_message.into_content() {
                         ProcessedMessageContent::ApplicationMessage(application_message) => {
+                            // Drop messages in 1:1 blocked chats Note: In group chats, messages
+                            // from blocked users are still received and processed.
+                            if chat.status() == &ChatStatus::Blocked {
+                                bail!(BlockedContactError);
+                            }
                             let ApplicationMessagesHandlerResult {
                                 new_messages,
                                 updated_messages,
