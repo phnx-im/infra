@@ -92,7 +92,11 @@ mod persistence {
             .await
         }
 
-        pub(crate) async fn check_blocked_by_chat_id(
+        /// Returns `true` if this is a 1:1 chat with a blocked contact.
+        ///
+        /// Note: Group chats that contain a blocked contact are not considered as blocked.
+        /// Therefore, this function returns `false` in this case.
+        pub(crate) async fn check_blocked_chat(
             executor: impl SqliteExecutor<'_>,
             chat_id: ChatId,
         ) -> sqlx::Result<bool> {

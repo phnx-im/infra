@@ -627,7 +627,8 @@ impl CoreUser {
                 .await?
                 .context("No sender credential found")?;
 
-        if BlockedContact::check_blocked(&mut *connection, &sender).await? {
+        let chat_id = ChatId::try_from(group.group_id())?;
+        if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
             bail!(BlockedContactError);
         }
 

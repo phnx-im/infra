@@ -79,8 +79,8 @@ impl CoreUser {
                 .context("Failed to load group")?;
 
             let chat_id = ChatId::try_from(&group_id).context("invalid group id")?;
-            if BlockedContact::check_blocked_by_chat_id(&mut *connection, chat_id).await? {
-                continue; // Skip blocked contacts
+            if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
+                continue; // Skip blocked chats
             }
 
             let own_index = group.own_index();
