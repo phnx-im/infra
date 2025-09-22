@@ -317,6 +317,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get textMessage_edited => 'edited';
 
   @override
+  String get textMessage_hiddenPlaceholder =>
+      'Blocked contact, tap to reveal message';
+
+  @override
   String get reportSpamButton_text => 'Report Spam';
 
   @override
