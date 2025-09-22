@@ -261,6 +261,7 @@ dependencies = [
  "thiserror 2.0.16",
  "tls_codec",
  "tonic",
+ "tonic-prost",
  "tonic-prost-build",
  "uuid",
 ]
