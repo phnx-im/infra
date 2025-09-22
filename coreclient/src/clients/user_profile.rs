@@ -13,6 +13,8 @@ use anyhow::Context;
 use sqlx::SqliteConnection;
 
 use crate::{
+    ChatId,
+    clients::block_contact::BlockedContact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -75,6 +77,12 @@ impl CoreUser {
             let group = Group::load(&mut connection, &group_id)
                 .await?
                 .context("Failed to load group")?;
+
+            let chat_id = ChatId::try_from(&group_id).context("invalid group id")?;
+            if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
+                continue; // Skip blocked chats
+            }
+
             let own_index = group.own_index();
             let user_profile_key =
                 user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
