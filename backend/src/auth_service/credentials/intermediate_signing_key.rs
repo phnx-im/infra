@@ -4,8 +4,7 @@
 
 use std::{fmt, ops::Deref};
 
-use mls_assist::openmls::prelude::SignatureScheme;
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, AsIntermediateCredentialBody, AsIntermediateCredentialCsr,
         keys::{AsIntermediateSigningKey, AsSigningKey},
@@ -13,6 +12,7 @@ use phnxcommon::{
     crypto::hash::Hash,
     identifiers::Fqdn,
 };
+use mls_assist::openmls::prelude::SignatureScheme;
 use serde::{Deserialize, Serialize};
 use sqlx::{Connection, PgConnection};
 use tracing::error;
@@ -115,7 +115,7 @@ impl IntermediateSigningKey {
 }
 
 mod persistence {
-    use phnxcommon::{
+    use aircommon::{
         codec::{BlobDecoded, BlobEncoded},
         credentials::{AsIntermediateCredential, keys::AsIntermediateSigningKey},
     };
@@ -132,7 +132,7 @@ mod persistence {
         ) -> Result<(), StorageError> {
             sqlx::query!(
                 "INSERT INTO
-                    as_signing_keys
+                    as_signing_key
                     (cred_type, credential_fingerprint, signing_key, currently_active)
                 VALUES
                     ($1, $2, $3, $4)",
@@ -151,7 +151,7 @@ mod persistence {
         ) -> Result<Option<AsIntermediateSigningKey>, StorageError> {
             let signing_key = query_scalar!(
                 r#"SELECT signing_key AS "signing_key: BlobDecoded<IntermediateSigningKey>"
-                FROM as_signing_keys
+                FROM as_signing_key
                 WHERE currently_active = true
                     AND cred_type = 'intermediate'"#
             )
@@ -165,7 +165,7 @@ mod persistence {
             connection: impl PgExecutor<'_>,
         ) -> Result<(), StorageError> {
             sqlx::query!(
-                "UPDATE as_signing_keys
+                "UPDATE as_signing_key
                 SET currently_active = CASE
                     WHEN credential_fingerprint = $1 THEN true
                     ELSE false
@@ -185,7 +185,7 @@ mod persistence {
         ) -> Result<Vec<AsIntermediateCredential>, StorageError> {
             let records = query_scalar!(
                 r#"SELECT signing_key AS "signing_key: BlobDecoded<IntermediateSigningKey>"
-                FROM as_signing_keys
+                FROM as_signing_key
                 WHERE cred_type = $1"#,
                 CredentialType::Intermediate as _,
             )
@@ -205,11 +205,11 @@ mod persistence {
     mod tests {
         use std::collections::HashSet;
 
-        use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxcommon::{
+        use aircommon::{
             credentials::AsCredential,
             time::{Duration, ExpirationData},
         };
+        use mls_assist::openmls::prelude::SignatureScheme;
         use serde::Serialize;
         use sqlx::PgPool;
 

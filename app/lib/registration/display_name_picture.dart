@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/main.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/main.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';
@@ -42,12 +43,14 @@ class DisplayNameAvatarChoice extends StatelessWidget {
                       autovalidateMode: AutovalidateMode.always,
                       child: ConstrainedBox(
                         constraints: BoxConstraints.tight(const Size(300, 80)),
-                        child: const _DisplayNameTextField(),
+                        child: _DisplayNameTextField(
+                          onFieldSubmitted: () => _submit(context),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const _SignUpFooter(),
+                _SignUpFooter(submit: () => _submit(context)),
               ],
             ),
           ),
@@ -55,16 +58,28 @@ class DisplayNameAvatarChoice extends StatelessWidget {
       ),
     );
   }
+
+  void _submit(BuildContext context) async {
+    final navigationCubit = context.read<NavigationCubit>();
+    final error = await context.read<RegistrationCubit>().signUp();
+    if (error == null) {
+      navigationCubit.openHome();
+    } else if (context.mounted) {
+      showErrorBanner(context, error.message);
+    }
+  }
 }
 
-class _DisplayNameTextField extends StatelessWidget {
-  const _DisplayNameTextField();
+class _DisplayNameTextField extends HookWidget {
+  const _DisplayNameTextField({required this.onFieldSubmitted});
+
+  final VoidCallback onFieldSubmitted;
 
   @override
   Widget build(BuildContext context) {
-    final displayName = context.select(
-      (RegistrationCubit cubit) => cubit.state.displayName,
-    );
+    final displayName = context.read<RegistrationCubit>().state.displayName;
+
+    final focusNode = useFocusNode();
 
     return TextFormField(
       autofocus: isSmallScreen(context) ? false : true,
@@ -72,6 +87,10 @@ class _DisplayNameTextField extends StatelessWidget {
       initialValue: displayName,
       onChanged: (value) {
         context.read<RegistrationCubit>().setDisplayName(value);
+      },
+      onFieldSubmitted: (_) {
+        focusNode.requestFocus();
+        onFieldSubmitted();
       },
     );
   }
@@ -109,7 +128,9 @@ class _UserAvatarPicker extends StatelessWidget {
 }
 
 class _SignUpFooter extends StatelessWidget {
-  const _SignUpFooter();
+  const _SignUpFooter({required this.submit});
+
+  final VoidCallback submit;
 
   @override
   Widget build(BuildContext context) {
@@ -125,26 +146,13 @@ class _SignUpFooter extends StatelessWidget {
       children: [
         if (!isSigningUp)
           OutlinedButton(
-            onPressed:
-                !isSigningUp
-                    ? () async {
-                      final navigationCubit = context.read<NavigationCubit>();
-                      final error =
-                          await context.read<RegistrationCubit>().signUp();
-                      if (error == null) {
-                        navigationCubit.openHome();
-                      } else if (context.mounted) {
-                        showErrorBanner(context, error.message);
-                      }
-                    }
-                    : null,
+            onPressed: !isSigningUp ? submit : null,
             style: buttonStyle(CustomColorScheme.of(context), !isSigningUp),
             child: const Text('Sign up'),
           ),
         if (isSigningUp)
           Align(
             child: CircularProgressIndicator(
-              value: null,
               valueColor: AlwaysStoppedAnimation<Color>(
                 CustomColorScheme.of(context).text.secondary,
               ),

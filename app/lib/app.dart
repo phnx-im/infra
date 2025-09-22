@@ -9,16 +9,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:prototype/background_service.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/interface_scale.dart';
-import 'package:prototype/util/platform.dart';
+import 'package:air/background_service.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/interface_scale.dart';
+import 'package:air/util/platform.dart';
 import 'package:provider/provider.dart';
 
-import 'conversation_details/conversation_details.dart';
+import 'chat_details/chat_details.dart';
 import 'registration/registration.dart';
 import 'theme/theme.dart';
 
@@ -37,9 +37,9 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   final CoreClient _coreClient = CoreClient();
   final _backgroundService = BackgroundService();
 
-  final StreamController<ConversationId> _openedNotificationController =
-      StreamController<ConversationId>();
-  late final StreamSubscription<ConversationId> _openedNotificationSubscription;
+  final StreamController<ChatId> _openedNotificationController =
+      StreamController<ChatId>();
+  late final StreamSubscription<ChatId> _openedNotificationSubscription;
   final NavigationCubit _navigationCubit = NavigationCubit();
 
   final StreamController<AppState> _appStateController =
@@ -52,8 +52,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
 
     initMethodChannel(_openedNotificationController.sink);
     _openedNotificationSubscription = _openedNotificationController.stream
-        .listen((conversationId) {
-          _navigationCubit.openConversation(conversationId);
+        .listen((chatId) {
+          _navigationCubit.openChat(chatId);
         });
 
     _requestMobileNotifications();
@@ -126,7 +126,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           builder:
               (context, router) => LoadableUserCubitProvider(
                 appStateController: _appStateController,
-                child: ConversationDetailsCubitProvider(child: router!),
+                child: ChatDetailsCubitProvider(child: router!),
               ),
         ),
       ),
@@ -222,34 +222,32 @@ void _requestMobileNotifications() async {
   }
 }
 
-/// Creates a [ConversationDetailsCubit] for the current conversation
+/// Creates a [ChatDetailsCubit] for the current chat
 ///
-/// This is used to mount the conversation details cubit when the user
-/// navigates to a conversation. The [ConversationDetailsCubit] can be
+/// This is used to mount the chat details cubit when the user
+/// navigates to a chat. The [ChatDetailsCubit] can be
 /// then used from any screen.
-class ConversationDetailsCubitProvider extends StatelessWidget {
-  const ConversationDetailsCubitProvider({required this.child, super.key});
+class ChatDetailsCubitProvider extends StatelessWidget {
+  const ChatDetailsCubitProvider({required this.child, super.key});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NavigationCubit, NavigationState>(
-      buildWhen:
-          (previous, current) =>
-              current.conversationId != previous.conversationId,
+      buildWhen: (previous, current) => current.chatId != previous.chatId,
       builder: (context, state) {
-        final conversationId = state.conversationId;
-        if (conversationId == null) {
+        final chatId = state.chatId;
+        if (chatId == null) {
           return child;
         }
         return BlocProvider(
-          // rebuilds the cubit when a different conversation is selected
-          key: ValueKey("conversation-details-cubit-$conversationId"),
+          // rebuilds the cubit when a different chat is selected
+          key: ValueKey("chat-details-cubit-$chatId"),
           create:
-              (context) => ConversationDetailsCubit(
+              (context) => ChatDetailsCubit(
                 userCubit: context.read<UserCubit>(),
-                conversationId: conversationId,
+                chatId: chatId,
               ),
           child: child,
         );

@@ -5,17 +5,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/attachments/attachments.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/message_list/timestamp.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
-import 'package:prototype/ui/typography/monospace.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/attachments/attachments.dart';
+import 'package:air/chat_details/chat_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/message_list/timestamp.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/ui/typography/monospace.dart';
+import 'package:air/user/user.dart';
+import 'package:air/widgets/widgets.dart';
 
 import 'message_renderer.dart';
 
@@ -36,20 +36,19 @@ class TextMessageTile extends StatelessWidget {
     required this.timestamp,
     required this.flightPosition,
     required this.status,
+    required this.isSender,
     super.key,
   });
 
-  final ConversationMessageId messageId;
+  final MessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
   final UiMessageStatus status;
+  final bool isSender;
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.select((UserCubit cubit) => cubit.state.userId);
-    final isSender = contentMessage.sender == userId;
-
     return Column(
       children: [
         if (!isSender && flightPosition.isFirst)
@@ -77,7 +76,7 @@ class _MessageView extends StatelessWidget {
     required this.status,
   });
 
-  final ConversationMessageId messageId;
+  final MessageId messageId;
   final UiContentMessage contentMessage;
   final String timestamp;
   final UiFlightPosition flightPosition;
@@ -111,9 +110,9 @@ class _MessageView extends StatelessWidget {
                 InkWell(
                   mouseCursor: SystemMouseCursors.basic,
                   onLongPress:
-                      () => context
-                          .read<ConversationDetailsCubit>()
-                          .editMessage(messageId: messageId),
+                      () => context.read<ChatDetailsCubit>().editMessage(
+                        messageId: messageId,
+                      ),
                   child: _MessageContent(
                     content: contentMessage.content,
                     isSender: isSender,

@@ -2,16 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use openmls::group::GroupId;
-use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredentialBody, ClientCredential, VerifiableClientCredential,
         keys::{AsIntermediateVerifyingKey, ClientSignature},
     },
     crypto::{
         ear::{
-            EarDecryptable, EarEncryptable, GenericDeserializable, GenericSerializable,
+            EarDecryptable, EarEncryptable,
             keys::{
                 FriendshipPackageEarKey, GroupStateEarKey, IdentityLinkWrapperKey,
                 WelcomeAttributionInfoEarKey,
@@ -20,7 +18,7 @@ use phnxcommon::{
         hash::Hash,
         hpke::{HpkeDecryptable, HpkeEncryptable},
         indexed_aead::keys::UserProfileBaseSecret,
-        kdf::keys::{ConnectionKey, ConnectionKeyType},
+        kdf::keys::ConnectionKeyType,
         signatures::{
             private_keys::SignatureVerificationError,
             signable::{Signable, SignedStruct, Verifiable, VerifiedStruct},
@@ -33,16 +31,13 @@ use phnxcommon::{
         connection_package::ConnectionPackageHash,
     },
 };
+use openmls::group::GroupId;
+use payload::{ConnectionOfferPayload, ConnectionOfferPayloadIn};
 use tbs::{ConnectionOfferTbs, VerifiableConnectionOffer};
-use tls_codec::{
-    DeserializeBytes, Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize,
-};
+use tls_codec::{Serialize as TlsSerializeTrait, TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 pub(crate) mod payload {
-    use phnxcommon::{
-        LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle,
-        messages::connection_package::ConnectionPackageHash,
-    };
+    use aircommon::{LibraryError, credentials::keys::ClientSigningKey, identifiers::UserHandle};
 
     use super::*;
 
@@ -115,7 +110,6 @@ pub(crate) mod payload {
                 friendship_package_ear_key: FriendshipPackageEarKey::random().unwrap(),
                 friendship_package: FriendshipPackage {
                     friendship_token: FriendshipToken::random().unwrap(),
-                    connection_key: ConnectionKey::random().unwrap(),
                     wai_ear_key: WelcomeAttributionInfoEarKey::random().unwrap(),
                     user_profile_base_secret: UserProfileBaseSecret::random().unwrap(),
                 },
@@ -127,10 +121,9 @@ pub(crate) mod payload {
 
 mod tbs {
     use super::*;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::{ClientKeyType, ClientSignature},
         identifiers::UserHandle,
-        messages::connection_package::ConnectionPackageHash,
     };
 
     use super::payload::ConnectionOfferPayload;
@@ -246,28 +239,12 @@ pub(crate) struct ConnectionOffer {
     signature: ClientSignature,
 }
 
-impl GenericSerializable for ConnectionOffer {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
 impl HpkeEncryptable<ConnectionKeyType, EncryptedConnectionOffer> for ConnectionOffer {}
 
 #[derive(Debug, TlsDeserializeBytes, TlsSize, Clone)]
 pub(super) struct ConnectionOfferIn {
     payload: ConnectionOfferPayloadIn,
     signature: ClientSignature,
-}
-
-impl GenericDeserializable for ConnectionOfferIn {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
 }
 
 impl ConnectionOfferIn {
@@ -302,25 +279,8 @@ impl HpkeDecryptable<ConnectionKeyType, EncryptedConnectionOffer> for Connection
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) struct FriendshipPackage {
     pub(crate) friendship_token: FriendshipToken,
-    pub(crate) connection_key: ConnectionKey,
     pub(crate) wai_ear_key: WelcomeAttributionInfoEarKey,
     pub(crate) user_profile_base_secret: UserProfileBaseSecret,
-}
-
-impl GenericSerializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn serialize(&self) -> Result<Vec<u8>, Self::Error> {
-        self.tls_serialize_detached()
-    }
-}
-
-impl GenericDeserializable for FriendshipPackage {
-    type Error = tls_codec::Error;
-
-    fn deserialize(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::tls_deserialize_exact_bytes(bytes)
-    }
 }
 
 impl EarEncryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
@@ -334,7 +294,7 @@ impl EarDecryptable<FriendshipPackageEarKey, EncryptedFriendshipPackageCtype>
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::{
+    use aircommon::{
         credentials::test_utils::create_test_credentials,
         crypto::signatures::private_keys::SignatureVerificationError,
         identifiers::{UserHandle, UserId},

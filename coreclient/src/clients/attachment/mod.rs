@@ -4,12 +4,13 @@
 
 use std::{fmt, str::FromStr};
 
+use aircommon::identifiers::{AttachmentId, AttachmentIdParseError};
 pub use content::MimiContentExt;
 pub use download::{DownloadProgress, DownloadProgressEvent};
 pub(crate) use persistence::AttachmentRecord;
 pub use persistence::{AttachmentContent, AttachmentStatus};
-use phnxcommon::identifiers::{AttachmentId, AttachmentIdParseError};
 use thiserror::Error;
+use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize, VLBytes};
 use url::Url;
 
 mod content;
@@ -19,20 +20,22 @@ mod persistence;
 mod process;
 mod upload;
 
-#[derive(derive_more::From)]
+#[derive(TlsSize, TlsSerialize, TlsDeserializeBytes)]
 struct AttachmentBytes {
-    bytes: Vec<u8>,
+    bytes: VLBytes,
 }
 
-impl AttachmentBytes {
-    fn new(bytes: Vec<u8>) -> Self {
-        Self { bytes }
+impl From<Vec<u8>> for AttachmentBytes {
+    fn from(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes: VLBytes::from(bytes),
+        }
     }
 }
 
 impl AsRef<[u8]> for AttachmentBytes {
     fn as_ref(&self) -> &[u8] {
-        &self.bytes
+        self.bytes.as_slice()
     }
 }
 
@@ -97,7 +100,7 @@ pub enum AttachmentUrlParseError {
 
 impl fmt::Display for AttachmentUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "phnx:///attachment/{}", self.attachment_id.uuid)?;
+        write!(f, "air:///attachment/{}", self.attachment_id.uuid)?;
         if let Some((width, height)) = self.dimensions {
             write!(f, "?width={width}&height={height}")?;
         }
@@ -114,7 +117,7 @@ mod test {
     #[test]
     fn attachment_url() {
         let id = uuid!("b6a42a7a-62fa-4c10-acfb-6124d80aae09");
-        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09"
+        let url = "air:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09"
             .parse()
             .unwrap();
         let attachment_id = AttachmentId::from_url(&url).unwrap();
@@ -127,7 +130,7 @@ mod test {
     #[test]
     fn attachment_url_with_dimensions() {
         let id = uuid!("b6a42a7a-62fa-4c10-acfb-6124d80aae09");
-        let url = "phnx:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080"
+        let url = "air:///attachment/b6a42a7a-62fa-4c10-acfb-6124d80aae09?width=1920&height=1080"
             .parse()
             .unwrap();
         let attachment_id = AttachmentId::from_url(&url).unwrap();

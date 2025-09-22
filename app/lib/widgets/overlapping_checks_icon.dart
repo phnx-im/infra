@@ -5,7 +5,7 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/colors/themes.dart';
+import 'package:air/ui/colors/themes.dart';
 
 class DoubleCheckIcon extends StatelessWidget {
   const DoubleCheckIcon({

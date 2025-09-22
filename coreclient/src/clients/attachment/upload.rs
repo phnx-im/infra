@@ -8,6 +8,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use airapiclient::ApiClient;
+use aircommon::{
+    credentials::keys::ClientSigningKey,
+    crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
+    identifiers::AttachmentId,
+};
 use anyhow::Context;
 use chrono::Utc;
 use infer::MatcherType;
@@ -15,22 +21,15 @@ use mimi_content::{
     MimiContent,
     content_container::{Disposition, NestedPart, NestedPartContent, PartSemantics},
 };
-use phnxapiclient::ApiClient;
-use phnxcommon::{
-    credentials::keys::ClientSigningKey,
-    crypto::ear::{AeadCiphertext, EarEncryptable, keys::AttachmentEarKey},
-    identifiers::AttachmentId,
-};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AttachmentStatus, AttachmentUrl, Conversation, ConversationId, ConversationMessage,
-    ConversationMessageId,
+    AttachmentStatus, AttachmentUrl, Chat, ChatId, ChatMessage, MessageId,
     clients::{
         CoreUser,
         attachment::{
             AttachmentBytes, AttachmentRecord,
-            ear::{PHNX_ATTACHMENT_ENCRYPTION_ALG, PHNX_ATTACHMENT_HASH_ALG},
+            ear::{AIR_ATTACHMENT_ENCRYPTION_ALG, AIR_ATTACHMENT_HASH_ALG},
         },
     },
     groups::Group,
@@ -41,22 +40,20 @@ impl CoreUser {
     /// Uploads an attachment and sends a message containing it.
     pub(crate) async fn upload_attachment(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         path: &Path,
-    ) -> anyhow::Result<ConversationMessage> {
-        let (conversation, group) = self
+    ) -> anyhow::Result<ChatMessage> {
+        let (chat, group) = self
             .with_transaction(async |txn| {
-                let conversation = Conversation::load(txn, &conversation_id)
+                let chat = Chat::load(txn, &chat_id)
                     .await?
-                    .with_context(|| {
-                        format!("Can't find conversation with id {conversation_id}")
-                    })?;
+                    .with_context(|| format!("Can't find chat with id {chat_id}"))?;
 
-                let group_id = conversation.group_id();
+                let group_id = chat.group_id();
                 let group = Group::load_clean(txn, group_id)
                     .await?
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-                Ok((conversation, group))
+                Ok((chat, group))
             })
             .await?;
 
@@ -78,7 +75,7 @@ impl CoreUser {
 
         // send attachment message
         let attachment_id = attachment_metadata.attachment_id;
-        let content_bytes = mem::take(&mut attachment.content.bytes);
+        let content_bytes = mem::replace(&mut attachment.content.bytes, Vec::new().into());
         let content_type = attachment.content_type;
 
         let content = MimiContent {
@@ -96,29 +93,23 @@ impl CoreUser {
         // Note: Acquire a transaction here to ensure that the attachment will be deleted from the
         // local database in case of an error.
         self.with_transaction_and_notifier(async |txn, notifier| {
-            let conversation_message_id = ConversationMessageId::random();
+            let message_id = MessageId::random();
             let message = self
-                .send_message_transactional(
-                    txn,
-                    notifier,
-                    conversation_id,
-                    conversation_message_id,
-                    content,
-                )
+                .send_message_transactional(txn, notifier, chat_id, message_id, content)
                 .await?;
 
             // store attachment locally
             // (must be done after the message is stored locally due to foreign key constraints)
             let record = AttachmentRecord {
                 attachment_id,
-                conversation_id: conversation.id(),
-                conversation_message_id,
+                chat_id: chat.id(),
+                message_id,
                 content_type: content_type.to_owned(),
                 status: AttachmentStatus::Ready,
                 created_at: Utc::now(),
             };
             record
-                .store(txn.as_mut(), notifier, Some(&content_bytes))
+                .store(txn.as_mut(), notifier, Some(content_bytes.as_slice()))
                 .await?;
 
             Ok(message)
@@ -218,11 +209,11 @@ impl ProcessedAttachment {
                 url: url.to_string(),
                 expires: 0,
                 size: self.size,
-                enc_alg: PHNX_ATTACHMENT_ENCRYPTION_ALG,
+                enc_alg: AIR_ATTACHMENT_ENCRYPTION_ALG,
                 key: metadata.key.into_bytes().to_vec().into(),
                 nonce: metadata.nonce.to_vec().into(),
                 aad: Default::default(),
-                hash_alg: PHNX_ATTACHMENT_HASH_ALG,
+                hash_alg: AIR_ATTACHMENT_HASH_ALG,
                 content_hash: self.content_hash.into(),
                 description: Default::default(),
                 filename: self.filename,

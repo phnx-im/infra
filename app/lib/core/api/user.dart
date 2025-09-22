@@ -18,7 +18,7 @@ part 'user.freezed.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<User>>
 abstract class User implements RustOpaqueInterface {
-  /// Total number of unread messages across all conversations
+  /// Total number of unread messages across all chats
   Future<int> get globalUnreadMessagesCount;
 
   static Future<User> load({
@@ -27,7 +27,7 @@ abstract class User implements RustOpaqueInterface {
   }) =>
       RustLib.instance.api.crateApiUserUserLoad(dbPath: dbPath, userId: userId);
 
-  /// Loads all client records from the phnx database
+  /// Loads all client records from the air database
   ///
   /// Also tries to load user profile from the client database. In case the client database
   /// cannot be opened, the client record is skipped.

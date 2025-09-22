@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId};
+use aircommon::{crypto::indexed_aead::keys::UserProfileKeyIndex, identifiers::UserId};
 use sqlx::{SqliteExecutor, query, query_as};
 
 use crate::store::StoreNotifier;
@@ -22,7 +22,7 @@ impl IndexedUserProfile {
         let domain = self.user_id.domain();
         let epoch = self.epoch as i64;
         query!(
-            "INSERT INTO users (
+            "INSERT INTO user (
                 user_uuid,
                 user_domain,
                 epoch,
@@ -53,7 +53,7 @@ impl IndexedUserProfile {
         let domain = self.user_id.domain();
         let epoch = self.epoch as i64;
         query!(
-            "UPDATE users SET
+            "UPDATE user SET
                 epoch = ?3,
                 decryption_key_index = ?4,
                 display_name = ?5,
@@ -116,7 +116,7 @@ impl IndexedUserProfile {
                 decryption_key_index AS "decryption_key_index: _",
                 display_name AS "display_name: _",
                 profile_picture AS "profile_picture: _"
-            FROM users
+            FROM user
             WHERE user_uuid = ? AND user_domain = ?"#,
             uuid,
             domain,
@@ -140,7 +140,7 @@ impl UserProfile {
 
 #[cfg(test)]
 mod tests {
-    use phnxcommon::crypto::indexed_aead::keys::UserProfileKey;
+    use aircommon::crypto::indexed_aead::keys::UserProfileKey;
     use sqlx::SqlitePool;
 
     use crate::{Asset, key_stores::indexed_keys::StorableIndexedKey};

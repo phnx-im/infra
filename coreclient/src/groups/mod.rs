@@ -15,13 +15,7 @@ pub(crate) mod process;
 use client_auth_info::ClientVerificationInfo;
 pub(crate) use error::*;
 
-use anyhow::{Result, anyhow, bail};
-use mimi_content::MimiContent;
-use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
-use mls_assist::messages::AssistedMessageOut;
-use openmls_provider::PhnxOpenMlsProvider;
-use openmls_traits::storage::StorageProvider;
-use phnxcommon::{
+use aircommon::{
     credentials::{ClientCredential, VerifiableClientCredential, keys::ClientSigningKey},
     crypto::{
         ear::{
@@ -37,9 +31,9 @@ use phnxcommon::{
     },
     identifiers::{QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsReference, QualifiedGroupId, UserId},
     messages::{
+        client_as::ConnectionOfferHash,
         client_ds::{
-            DsJoinerInformation, GroupOperationParamsAad, InfraAadMessage, InfraAadPayload,
-            WelcomeBundle,
+            AadMessage, AadPayload, DsJoinerInformation, GroupOperationParamsAad, WelcomeBundle,
         },
         client_ds_out::{
             AddUsersInfoOut, CreateGroupParamsOut, DeleteGroupParamsOut, ExternalCommitInfoIn,
@@ -52,27 +46,40 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
+use anyhow::{Context, Result, anyhow, bail};
+use mimi_content::MimiContent;
+use mimi_room_policy::{MimiProposal, RoleIndex, RoomPolicy, VerifiedRoomState};
+use mls_assist::messages::AssistedMessageOut;
+use openmls_provider::AirOpenMlsProvider;
+use openmls_traits::storage::StorageProvider;
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqliteExecutor, SqliteTransaction};
 use tracing::{debug, error};
 
 use crate::{
-    SystemMessage, clients::api_clients::ApiClients, contacts::ContactAddInfos,
-    conversations::messages::TimestampedMessage, key_stores::as_credentials::AsCredentials,
+    SystemMessage,
+    chats::messages::TimestampedMessage,
+    clients::{
+        api_clients::ApiClients,
+        block_contact::{BlockedContact, BlockedContactError},
+    },
+    contacts::ContactAddInfos,
+    key_stores::as_credentials::AsCredentials,
 };
 use std::collections::HashSet;
 
 use openmls::{
-    group::{Member, ProcessedWelcome},
+    group::{ExternalCommitBuilder, Member, ProcessedWelcome},
     key_packages::KeyPackageBundle,
     prelude::{
         BasicCredentialError, Capabilities, Ciphersuite, CredentialType, CredentialWithKey,
-        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex, MlsGroup,
-        MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider, PURE_PLAINTEXT_WIRE_FORMAT_POLICY,
-        Proposal, ProposalType, ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension,
-        Sender, SignaturePublicKey, StagedCommit, UnknownExtension,
-        tls_codec::Serialize as TlsSerializeTrait,
+        Extension, ExtensionType, Extensions, GroupId, KeyPackage, LeafNodeIndex,
+        LeafNodeParameters, MlsGroup, MlsGroupJoinConfig, MlsMessageOut, OpenMlsProvider,
+        PURE_PLAINTEXT_WIRE_FORMAT_POLICY, PreSharedKeyProposal, Proposal, ProposalType,
+        ProtocolVersion, QueuedProposal, RequiredCapabilitiesExtension, Sender, SignaturePublicKey,
+        StagedCommit, UnknownExtension, tls_codec::Serialize as TlsSerializeTrait,
     },
+    schedule::{ExternalPsk, PreSharedKeyId, Psk},
     treesync::RatchetTree,
 };
 
@@ -126,7 +133,7 @@ pub(crate) struct PartialCreateGroupParams {
     pub(crate) group_id: GroupId,
     ratchet_tree: RatchetTree,
     group_info: MlsMessageOut,
-    room_state: VerifiedRoomState,
+    pub(crate) room_state: VerifiedRoomState,
 }
 
 impl PartialCreateGroupParams {
@@ -242,7 +249,7 @@ impl Group {
         let params = PartialCreateGroupParams {
             group_id: group_id.clone(),
             ratchet_tree: mls_group.export_ratchet_tree(),
-            group_info: mls_group.export_group_info(provider, signer, true)?,
+            group_info: mls_group.export_group_info(provider.crypto(), signer, true)?,
             room_state: room_state.clone(),
         };
 
@@ -250,7 +257,6 @@ impl Group {
             user_id.clone(),
             group_id.clone(),
             LeafNodeIndex::new(0), // We just created the group so we're at index 0.
-            signer.credential().fingerprint(),
         );
 
         let group = Self {
@@ -285,7 +291,7 @@ impl Group {
 
         let (processed_welcome, joiner_info) = {
             // Phase 1: Fetch the right KeyPackageBundle from storage
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
             let kpb: KeyPackageBundle = welcome_bundle
                 .welcome
                 .welcome
@@ -356,7 +362,7 @@ impl Group {
 
         let (mls_group, joiner_info, welcome_attribution_info) = {
             // Phase 5: Finish processing the welcome message
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
             let staged_welcome =
                 processed_welcome.into_staged_welcome(&provider, Some(ratchet_tree))?;
 
@@ -376,6 +382,10 @@ impl Group {
                     .ok_or_else(|| {
                         anyhow!("Could not find client credential of sender in database.")
                     })?;
+
+            if BlockedContact::check_blocked(txn.as_mut(), &sender_user_id).await? {
+                bail!(BlockedContactError);
+            }
 
             let welcome_attribution_info: WelcomeAttributionInfoPayload =
                 verifiable_attribution_info.verify(sender_client_credential.verifying_key())?;
@@ -401,7 +411,7 @@ impl Group {
             &as_credentials,
         )?;
 
-        // Phase 8: Decrypt and verify the infra credentials.
+        // Phase 8: Decrypt and verify the client credentials.
         {
             for client_auth_info in &client_information {
                 client_auth_info.store(txn).await?;
@@ -449,12 +459,10 @@ impl Group {
         signer: &ClientSigningKey,
         group_state_ear_key: GroupStateEarKey,
         identity_link_wrapper_key: IdentityLinkWrapperKey,
-        aad: InfraAadMessage,
+        aad: AadMessage,
         own_client_credential: &ClientCredential,
+        connection_offer_hash: ConnectionOfferHash,
     ) -> Result<(Self, MlsMessageOut, MlsMessageOut, Vec<ProfileInfo>)> {
-        // TODO: We set the ratchet tree extension for now, as it is the only
-        // way to make OpenMLS return a GroupInfo. This should change in the
-        // future.
         let mls_group_config = Self::default_mls_group_join_config();
         let credential_with_key = CredentialWithKey {
             credential: signer.credential().try_into()?,
@@ -470,21 +478,42 @@ impl Group {
         // Let's create the group first so that we can access the GroupId.
         // Phase 1: Create and store the group
         let (mls_group, commit, group_info) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
-            let (mut mls_group, commit, _) = MlsGroup::join_by_external_commit(
-                &provider,
-                signer,
-                Some(ratchet_tree_in),
-                verifiable_group_info,
-                &mls_group_config,
-                Some(default_capabilities()),
-                None,
-                &aad.tls_serialize_detached()?,
-                credential_with_key,
+            let provider = AirOpenMlsProvider::new(&mut *connection);
+            let psk_value = connection_offer_hash.into_bytes();
+            // Since the value is public information, we can also use it as an ID
+            let psk_id = PreSharedKeyId::new(
+                verifiable_group_info.ciphersuite(),
+                provider.rand(),
+                Psk::External(ExternalPsk::new(psk_value.to_vec())),
             )?;
-            mls_group.merge_pending_commit(&provider)?;
-            let group_info = mls_group.export_group_info(&provider, signer, true)?;
-            (mls_group, commit, group_info)
+            psk_id.store(&provider, &psk_value)?;
+            let psk_proposal = PreSharedKeyProposal::new(PreSharedKeyId::new(
+                verifiable_group_info.ciphersuite(),
+                provider.rand(),
+                Psk::External(ExternalPsk::new(psk_value.to_vec())),
+            )?);
+            let leaf_node_parameters = LeafNodeParameters::builder()
+                .with_capabilities(default_capabilities())
+                .build();
+            let (mls_group, commit) = ExternalCommitBuilder::new()
+                .with_aad(aad.tls_serialize_detached()?)
+                .with_config(mls_group_config)
+                .with_ratchet_tree(ratchet_tree_in)
+                .build_group(&provider, verifiable_group_info, credential_with_key)?
+                .leaf_node_parameters(leaf_node_parameters)
+                .add_psk_proposal(psk_proposal)
+                .create_group_info(true)
+                .load_psks(provider.storage())?
+                .build(provider.rand(), provider.crypto(), signer, |_| true)?
+                .finalize(&provider)?;
+
+            let (commit, _, group_info) = commit.into_contents();
+
+            (
+                mls_group,
+                commit,
+                group_info.context("No group info found")?.into(),
+            )
         };
 
         let group_id = mls_group.group_id();
@@ -527,14 +556,13 @@ impl Group {
             own_client_credential.identity().clone(),
             mls_group.group_id().clone(),
             LeafNodeIndex::new(own_index as u32),
-            own_client_credential.fingerprint(),
         );
 
         let own_auth_info =
             ClientAuthInfo::new(own_client_credential.clone(), own_group_membership);
         client_information.push(own_auth_info);
 
-        // Phase 4: Store the infra credentials.
+        // Phase 4: Store the client credentials.
         {
             for client_auth_info in client_information.iter() {
                 // Store client auth info.
@@ -587,15 +615,14 @@ impl Group {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let aad_message: InfraAadMessage =
-            InfraAadPayload::GroupOperation(GroupOperationParamsAad {
-                new_encrypted_user_profile_keys,
-            })
-            .into();
+        let aad_message: AadMessage = AadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys,
+        })
+        .into();
 
         // Set Aad to contain the encrypted client credentials.
         let (mls_commit, welcome_option, group_info_option) = {
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .set_aad(aad_message.tls_serialize_detached()?);
             self.mls_group
@@ -653,12 +680,10 @@ impl Group {
         // Stage the adds in the DB.
         let free_indices = GroupMembership::free_indices(&mut *connection, self.group_id()).await?;
         for (leaf_index, client_credential) in free_indices.zip(client_credentials) {
-            let fingerprint = client_credential.fingerprint();
             let group_membership = GroupMembership::new(
                 client_credential.identity().clone(),
                 self.group_id.clone(),
                 leaf_index,
-                fingerprint,
             );
             let client_auth_info = ClientAuthInfo::new(client_credential, group_membership);
             client_auth_info.stage_add(&mut *connection).await?;
@@ -686,12 +711,12 @@ impl Group {
         let remove_indices =
             GroupMembership::client_indices(&mut *connection, self.group_id(), &members).await?;
 
-        let aad_payload = InfraAadPayload::GroupOperation(GroupOperationParamsAad {
+        let aad_payload = AadPayload::GroupOperation(GroupOperationParamsAad {
             new_encrypted_user_profile_keys: vec![],
         });
-        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
+        let aad = AadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
-        let provider = PhnxOpenMlsProvider::new(&mut *connection);
+        let provider = AirOpenMlsProvider::new(&mut *connection);
 
         let (mls_message, _welcome_option, group_info_option) = self
             .mls_group
@@ -735,7 +760,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         signer: &ClientSigningKey,
     ) -> anyhow::Result<DeleteGroupParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(&mut *connection);
+        let provider = &AirOpenMlsProvider::new(&mut *connection);
         let remove_indices = self
             .mls_group()
             .members()
@@ -749,8 +774,8 @@ impl Group {
             .collect::<Vec<_>>();
 
         // There shouldn't be a welcome
-        let aad_payload = InfraAadPayload::DeleteGroup;
-        let aad = InfraAadMessage::from(aad_payload).tls_serialize_detached()?;
+        let aad_payload = AadPayload::DeleteGroup;
+        let aad = AadMessage::from(aad_payload).tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
 
         let (mls_message, _welcome_option, group_info_option) = self
@@ -811,7 +836,7 @@ impl Group {
             )
             .await?;
 
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group
                 .merge_staged_commit(&provider, staged_commit)?;
             staged_commit_messages
@@ -832,7 +857,7 @@ impl Group {
                 } else {
                     vec![]
                 };
-            let provider = PhnxOpenMlsProvider::new(&mut *connection);
+            let provider = AirOpenMlsProvider::new(&mut *connection);
             self.mls_group.merge_pending_commit(&provider)?;
             staged_commit_messages
         };
@@ -857,22 +882,22 @@ impl Group {
                 .members()
                 .map(|m| m.index)
                 .collect::<Vec<_>>();
-            let infra_group_members =
+            let group_member_data =
                 GroupMembership::group_members(&mut *connection, self.group_id()).await?;
-            if mls_group_members.len() != infra_group_members.len() {
+            if mls_group_members.len() != group_member_data.len() {
                 tracing::info!(?mls_group_members, "Group members according to OpenMLS");
-                tracing::info!(?infra_group_members, "Group members according to Infra");
+                tracing::info!(?group_member_data, "Group members according to DB");
                 panic!("Group members don't match up");
             }
-            let infra_indices = GroupMembership::client_indices(
+            let client_indices = GroupMembership::client_indices(
                 &mut *connection,
                 self.group_id(),
-                &infra_group_members,
+                &group_member_data,
             )
             .await?;
             self.mls_group.members().for_each(|m| {
                 let index = m.index;
-                debug_assert!(infra_indices.contains(&index));
+                debug_assert!(client_indices.contains(&index));
             });
         }
         Ok(event_messages)
@@ -942,10 +967,13 @@ impl Group {
         signer: &ClientSigningKey,
     ) -> Result<UpdateParamsOut> {
         // We don't expect there to be a welcome.
-        let aad = InfraAadMessage::from(InfraAadPayload::Update).tls_serialize_detached()?;
+        let aad = AadMessage::from(AadPayload::GroupOperation(GroupOperationParamsAad {
+            new_encrypted_user_profile_keys: Vec::new(),
+        }))
+        .tls_serialize_detached()?;
         self.mls_group.set_aad(aad);
         let (mls_message, group_info) = {
-            let provider = PhnxOpenMlsProvider::new(txn.as_mut());
+            let provider = AirOpenMlsProvider::new(txn.as_mut());
 
             let (mls_message, _welcome_option, group_info_option) = self
                 .mls_group
@@ -985,7 +1013,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         signer: &ClientSigningKey,
     ) -> Result<SelfRemoveParamsOut> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = &AirOpenMlsProvider::new(connection);
         let proposal = self.mls_group.leave_group(provider, signer)?;
 
         let assisted_message = AssistedMessageOut::new(proposal, None)?;
@@ -1000,7 +1028,7 @@ impl Group {
         connection: &mut sqlx::SqliteConnection,
         proposal: QueuedProposal,
     ) -> Result<()> {
-        let provider = &PhnxOpenMlsProvider::new(connection);
+        let provider = &AirOpenMlsProvider::new(connection);
         self.mls_group
             .store_pending_proposal(provider.storage(), proposal)?;
         Ok(())
@@ -1049,6 +1077,24 @@ impl Group {
     pub(crate) fn own_index(&self) -> LeafNodeIndex {
         self.mls_group().own_leaf_index()
     }
+
+    pub(crate) fn store_connection_offer_psk(
+        &self,
+        connection: &mut SqliteConnection,
+        connection_offer_hash: ConnectionOfferHash,
+    ) -> Result<()> {
+        let provider = AirOpenMlsProvider::new(connection);
+        let psk_value = connection_offer_hash.into_bytes();
+        PreSharedKeyId::new(
+            self.mls_group().ciphersuite(),
+            provider.rand(),
+            Psk::External(ExternalPsk::new(
+                connection_offer_hash.into_bytes().to_vec(),
+            )),
+        )?
+        .store(&provider, &psk_value)?;
+        Ok(())
+    }
 }
 
 impl TimestampedMessage {
@@ -1080,6 +1126,7 @@ impl TimestampedMessage {
             .client_credential()
             .identity()
             .clone();
+
             let removed_index = remove_proposal.remove_proposal().removed();
             let removed = ClientAuthInfo::load_staged(connection, group_id, removed_index)
                 .await?
@@ -1087,6 +1134,12 @@ impl TimestampedMessage {
                 .client_credential()
                 .identity()
                 .clone();
+
+            if remover == removed {
+                // A system message for this proposal was already made when it was proposed
+                continue;
+            }
+
             removed_set.insert((remover, removed));
         }
         let remove_messages = removed_set.into_iter().map(|(remover, removed)| {

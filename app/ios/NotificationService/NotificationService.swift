@@ -6,6 +6,8 @@
 import Foundation
 import UserNotifications
 
+private let kProtectedBlockedCategory = "protected-blocked"
+
 struct IncomingNotificationContent: Codable {
   let title: String
   let body: String
@@ -24,10 +26,10 @@ struct NotificationContent: Codable {
   let identifier: UUID
   let title: String
   let body: String
-  let conversationId: ConversationId
+  let chatId: ChatId
 }
 
-struct ConversationId: Codable {
+struct ChatId: Codable {
   let uuid: UUID
 }
 
@@ -58,16 +60,30 @@ class NotificationService: UNNotificationServiceExtension {
       return
     }
 
-    // Find the documents directory path for the databases
-    guard
-      let containerURL = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: "group.im.phnx.prototype")
-    else {
-      NSLog("NSE Could not find documents directory")
+    guard let dbUrl = getDatabasesDirectoryPath() else {
+      NSLog("NSE Could not find databases directory")
       contentHandler(request.content)
       return
     }
-    let path = containerURL.appendingPathComponent("Documents").path
+
+    // If protected data is not yet available (e.g. device never unlocked after reboot),
+    // show a minimal notification and skip DB access.
+    if !protectedDataAvailable(at: dbUrl) {
+      NSLog("NSE Protected data unavailable; sending fallback notification")
+      // Always remove any previously delivered "blocked" notifications to avoid duplicates
+      clearProtectedBlockedNotifications()
+      let fallback = UNMutableNotificationContent()
+      fallback.categoryIdentifier = kProtectedBlockedCategory
+      // TODO: This needs localization
+      fallback.title = "Unlock your device"
+      fallback.body = "You may have new messages, unlock your device to see them."
+      fallback.sound = UNNotificationSound.default
+      contentHandler(fallback)
+      return
+    }
+
+    // Ensure any previously shown "blocked" notification is removed now that data is accessible
+    clearProtectedBlockedNotifications()
 
     guard
       let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
@@ -84,7 +100,7 @@ class NotificationService: UNNotificationServiceExtension {
       title: bestAttemptContent.title,
       body: bestAttemptContent.body,
       data: data,
-      path: path,
+      path: dbUrl.path,
       logFilePath: logFilePath
     )
 
@@ -145,7 +161,7 @@ class NotificationService: UNNotificationServiceExtension {
         newContent.title = notificationContent.title
         newContent.body = notificationContent.body
         newContent.sound = UNNotificationSound.default
-        newContent.userInfo["conversationId"] = notificationContent.conversationId.uuid.uuidString
+        newContent.userInfo["chatId"] = notificationContent.chatId.uuid.uuidString
         let request = UNNotificationRequest(
           identifier: notificationContent.identifier.uuidString,
           content: newContent,
@@ -166,13 +182,86 @@ class NotificationService: UNNotificationServiceExtension {
         content.title = lastNotification.title
         content.body = lastNotification.body
         content.sound = UNNotificationSound.default
-        content.userInfo["conversationId"] = lastNotification.conversationId.uuid.uuidString
+        content.userInfo["chatId"] = lastNotification.chatId.uuid.uuidString
       }
       // Add the badge number
       content.badge = NSNumber(value: batch.badgeCount)
       // Delay the callback by 1 second so that the notifications can be removed
       DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
         contentHandler(content)
+      }
+    }
+  }
+
+  // Apply file protection
+  private func applyProtection(_ url: URL) {
+    let path = url.path
+    try? FileManager.default.setAttributes(
+      [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+      ofItemAtPath: path
+    )
+  }
+
+  // Get a databases directory path that is NOT backed up to iCloud
+  private func getDatabasesDirectoryPath() -> URL? {
+    // Use the App Group container so extensions can also access it
+    guard
+      let containerURL = FileManager.default.containerURL(
+        forSecurityApplicationGroupIdentifier: "group.ms.air"
+      )
+    else {
+      return nil
+    }
+
+    // Prefer Library/Application Support for persistent, non-user‑visible data
+    let dbsURL =
+      containerURL
+      .appendingPathComponent("Library", isDirectory: true)
+      .appendingPathComponent("Application Support", isDirectory: true)
+      .appendingPathComponent("Databases", isDirectory: true)
+
+    do {
+      try FileManager.default.createDirectory(at: dbsURL, withIntermediateDirectories: true)
+      // exclude from backups
+      var vals = URLResourceValues()
+      vals.isExcludedFromBackup = true
+      var u = dbsURL
+      try? u.setResourceValues(vals)
+
+      // enforce protection class
+      applyProtection(dbsURL)
+
+      return dbsURL
+    } catch {
+      return nil
+    }
+  }
+
+  // Check if protected data is available
+  func protectedDataAvailable(at dir: URL) -> Bool {
+    let probe = dir.appendingPathComponent(".probe")
+    // Try to read a byte or create+read; failures with EACCES/EPERM imply protected
+    do {
+      let _ = try Data(contentsOf: probe)  // or write Data() once at install time
+      return true
+    } catch let e as NSError {
+      // NSCocoaErrorDomain Code=257 or NSPOSIXErrorDomain (1/13) commonly appear
+      if e.domain == NSPOSIXErrorDomain, e.code == 1 || e.code == 13 { return false }
+      if e.domain == NSCocoaErrorDomain, e.code == 257 { return false }  // no permission
+      return true  // other errors (e.g., file not found) shouldn't block
+    }
+  }
+
+  // Remove any delivered notifications that were shown due to protected data being unavailable
+  private func clearProtectedBlockedNotifications() {
+    let center = UNUserNotificationCenter.current()
+    center.getDeliveredNotifications { notes in
+      let ids =
+        notes
+        .filter { $0.request.content.categoryIdentifier == kProtectedBlockedCategory }
+        .map { $0.request.identifier }
+      if !ids.isEmpty {
+        center.removeDeliveredNotifications(withIdentifiers: ids)
       }
     }
   }

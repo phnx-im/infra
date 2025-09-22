@@ -17,6 +17,10 @@ on:
       - 'Cargo.toml'
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
 jobs:
   ios-publish:
     runs-on: macos-latest
@@ -37,9 +41,10 @@ jobs:
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
           path: 'app/.fvmrc'
+          cache: false
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@1.89.0
+        uses: dtolnay/rust-toolchain@1.90.0
 
       - name: Set up iOS CI
         env:
@@ -49,7 +54,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: 16.4
 
       - name: Build and upload to TestFlight
         env:

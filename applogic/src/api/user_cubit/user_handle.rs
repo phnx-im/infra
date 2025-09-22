@@ -4,14 +4,14 @@
 
 use std::{collections::HashMap, convert::identity, sync::Arc};
 
-use anyhow::{Context, bail};
-use flutter_rust_bridge::frb;
-use phnxcommon::identifiers::UserHandle;
-use phnxcoreclient::{
+use aircommon::identifiers::UserHandle;
+use aircoreclient::{
     UserHandleRecord,
     clients::{HandleQueueMessage, ListenHandleResponder},
     store::Store,
 };
+use anyhow::{Context, bail};
+use flutter_rust_bridge::frb;
 use tokio::sync::{RwLock, watch};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::{CancellationToken, DropGuard};
@@ -117,7 +117,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
     }
 
     async fn create_stream(
-        &self,
+        &mut self,
     ) -> anyhow::Result<impl Stream<Item = HandleQueueMessage> + 'static> {
         let (stream, responder) = self
             .cubit_context
@@ -128,7 +128,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
         Ok(stream.filter_map(identity))
     }
 
-    async fn handle_event(&self, message: HandleQueueMessage) {
+    async fn handle_event(&mut self, message: HandleQueueMessage) {
         let message_id = message.message_id.map(From::from);
         match self
             .cubit_context
@@ -136,10 +136,10 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
             .process_handle_queue_message(&self.handle_record.handle.clone(), message)
             .await
         {
-            Ok(conversation_id) => {
+            Ok(chat_id) => {
                 let user = User::from_core_user(self.cubit_context.core_user.clone());
                 let mut notifications = Vec::with_capacity(1);
-                user.new_connection_request_notifications(&[conversation_id], &mut notifications)
+                user.new_connection_request_notifications(&[chat_id], &mut notifications)
                     .await;
                 self.cubit_context.show_notifications(notifications).await;
             }

@@ -6,14 +6,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/util/debouncer.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/user/user.dart';
+import 'package:air/util/debouncer.dart';
+import 'package:air/widgets/widgets.dart';
 import 'package:provider/provider.dart';
 
 const _listIconSize = 24.0;
@@ -55,27 +55,22 @@ class UserSettingsScreen extends StatelessWidget {
 
                   const _UserProfileData(),
 
-                  const SizedBox(height: Spacings.xs),
-                  Divider(color: Theme.of(context).hintColor),
-                  const SizedBox(height: Spacings.xs),
+                  const SettingsDivider(),
 
                   const _UserHandles(),
 
                   if (isMobilePlatform) ...[
-                    const SizedBox(height: Spacings.xs),
-                    Divider(color: Theme.of(context).hintColor),
-                    const SizedBox(height: Spacings.xs),
-
+                    const SettingsDivider(),
                     const _MobileSettings(),
                   ],
 
                   if (isDesktopPlatform) ...[
-                    const SizedBox(height: Spacings.xs),
-                    Divider(color: Theme.of(context).hintColor),
-                    const SizedBox(height: Spacings.xs),
-
+                    const SettingsDivider(),
                     const _DesktopSettings(),
                   ],
+
+                  const SettingsDivider(),
+                  const _Help(),
                 ],
               ),
             ),
@@ -297,9 +292,15 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
   @override
   void initState() {
     super.initState();
+
     setState(() {
+      final interfaceScale =
+          context.read<UserSettingsCubit>().state.interfaceScale;
+      var isLinuxAndScaled =
+          Platform.isLinux &&
+          WidgetsBinding.instance.platformDispatcher.textScaleFactor >= 1.5;
       _interfaceScaleSliderValue =
-          context.read<UserSettingsCubit>().state.interfaceScale * 100;
+          100 * (interfaceScale ?? (isLinuxAndScaled ? 1.5 : 1.0));
     });
   }
 
@@ -348,4 +349,40 @@ Color getColor(Set<WidgetState> states) {
     return Colors.brown;
   }
   return Colors.transparent;
+}
+
+class _Help extends StatelessWidget {
+  const _Help();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        ListTile(
+          leading: const Icon(Icons.help, size: _listIconSize),
+          title: Text(loc.userSettingsScreen_help),
+          onTap:
+              () => context.read<NavigationCubit>().openUserSettings(
+                screen: UserSettingsScreenType.help,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class SettingsDivider extends StatelessWidget {
+  const SettingsDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacings.xs),
+      child: Divider(color: Theme.of(context).hintColor),
+    );
+  }
 }

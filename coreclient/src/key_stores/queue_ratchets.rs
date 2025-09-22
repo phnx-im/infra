@@ -4,7 +4,7 @@
 
 use std::{ops::DerefMut, str::FromStr};
 
-use phnxcommon::{
+use aircommon::{
     crypto::{
         kdf::keys::RatchetSecret,
         ratchet::{QueueRatchet, RatchetPayload},
@@ -77,7 +77,7 @@ impl QueueType {
         query_scalar!(
             r#"SELECT
                 sequence_number AS "sequence_number: _"
-            FROM queue_ratchets WHERE queue_type = ?"#,
+            FROM queue_ratchet WHERE queue_type = ?"#,
             self
         )
         .fetch_one(executor)
@@ -93,7 +93,7 @@ impl QueueType {
             .try_into()
             .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
         query!(
-            "UPDATE queue_ratchets SET sequence_number = ? WHERE queue_type = ?",
+            "UPDATE queue_ratchet SET sequence_number = ? WHERE queue_type = ?",
             sequence_number,
             self
         )
@@ -167,7 +167,7 @@ where
 {
     async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
         query!(
-            "INSERT INTO queue_ratchets (queue_type, queue_ratchet) VALUES (?, ?)",
+            "INSERT INTO queue_ratchet (queue_type, queue_ratchet) VALUES (?, ?)",
             self.queue_type,
             self.queue_ratchet,
         )
@@ -183,7 +183,7 @@ where
         let queue_ratchet = query_scalar!(
             r#"SELECT
                 queue_ratchet AS "queue_ratchet: _"
-            FROM queue_ratchets WHERE queue_type = ?"#,
+            FROM queue_ratchet WHERE queue_type = ?"#,
             queue_type
         )
         .fetch_one(executor)
@@ -200,7 +200,7 @@ where
         queue_type: QueueType,
     ) -> sqlx::Result<()> {
         query!(
-            "UPDATE queue_ratchets SET queue_ratchet = ? WHERE queue_type = ?",
+            "UPDATE queue_ratchet SET queue_ratchet = ? WHERE queue_type = ?",
             self.queue_ratchet,
             queue_type
         )

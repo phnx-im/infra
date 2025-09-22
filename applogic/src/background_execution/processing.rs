@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcoreclient::store::Store;
+use aircoreclient::store::Store;
 use std::panic::{self, AssertUnwindSafe};
 use tokio::runtime::Builder;
 use tracing::{error, info};
@@ -20,7 +20,7 @@ pub(crate) fn error_batch(title: String, body: String) -> NotificationBatch {
             identifier: NotificationId::invalid(),
             title,
             body,
-            conversation_id: None,
+            chat_id: None,
         }],
     }
 }
@@ -80,7 +80,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
     // capture store notification in below store calls
     let pending_store_notifications = user.user.subscribe_iter();
 
-    let notifications = match user.fetch_and_process_all_messages().await {
+    let notifications = match user.fetch_and_process_all_messages_in_background().await {
         Ok(processed_messages) => {
             info!("All messages fetched and processed");
             processed_messages.notifications_content
@@ -91,7 +91,7 @@ pub(crate) async fn retrieve_messages(path: String) -> NotificationBatch {
                 identifier: NotificationId::invalid(),
                 title: "Error fetching messages".to_string(),
                 body: e.to_string(),
-                conversation_id: None,
+                chat_id: None,
             }]
         }
     };

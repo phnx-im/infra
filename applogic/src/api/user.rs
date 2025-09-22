@@ -6,10 +6,8 @@
 
 use std::cmp::Reverse;
 
-use anyhow::{Context, Result};
-use flutter_rust_bridge::frb;
-use phnxcommon::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
-use phnxcoreclient::{
+use aircommon::{DEFAULT_PORT_GRPC, identifiers::UserId, messages::push_token::PushTokenOperator};
+use aircoreclient::{
     Asset, UserProfile,
     clients::{
         CoreUser,
@@ -17,9 +15,11 @@ use phnxcoreclient::{
     },
     open_client_db,
 };
+use anyhow::{Context, Result};
+use flutter_rust_bridge::frb;
 use tracing::error;
 
-pub(crate) use phnxcommon::messages::push_token::PushToken;
+pub(crate) use aircommon::messages::push_token::PushToken;
 use url::Url;
 use uuid::Uuid;
 
@@ -94,13 +94,13 @@ impl User {
         Ok(Self { user })
     }
 
-    /// Loads all client records from the phnx database
+    /// Loads all client records from the air database
     ///
     /// Also tries to load user profile from the client database. In case the client database
     /// cannot be opened, the client record is skipped.
     pub async fn load_client_records(db_path: String) -> Result<Vec<UiClientRecord>> {
         let mut ui_records = Vec::new();
-        for record in ClientRecord::load_all_from_phnx_db(&db_path).await? {
+        for record in ClientRecord::load_all_from_air_db(&db_path).await? {
             match load_ui_record(&db_path, &record).await {
                 Ok(record) => ui_records.push(record),
                 Err(error) => {
@@ -124,7 +124,7 @@ impl User {
     /// * the most recent user with finished registration, or if none
     /// * the most recent user, if any.
     pub async fn load_default(path: String) -> Result<Option<Self>> {
-        let mut records = ClientRecord::load_all_from_phnx_db(&path).await?;
+        let mut records = ClientRecord::load_all_from_air_db(&path).await?;
         records.sort_unstable_by_key(|record| {
             let is_finished = matches!(record.client_record_state, ClientRecordState::Finished);
             Reverse((record.is_default, is_finished, record.created_at))
@@ -158,7 +158,7 @@ impl User {
         Ok(())
     }
 
-    /// Total number of unread messages across all conversations
+    /// Total number of unread messages across all chats
     #[frb(getter, type_64bit_int)]
     pub async fn global_unread_messages_count(&self) -> usize {
         self.user

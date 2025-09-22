@@ -39,12 +39,12 @@ struct EntityVecWrapper<T: Entity<CURRENT_VERSION>>(pub Vec<T>);
 
 struct StorableGroupIdRef<'a, GroupId: Key<CURRENT_VERSION>>(pub &'a GroupId);
 
-pub(crate) struct PhnxOpenMlsProvider<'a> {
+pub(crate) struct AirOpenMlsProvider<'a> {
     storage: SqliteStorageProvider<'a>,
     crypto: RustCrypto,
 }
 
-impl<'a> PhnxOpenMlsProvider<'a> {
+impl<'a> AirOpenMlsProvider<'a> {
     pub(crate) fn new(connection: &'a mut sqlx::SqliteConnection) -> Self {
         Self {
             storage: SqliteStorageProvider::new(connection),
@@ -53,7 +53,7 @@ impl<'a> PhnxOpenMlsProvider<'a> {
     }
 }
 
-impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
+impl<'a> OpenMlsProvider for AirOpenMlsProvider<'a> {
     type StorageProvider = SqliteStorageProvider<'a>;
     type CryptoProvider = RustCrypto;
     type RandProvider = RustCrypto;
@@ -73,7 +73,7 @@ impl<'a> OpenMlsProvider for PhnxOpenMlsProvider<'a> {
     }
 }
 
-impl OpenMlsRand for PhnxOpenMlsProvider<'_> {
+impl OpenMlsRand for AirOpenMlsProvider<'_> {
     type Error = PhnxRandomnessError;
 
     fn random_array<const N: usize>(&self) -> std::result::Result<[u8; N], Self::Error> {
@@ -112,10 +112,10 @@ mod tests {
     async fn randomness(pool: SqlitePool) -> anyhow::Result<()> {
         let mut connection = pool.acquire().await?;
 
-        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let provider = AirOpenMlsProvider::new(&mut connection);
         let random_vec_1 = provider.random_vec(32).unwrap();
         let random_vec_2 = provider.random_vec(32).unwrap();
-        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let provider = AirOpenMlsProvider::new(&mut connection);
         let random_vec_3 = provider.random_vec(32).unwrap();
         let random_vec_4 = provider.random_vec(32).unwrap();
         let set = [random_vec_1, random_vec_2, random_vec_3, random_vec_4]

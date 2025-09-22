@@ -4,30 +4,27 @@
 
 use std::{fmt, ops::Deref};
 
+use aircommon::{
+    crypto::hpke::{ClientIdEncryptionKey, HpkeEncryptable},
+    identifiers::{ClientConfig, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsClientId, QsReference},
+};
 use anyhow::Result;
 use openmls::prelude::{
     CredentialWithKey, Extension, Extensions, KeyPackage, LastResortExtension, SignaturePublicKey,
     UnknownExtension,
-};
-use phnxcommon::{
-    crypto::{
-        hpke::{ClientIdEncryptionKey, HpkeEncryptable},
-        kdf::keys::ConnectionKey,
-    },
-    identifiers::{ClientConfig, QS_CLIENT_REFERENCE_EXTENSION_TYPE, QsClientId, QsReference},
 };
 use sqlx::SqlitePool;
 use tls_codec::Serialize as TlsSerializeTrait;
 
 use crate::{
     clients::{CIPHERSUITE, api_clients::ApiClients},
-    groups::{default_capabilities, openmls_provider::PhnxOpenMlsProvider},
+    groups::{default_capabilities, openmls_provider::AirOpenMlsProvider},
 };
 
-use phnxcommon::{
+use aircommon::{
     credentials::keys::ClientSigningKey,
     crypto::{
-        ConnectionDecryptionKey, RatchetDecryptionKey,
+        RatchetDecryptionKey,
         ear::keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
@@ -44,8 +41,6 @@ pub(crate) mod queue_ratchets;
 pub(crate) struct MemoryUserKeyStoreBase<K> {
     // Client credential secret key
     pub(super) signing_key: K,
-    // AS-specific key material
-    pub(super) connection_decryption_key: ConnectionDecryptionKey,
     // QS-specific key material
     pub(super) qs_client_signing_key: QsClientSigningKey,
     pub(super) qs_user_signing_key: QsUserSigningKey,
@@ -54,7 +49,6 @@ pub(crate) struct MemoryUserKeyStoreBase<K> {
     pub(super) push_token_ear_key: PushTokenEarKey,
     // These are keys that we send to our contacts
     pub(super) friendship_token: FriendshipToken,
-    pub(super) connection_key: ConnectionKey,
     pub(super) wai_ear_key: WelcomeAttributionInfoEarKey,
 }
 
@@ -106,7 +100,7 @@ impl MemoryUserKeyStore {
         };
 
         let mut connection = pool.acquire().await?;
-        let provider = PhnxOpenMlsProvider::new(&mut connection);
+        let provider = AirOpenMlsProvider::new(&mut connection);
 
         let kp = KeyPackage::builder()
             .key_package_extensions(key_package_extensions)

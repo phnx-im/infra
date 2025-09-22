@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/ui/colors/palette.dart';
-import 'package:prototype/ui/colors/semantic.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/semantic.dart';
 
 class CustomColorScheme {
   final BackGroundBaseColors backgroundBase;

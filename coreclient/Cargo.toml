@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "phnxcoreclient"
+name = "aircoreclient"
 version = "0.1.0"
 authors = ["Phoenix R&D GmbH <hello@phnx.im>"]
 edition = "2024"
 publish = false
 description = "Implements the protocol logic of the client component"
+license = "AGPL-3.0-or-later"
 
 [lib]
 
@@ -18,8 +19,8 @@ openmls_traits = { workspace = true }
 openmls_rust_crypto = { workspace = true }
 tracing = "0.1.41"
 uuid = { version = "1", features = ["v4", "serde"] }
-phnxapiclient = { path = "../apiclient" }
-phnxcommon = { path = "../common" }
+airapiclient = { path = "../apiclient" }
+aircommon = { path = "../common" }
 anyhow = { version = "1.0", features = ["backtrace"] }
 # TODO: Replace this with a CSPRNG
 rand = "0.8"
@@ -43,7 +44,7 @@ openmls = { workspace = true }
 tokio-stream = { version = "0.1.17", features = ["sync"] }
 trait-variant = "0.1.2"
 enumset = "1.1.5"
-phnxprotos.workspace = true
+airprotos.workspace = true
 url = "2.5.4"
 reqwest = { workspace = true, features = ["stream"] }
 infer = "0.19.0"
@@ -52,11 +53,12 @@ webp = "0.3.0"
 sha2 = { workspace = true }
 
 [dev-dependencies]
-phnxserver_test_harness = { path = "../test_harness" }
-phnxcommon = { path = "../common", features = ["test_utils"] }
+airserver_test_harness = { path = "../test_harness" }
+aircommon = { path = "../common", features = ["test_utils"] }
 serde_json = "1.0.140"
 insta = { workspace = true, features = ["json"] }
-phnxbackend = { path = "../backend" }
+airbackend = { path = "../backend" }
+tracing-subscriber = { workspace = true }
 
 [build-dependencies]
 

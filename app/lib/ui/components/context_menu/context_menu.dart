@@ -4,9 +4,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:prototype/theme/spacings.dart';
-import 'package:prototype/ui/components/context_menu/context_menu_item_ui.dart';
-import 'package:prototype/ui/components/context_menu/context_menu_ui.dart';
+import 'package:air/theme/spacings.dart';
+import 'package:air/ui/components/context_menu/context_menu_item_ui.dart';
+import 'package:air/ui/components/context_menu/context_menu_ui.dart';
 
 enum ContextMenuDirection { left, right }
 

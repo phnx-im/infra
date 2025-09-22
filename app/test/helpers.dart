@@ -6,15 +6,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/core/core.dart';
 import 'package:uuid/uuid.dart';
 
 extension IntTestExtension on int {
-  ConversationId conversationId() =>
-      ConversationId(uuid: _intToUuidValue(this));
+  ChatId chatId() => ChatId(uuid: _intToUuidValue(this));
 
-  ConversationMessageId conversationMessageId() =>
-      ConversationMessageId(uuid: _intToUuidValue(this));
+  MessageId messageId() => MessageId(uuid: _intToUuidValue(this));
 
   /// Convert an int to a [ClientId].
   UiUserId userId({String domain = "localhost"}) =>

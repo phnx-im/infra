@@ -4,17 +4,16 @@
 
 use std::time::Duration;
 
-use phnxbackend::{
+use airbackend::{
+    air_service::BackendService,
     auth_service::AuthService,
     ds::{Ds, storage::Storage},
-    infra_service::InfraService,
     qs::Qs,
 };
-use phnxcommon::identifiers::Fqdn;
-use phnxserver::{
+use aircommon::identifiers::Fqdn;
+use airserver::{
     RateLimitsConfig, ServerRunParams,
     configurations::*,
-    dispatch::DispatchNotifier,
     enqueue_provider::SimpleEnqueueProvider,
     network_provider::MockNetworkProvider,
     push_notification_provider::ProductionPushNotificationProvider,
@@ -27,7 +26,7 @@ use tracing::info;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Configure logging/trace subscription
-    let subscriber = get_subscriber("phnxserver".into(), "info".into(), std::io::stdout);
+    let subscriber = get_subscriber("airserver".into(), "info".into(), std::io::stdout);
     init_subscriber(subscriber);
 
     // Load configuration
@@ -93,12 +92,10 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to connect to database.");
 
-    let dispatch_notifier = DispatchNotifier::new();
     let push_notification_provider =
         ProductionPushNotificationProvider::new(configuration.fcm, configuration.apns)?;
     let qs_connector = SimpleEnqueueProvider {
         qs: qs.clone(),
-        notifier: dispatch_notifier.clone(),
         push_notification_provider,
         network: network_provider.clone(),
     };
@@ -110,7 +107,6 @@ async fn main() -> anyhow::Result<()> {
         auth_service,
         qs,
         qs_connector,
-        dispatch_notifier,
         rate_limits: RateLimitsConfig {
             period: Duration::from_millis(500),
             burst_size: 20,

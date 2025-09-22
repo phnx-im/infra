@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use displaydoc::Display;
-use futures_util::Stream;
-use phnxcommon::{
-    identifiers::UserHandleHash, messages::connection_package::ConnectionPackage,
+use aircommon::{
+    identifiers::UserHandleHash, messages::connection_package::VersionedConnectionPackage,
     time::ExpirationData,
 };
-use phnxprotos::{
+use airprotos::{
     auth_service::{
         convert::UserHandleHashError,
         v1::{
@@ -19,6 +17,8 @@ use phnxprotos::{
     },
     validation::{MissingFieldError, MissingFieldExt},
 };
+use displaydoc::Display;
+use futures_util::Stream;
 use sqlx::PgPool;
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -52,7 +52,7 @@ pub(crate) trait ConnectHandleProtocol {
     async fn get_connection_package_for_handle(
         &self,
         hash: &UserHandleHash,
-    ) -> sqlx::Result<ConnectionPackage>;
+    ) -> sqlx::Result<VersionedConnectionPackage>;
 
     async fn enqueue_connection_offer(
         &self,
@@ -215,7 +215,7 @@ impl ConnectHandleProtocol for AuthService {
     async fn get_connection_package_for_handle(
         &self,
         hash: &UserHandleHash,
-    ) -> sqlx::Result<ConnectionPackage> {
+    ) -> sqlx::Result<VersionedConnectionPackage> {
         StorableConnectionPackage::load_for_handle(&self.db_pool, hash).await
     }
 
@@ -254,19 +254,21 @@ impl AuthService {
 mod tests {
     use std::time;
 
-    use mockall::predicate::*;
-    use phnxcommon::{
+    use aircommon::{
         credentials::keys::{HandleSigningKey, HandleVerifyingKey},
         time::Duration,
     };
-    use phnxprotos::auth_service::v1::{
+    use airprotos::auth_service::v1::{
         self, ConnectionOfferMessage, EnqueueConnectionOfferResponse, EnqueueConnectionOfferStep,
         FetchConnectionPackageStep,
     };
+    use mockall::predicate::*;
     use tokio::{sync::mpsc, task::JoinHandle, time::timeout};
     use tokio_stream::wrappers::ReceiverStream;
 
-    use crate::auth_service::connection_package::persistence::tests::random_connection_package;
+    use crate::auth_service::connection_package::persistence::tests::{
+        ConnectionPackageType, random_connection_package,
+    };
 
     use super::*;
 
@@ -315,7 +317,12 @@ mod tests {
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(signing_key.verifying_key().clone());
+        let connection_package = random_connection_package(
+            signing_key.verifying_key().clone(),
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
+        );
         let connection_offer = ConnectionOfferMessage::default();
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
@@ -489,7 +496,12 @@ mod tests {
 
         let hash = UserHandleHash::new([1; 32]);
         let expiration_data = ExpirationData::new(Duration::days(1));
-        let connection_package = random_connection_package(signing_key.verifying_key().clone());
+        let connection_package = random_connection_package(
+            signing_key.verifying_key().clone(),
+            ConnectionPackageType::V2 {
+                is_last_resort: false,
+            },
+        );
 
         let mut mock_protocol = MockConnectHandleProtocol::new();
 

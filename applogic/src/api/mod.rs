@@ -17,8 +17,8 @@
 //! without the `Base` suffix.
 
 pub mod attachments_repository;
-pub mod conversation_details_cubit;
-pub mod conversation_list_cubit;
+pub mod chat_details_cubit;
+pub mod chat_list_cubit;
 pub mod logging;
 pub mod markdown;
 pub mod message_content;

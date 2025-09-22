@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxbackend::{
+use airbackend::{
     messages::intra_backend::DsFanOutMessage,
     qs::{
         PushNotificationProvider, Qs, QsConnector, errors::QsEnqueueError,
@@ -10,12 +10,9 @@ use phnxbackend::{
     },
 };
 
-use crate::dispatch::DispatchNotifier;
-
 #[derive(Debug, Clone)]
 pub struct SimpleEnqueueProvider<N: NetworkProvider, P: PushNotificationProvider> {
     pub qs: Qs,
-    pub notifier: DispatchNotifier,
     pub push_notification_provider: P,
     pub network: N,
 }
@@ -27,12 +24,7 @@ impl<N: NetworkProvider, P: PushNotificationProvider> QsConnector for SimpleEnqu
         &self,
         message: DsFanOutMessage,
     ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send {
-        Qs::enqueue_message(
-            &self.qs,
-            &self.notifier,
-            &self.push_notification_provider,
-            &self.network,
-            message,
-        )
+        self.qs
+            .enqueue_message(&self.push_notification_provider, &self.network, message)
     }
 }

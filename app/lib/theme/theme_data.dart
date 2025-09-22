@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/palette.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/theme/font.dart';
-import 'package:prototype/ui/typography/font_size.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/palette.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/theme/font.dart';
+import 'package:air/ui/typography/font_size.dart';
 
 ThemeData darkTheme = themeData(Brightness.dark, darkCustomColorScheme);
 ThemeData lightTheme = themeData(Brightness.light, lightCustomColorScheme);

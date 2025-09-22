@@ -6,8 +6,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/navigation/navigation.dart';
+import 'package:air/core/core.dart';
+import 'package:air/navigation/navigation.dart';
 
 /// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
 ///
@@ -54,15 +54,15 @@ class UserCubit implements StateStreamableSource<UiUser> {
         profilePicture: profilePicture,
       );
 
-  Future<void> addUserToConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  ) => _impl.addUserToConversation(conversationId, userId);
+  Future<void> addUserToChat(ChatId chatId, UiUserId userId) =>
+      _impl.addUserToChat(chatId, userId);
 
-  Future<void> removeUserFromConversation(
-    ConversationId conversationId,
-    UiUserId userId,
-  ) => _impl.removeUserFromConversation(conversationId, userId);
+  Future<void> removeUserFromChat(ChatId chatId, UiUserId userId) =>
+      _impl.removeUserFromChat(chatId, userId);
+
+  Future<void> leaveChat(ChatId chatId) => _impl.leaveChat(chatId);
+
+  Future<void> deleteChat(ChatId chatId) => _impl.deleteChat(chatId);
 
   Future<List<UiContact>> get contacts => _impl.contacts;
 
@@ -72,6 +72,15 @@ class UserCubit implements StateStreamableSource<UiUser> {
   Future<void> removeUserHandle(UiUserHandle userHandle) =>
       _impl.removeUserHandle(userHandle: userHandle);
 
-  Future<List<UiContact>> addableContacts(ConversationId conversationId) =>
-      _impl.addableContacts(conversationId: conversationId);
+  Future<List<UiContact>> addableContacts(ChatId chatId) =>
+      _impl.addableContacts(chatId: chatId);
+
+  Future<void> blockContact(UiUserId userId) =>
+      _impl.blockContact(userId: userId);
+
+  Future<void> unblockContact(UiUserId userId) =>
+      _impl.unblockContact(userId: userId);
+
+  Future<void> reportSpam(UiUserId spammerId) =>
+      _impl.reportSpam(spammerId: spammerId);
 }

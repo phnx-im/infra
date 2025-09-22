@@ -4,13 +4,13 @@ SPDX-FileCopyrightText: 2024 Phoenix R&D GmbH <hello@phnx.im>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-# Messaging Layer Security Infrastructure Prototype
+# Air
 
-This repository contains the code for a Rust implementation of the Phoenix
+This repository contains the code for a Rust implementation of the Air
 Protocol, an infrastructure protocol built around the Messaging Layer Security
 (MLS) group messaging protocol.
 
-The Phoenix Protocol aims to enable functionality commonly required by messaging
+The Air Protocol aims to enable functionality commonly required by messaging
 applications while providing strong security and privacy guarantees. It allows
 federation between different servers and their connected clients.
 
@@ -18,7 +18,7 @@ For security, the protocol relies mainly on the strong security guarantees
 provided by the underlying MLS protocol. The authentication service required by
 the MLS protocol is a simple signature-based PKI.
 
-The documentation including the full specification for the Phoenix Protocol can
+The documentation including the full specification for the Air Protocol can
 be found [here](https://docs.phnx.im).
 
 ## Code structure
@@ -39,7 +39,7 @@ split across multiple crates:
   expose the HTTP endpoints. A `Dockerfile` is available to build a Docker image
   that contains the server binary.
 - `coreclient`: Implements the protocol logic of the client component. The
-  `coreclient` stores and manages a user's contacts, conversations, as well as
+  `coreclient` stores and manages a user's contacts, chats, as well as
   the underlying MLS groups. It provides a high-level API to make use of the
   protocol in the context of a messaging application. Just like the `backend`,
   the `coreclient` uses a type-based message verification approach. The crate

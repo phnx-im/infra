@@ -2,14 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use chrono::TimeDelta;
-use mimi_room_policy::VerifiedRoomState;
-use mls_assist::{
-    group::Group,
-    messages::{AssistedMessageIn, SerializedMlsMessage},
-    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
-};
-use phnxcommon::{
+use aircommon::{
     credentials::{ClientCredential, keys::ClientVerifyingKey},
     crypto::{
         ear::keys::GroupStateEarKey,
@@ -26,10 +19,17 @@ use phnxcommon::{
     },
     time::TimeStamp,
 };
-use phnxprotos::{
+use airprotos::{
     convert::{RefInto, TryFromRef as _, TryRefInto},
     delivery_service::v1::{self, delivery_service_server::DeliveryService, *},
     validation::{InvalidTlsExt, MissingFieldExt},
+};
+use chrono::TimeDelta;
+use mimi_room_policy::VerifiedRoomState;
+use mls_assist::{
+    group::Group,
+    messages::{AssistedMessageIn, SerializedMlsMessage},
+    openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use tls_codec::DeserializeBytes;
 use tonic::{Request, Response, Status, async_trait};
@@ -449,43 +449,6 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
         }))
     }
 
-    async fn update(
-        &self,
-        request: Request<UpdateRequest>,
-    ) -> Result<Response<UpdateResponse>, Status> {
-        let request = request.into_inner();
-
-        request
-            .signature
-            .as_ref()
-            .ok_or_missing_field("signature")?;
-
-        let LeafVerificationData {
-            ear_key,
-            group_data,
-            mut group_state,
-            sender_index,
-            message: commit,
-            ..
-        } = self.leaf_verify::<_, UpdatePayload>(request).await?;
-
-        let destination_clients: Vec<_> = group_state
-            .other_destination_clients(sender_index)
-            .collect();
-
-        let group_message = group_state.update_client(commit)?;
-        self.update_group_data(group_data, group_state, &ear_key)
-            .await?;
-
-        let timestamp = self
-            .fan_out_message(group_message, destination_clients)
-            .await?;
-
-        Ok(Response::new(UpdateResponse {
-            fanout_timestamp: Some(timestamp.into()),
-        }))
-    }
-
     async fn join_connection_group(
         &self,
         request: Request<JoinConnectionGroupRequest>,
@@ -898,10 +861,8 @@ impl From<InvalidSignature> for Status {
 
 /// Protobuf containing a qualified group id
 trait WithQualifiedGroupId {
-    #[expect(clippy::result_large_err)]
     fn qgid(&self) -> Result<QualifiedGroupId, Status>;
 
-    #[expect(clippy::result_large_err)]
     fn validated_qgid(&self, own_domain: &Fqdn) -> Result<QualifiedGroupId, Status> {
         let qgid = self.qgid()?;
         if qgid.owning_domain() == own_domain {
@@ -984,7 +945,6 @@ impl WithQualifiedGroupId for GetAttachmentUrlPayload {
 trait WithGroupStateEarKey {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey>;
 
-    #[expect(clippy::result_large_err)]
     fn ear_key(&self) -> Result<GroupStateEarKey, Status> {
         self.ear_key_proto()
             .ok_or_missing_field("group_state_ear_key")?
@@ -1012,12 +972,6 @@ impl WithGroupStateEarKey for DeleteGroupRequest {
 }
 
 impl WithGroupStateEarKey for GroupOperationRequest {
-    fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
-        self.payload.as_ref()?.group_state_ear_key.as_ref()
-    }
-}
-
-impl WithGroupStateEarKey for UpdateRequest {
     fn ear_key_proto(&self) -> Option<&v1::GroupStateEarKey> {
         self.payload.as_ref()?.group_state_ear_key.as_ref()
     }
@@ -1061,7 +1015,6 @@ impl WithGroupStateEarKey for GetAttachmentUrlRequest {
 
 /// Request containing an MLS message
 trait WithMessage {
-    #[expect(clippy::result_large_err)]
     fn message(&self) -> Result<AssistedMessageIn, Status>;
 }
 
@@ -1084,15 +1037,6 @@ impl WithMessage for GroupOperationRequest {
 }
 
 impl WithMessage for DeleteGroupRequest {
-    fn message(&self) -> Result<AssistedMessageIn, Status> {
-        let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
-        let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;
-        let commit = commit.try_ref_into().invalid_tls("commit")?;
-        Ok(commit)
-    }
-}
-
-impl WithMessage for UpdateRequest {
     fn message(&self) -> Result<AssistedMessageIn, Status> {
         let payload = self.payload.as_ref().ok_or_missing_field("payload")?;
         let commit = payload.commit.as_ref().ok_or_missing_field("commit")?;

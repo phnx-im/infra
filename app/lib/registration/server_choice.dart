@@ -5,19 +5,22 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:prototype/navigation/navigation.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/widgets/widgets.dart';
+import 'package:air/navigation/navigation.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/widgets/widgets.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:provider/provider.dart';
 
 import 'registration_cubit.dart';
 
-class ServerChoice extends StatelessWidget {
+class ServerChoice extends HookWidget {
   const ServerChoice({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final focusNode = useFocusNode();
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -53,8 +56,22 @@ class ServerChoice extends StatelessWidget {
                           ),
                           initialValue:
                               context.read<RegistrationCubit>().state.domain,
+                          focusNode: focusNode,
                           onChanged: (String value) {
                             context.read<RegistrationCubit>().setDomain(value);
+                          },
+                          onFieldSubmitted: (_) {
+                            focusNode.requestFocus();
+                            final isDomainValid =
+                                context
+                                    .read<RegistrationCubit>()
+                                    .state
+                                    .isDomainValid;
+                            if (isDomainValid) {
+                              context.read<NavigationCubit>().openIntroScreen(
+                                const IntroScreenType.displayNamePicture(),
+                              );
+                            }
                           },
                         ),
                       ),

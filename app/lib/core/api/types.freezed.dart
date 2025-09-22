@@ -12,7 +12,7 @@ part of 'types.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$UiConversationStatus {
+mixin _$UiChatStatus {
 
 
 
@@ -20,7 +20,7 @@ mixin _$UiConversationStatus {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationStatus);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus);
 }
 
 
@@ -29,15 +29,15 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'UiConversationStatus()';
+  return 'UiChatStatus()';
 }
 
 
 }
 
 /// @nodoc
-class $UiConversationStatusCopyWith<$Res>  {
-$UiConversationStatusCopyWith(UiConversationStatus _, $Res Function(UiConversationStatus) __);
+class $UiChatStatusCopyWith<$Res>  {
+$UiChatStatusCopyWith(UiChatStatus _, $Res Function(UiChatStatus) __);
 }
 
 
@@ -45,23 +45,23 @@ $UiConversationStatusCopyWith(UiConversationStatus _, $Res Function(UiConversati
 /// @nodoc
 
 
-class UiConversationStatus_Inactive extends UiConversationStatus {
-  const UiConversationStatus_Inactive(this.field0): super._();
+class UiChatStatus_Inactive extends UiChatStatus {
+  const UiChatStatus_Inactive(this.field0): super._();
   
 
- final  UiInactiveConversation field0;
+ final  UiInactiveChat field0;
 
-/// Create a copy of UiConversationStatus
+/// Create a copy of UiChatStatus
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$UiConversationStatus_InactiveCopyWith<UiConversationStatus_Inactive> get copyWith => _$UiConversationStatus_InactiveCopyWithImpl<UiConversationStatus_Inactive>(this, _$identity);
+$UiChatStatus_InactiveCopyWith<UiChatStatus_Inactive> get copyWith => _$UiChatStatus_InactiveCopyWithImpl<UiChatStatus_Inactive>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationStatus_Inactive&&(identical(other.field0, field0) || other.field0 == field0));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus_Inactive&&(identical(other.field0, field0) || other.field0 == field0));
 }
 
 
@@ -70,18 +70,18 @@ int get hashCode => Object.hash(runtimeType,field0);
 
 @override
 String toString() {
-  return 'UiConversationStatus.inactive(field0: $field0)';
+  return 'UiChatStatus.inactive(field0: $field0)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $UiConversationStatus_InactiveCopyWith<$Res> implements $UiConversationStatusCopyWith<$Res> {
-  factory $UiConversationStatus_InactiveCopyWith(UiConversationStatus_Inactive value, $Res Function(UiConversationStatus_Inactive) _then) = _$UiConversationStatus_InactiveCopyWithImpl;
+abstract mixin class $UiChatStatus_InactiveCopyWith<$Res> implements $UiChatStatusCopyWith<$Res> {
+  factory $UiChatStatus_InactiveCopyWith(UiChatStatus_Inactive value, $Res Function(UiChatStatus_Inactive) _then) = _$UiChatStatus_InactiveCopyWithImpl;
 @useResult
 $Res call({
- UiInactiveConversation field0
+ UiInactiveChat field0
 });
 
 
@@ -89,19 +89,19 @@ $Res call({
 
 }
 /// @nodoc
-class _$UiConversationStatus_InactiveCopyWithImpl<$Res>
-    implements $UiConversationStatus_InactiveCopyWith<$Res> {
-  _$UiConversationStatus_InactiveCopyWithImpl(this._self, this._then);
+class _$UiChatStatus_InactiveCopyWithImpl<$Res>
+    implements $UiChatStatus_InactiveCopyWith<$Res> {
+  _$UiChatStatus_InactiveCopyWithImpl(this._self, this._then);
 
-  final UiConversationStatus_Inactive _self;
-  final $Res Function(UiConversationStatus_Inactive) _then;
+  final UiChatStatus_Inactive _self;
+  final $Res Function(UiChatStatus_Inactive) _then;
 
-/// Create a copy of UiConversationStatus
+/// Create a copy of UiChatStatus
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
-  return _then(UiConversationStatus_Inactive(
+  return _then(UiChatStatus_Inactive(
 null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
-as UiInactiveConversation,
+as UiInactiveChat,
   ));
 }
 
@@ -111,8 +111,8 @@ as UiInactiveConversation,
 /// @nodoc
 
 
-class UiConversationStatus_Active extends UiConversationStatus {
-  const UiConversationStatus_Active(): super._();
+class UiChatStatus_Active extends UiChatStatus {
+  const UiChatStatus_Active(): super._();
   
 
 
@@ -122,7 +122,7 @@ class UiConversationStatus_Active extends UiConversationStatus {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationStatus_Active);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus_Active);
 }
 
 
@@ -131,7 +131,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'UiConversationStatus.active()';
+  return 'UiChatStatus.active()';
 }
 
 
@@ -141,7 +141,12 @@ String toString() {
 
 
 /// @nodoc
-mixin _$UiConversationType {
+
+
+class UiChatStatus_Blocked extends UiChatStatus {
+  const UiChatStatus_Blocked(): super._();
+  
+
 
 
 
@@ -149,7 +154,7 @@ mixin _$UiConversationType {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationType);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus_Blocked);
 }
 
 
@@ -158,15 +163,42 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'UiConversationType()';
+  return 'UiChatStatus.blocked()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+mixin _$UiChatType {
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatType);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'UiChatType()';
 }
 
 
 }
 
 /// @nodoc
-class $UiConversationTypeCopyWith<$Res>  {
-$UiConversationTypeCopyWith(UiConversationType _, $Res Function(UiConversationType) __);
+class $UiChatTypeCopyWith<$Res>  {
+$UiChatTypeCopyWith(UiChatType _, $Res Function(UiChatType) __);
 }
 
 
@@ -174,23 +206,23 @@ $UiConversationTypeCopyWith(UiConversationType _, $Res Function(UiConversationTy
 /// @nodoc
 
 
-class UiConversationType_HandleConnection extends UiConversationType {
-  const UiConversationType_HandleConnection(this.field0): super._();
+class UiChatType_HandleConnection extends UiChatType {
+  const UiChatType_HandleConnection(this.field0): super._();
   
 
  final  UiUserHandle field0;
 
-/// Create a copy of UiConversationType
+/// Create a copy of UiChatType
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$UiConversationType_HandleConnectionCopyWith<UiConversationType_HandleConnection> get copyWith => _$UiConversationType_HandleConnectionCopyWithImpl<UiConversationType_HandleConnection>(this, _$identity);
+$UiChatType_HandleConnectionCopyWith<UiChatType_HandleConnection> get copyWith => _$UiChatType_HandleConnectionCopyWithImpl<UiChatType_HandleConnection>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationType_HandleConnection&&(identical(other.field0, field0) || other.field0 == field0));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatType_HandleConnection&&(identical(other.field0, field0) || other.field0 == field0));
 }
 
 
@@ -199,15 +231,15 @@ int get hashCode => Object.hash(runtimeType,field0);
 
 @override
 String toString() {
-  return 'UiConversationType.handleConnection(field0: $field0)';
+  return 'UiChatType.handleConnection(field0: $field0)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $UiConversationType_HandleConnectionCopyWith<$Res> implements $UiConversationTypeCopyWith<$Res> {
-  factory $UiConversationType_HandleConnectionCopyWith(UiConversationType_HandleConnection value, $Res Function(UiConversationType_HandleConnection) _then) = _$UiConversationType_HandleConnectionCopyWithImpl;
+abstract mixin class $UiChatType_HandleConnectionCopyWith<$Res> implements $UiChatTypeCopyWith<$Res> {
+  factory $UiChatType_HandleConnectionCopyWith(UiChatType_HandleConnection value, $Res Function(UiChatType_HandleConnection) _then) = _$UiChatType_HandleConnectionCopyWithImpl;
 @useResult
 $Res call({
  UiUserHandle field0
@@ -218,23 +250,23 @@ $UiUserHandleCopyWith<$Res> get field0;
 
 }
 /// @nodoc
-class _$UiConversationType_HandleConnectionCopyWithImpl<$Res>
-    implements $UiConversationType_HandleConnectionCopyWith<$Res> {
-  _$UiConversationType_HandleConnectionCopyWithImpl(this._self, this._then);
+class _$UiChatType_HandleConnectionCopyWithImpl<$Res>
+    implements $UiChatType_HandleConnectionCopyWith<$Res> {
+  _$UiChatType_HandleConnectionCopyWithImpl(this._self, this._then);
 
-  final UiConversationType_HandleConnection _self;
-  final $Res Function(UiConversationType_HandleConnection) _then;
+  final UiChatType_HandleConnection _self;
+  final $Res Function(UiChatType_HandleConnection) _then;
 
-/// Create a copy of UiConversationType
+/// Create a copy of UiChatType
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
-  return _then(UiConversationType_HandleConnection(
+  return _then(UiChatType_HandleConnection(
 null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
 as UiUserHandle,
   ));
 }
 
-/// Create a copy of UiConversationType
+/// Create a copy of UiChatType
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -249,23 +281,23 @@ $UiUserHandleCopyWith<$Res> get field0 {
 /// @nodoc
 
 
-class UiConversationType_Connection extends UiConversationType {
-  const UiConversationType_Connection(this.field0): super._();
+class UiChatType_Connection extends UiChatType {
+  const UiChatType_Connection(this.field0): super._();
   
 
  final  UiUserProfile field0;
 
-/// Create a copy of UiConversationType
+/// Create a copy of UiChatType
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$UiConversationType_ConnectionCopyWith<UiConversationType_Connection> get copyWith => _$UiConversationType_ConnectionCopyWithImpl<UiConversationType_Connection>(this, _$identity);
+$UiChatType_ConnectionCopyWith<UiChatType_Connection> get copyWith => _$UiChatType_ConnectionCopyWithImpl<UiChatType_Connection>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationType_Connection&&(identical(other.field0, field0) || other.field0 == field0));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatType_Connection&&(identical(other.field0, field0) || other.field0 == field0));
 }
 
 
@@ -274,15 +306,15 @@ int get hashCode => Object.hash(runtimeType,field0);
 
 @override
 String toString() {
-  return 'UiConversationType.connection(field0: $field0)';
+  return 'UiChatType.connection(field0: $field0)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $UiConversationType_ConnectionCopyWith<$Res> implements $UiConversationTypeCopyWith<$Res> {
-  factory $UiConversationType_ConnectionCopyWith(UiConversationType_Connection value, $Res Function(UiConversationType_Connection) _then) = _$UiConversationType_ConnectionCopyWithImpl;
+abstract mixin class $UiChatType_ConnectionCopyWith<$Res> implements $UiChatTypeCopyWith<$Res> {
+  factory $UiChatType_ConnectionCopyWith(UiChatType_Connection value, $Res Function(UiChatType_Connection) _then) = _$UiChatType_ConnectionCopyWithImpl;
 @useResult
 $Res call({
  UiUserProfile field0
@@ -293,17 +325,17 @@ $Res call({
 
 }
 /// @nodoc
-class _$UiConversationType_ConnectionCopyWithImpl<$Res>
-    implements $UiConversationType_ConnectionCopyWith<$Res> {
-  _$UiConversationType_ConnectionCopyWithImpl(this._self, this._then);
+class _$UiChatType_ConnectionCopyWithImpl<$Res>
+    implements $UiChatType_ConnectionCopyWith<$Res> {
+  _$UiChatType_ConnectionCopyWithImpl(this._self, this._then);
 
-  final UiConversationType_Connection _self;
-  final $Res Function(UiConversationType_Connection) _then;
+  final UiChatType_Connection _self;
+  final $Res Function(UiChatType_Connection) _then;
 
-/// Create a copy of UiConversationType
+/// Create a copy of UiChatType
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
-  return _then(UiConversationType_Connection(
+  return _then(UiChatType_Connection(
 null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
 as UiUserProfile,
   ));
@@ -315,8 +347,8 @@ as UiUserProfile,
 /// @nodoc
 
 
-class UiConversationType_Group extends UiConversationType {
-  const UiConversationType_Group(): super._();
+class UiChatType_Group extends UiChatType {
+  const UiChatType_Group(): super._();
   
 
 
@@ -326,7 +358,7 @@ class UiConversationType_Group extends UiConversationType {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiConversationType_Group);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatType_Group);
 }
 
 
@@ -335,7 +367,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'UiConversationType.group()';
+  return 'UiChatType.group()';
 }
 
 
@@ -691,7 +723,7 @@ $UiEventMessageCopyWith<$Res> get field0 {
 /// @nodoc
 mixin _$UiMessageDraft {
 
- String get message; ConversationMessageId? get editingId; DateTime get updatedAt; UiMessageDraftSource get source;
+ String get message; MessageId? get editingId; DateTime get updatedAt; UiMessageDraftSource get source;
 /// Create a copy of UiMessageDraft
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -722,7 +754,7 @@ abstract mixin class $UiMessageDraftCopyWith<$Res>  {
   factory $UiMessageDraftCopyWith(UiMessageDraft value, $Res Function(UiMessageDraft) _then) = _$UiMessageDraftCopyWithImpl;
 @useResult
 $Res call({
- String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
+ String message, MessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
@@ -743,7 +775,7 @@ class _$UiMessageDraftCopyWithImpl<$Res>
   return _then(_self.copyWith(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
-as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as MessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as UiMessageDraftSource,
   ));
@@ -761,7 +793,7 @@ class _UiMessageDraft implements UiMessageDraft {
   
 
 @override final  String message;
-@override final  ConversationMessageId? editingId;
+@override final  MessageId? editingId;
 @override final  DateTime updatedAt;
 @override final  UiMessageDraftSource source;
 
@@ -795,7 +827,7 @@ abstract mixin class _$UiMessageDraftCopyWith<$Res> implements $UiMessageDraftCo
   factory _$UiMessageDraftCopyWith(_UiMessageDraft value, $Res Function(_UiMessageDraft) _then) = __$UiMessageDraftCopyWithImpl;
 @override @useResult
 $Res call({
- String message, ConversationMessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
+ String message, MessageId? editingId, DateTime updatedAt, UiMessageDraftSource source
 });
 
 
@@ -816,7 +848,7 @@ class __$UiMessageDraftCopyWithImpl<$Res>
   return _then(_UiMessageDraft(
 message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,editingId: freezed == editingId ? _self.editingId : editingId // ignore: cast_nullable_to_non_nullable
-as ConversationMessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as MessageId?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as UiMessageDraftSource,
   ));

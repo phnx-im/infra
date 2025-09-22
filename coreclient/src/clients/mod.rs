@@ -4,21 +4,17 @@
 
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Context, Result, anyhow, ensure};
-use chrono::{DateTime, Utc};
-use openmls::prelude::Ciphersuite;
-use own_client_info::OwnClientInfo;
-pub use phnxapiclient::as_api::ListenHandleResponder;
-use phnxapiclient::{ApiClient, ApiClientInitError};
-use phnxcommon::{
+pub use airapiclient::as_api::ListenHandleResponder;
+use airapiclient::{ApiClient, ApiClientInitError, qs_api::ListenResponder};
+use aircommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
         ClientCredential, ClientCredentialCsr, ClientCredentialPayload, keys::ClientSigningKey,
     },
     crypto::{
-        ConnectionDecryptionKey, RatchetDecryptionKey,
+        RatchetDecryptionKey,
         ear::{
-            EarEncryptable, EarKey, GenericSerializable,
+            EarEncryptable,
             keys::{PushTokenEarKey, WelcomeAttributionInfoEarKey},
         },
         hpke::HpkeEncryptable,
@@ -26,20 +22,22 @@ use phnxcommon::{
         signatures::keys::{QsClientSigningKey, QsUserSigningKey},
     },
     identifiers::{ClientConfig, QsClientId, QsReference, QsUserId, UserId},
-    messages::{
-        FriendshipToken, QueueMessage,
-        push_token::{EncryptedPushToken, PushToken},
-    },
+    messages::{FriendshipToken, QueueMessage, push_token::PushToken},
 };
-pub use phnxprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
-pub use phnxprotos::queue_service::v1::{
+pub use airprotos::auth_service::v1::{HandleQueueMessage, handle_queue_message};
+pub use airprotos::queue_service::v1::{
     QueueEvent, QueueEventPayload, QueueEventUpdate, queue_event,
 };
+use anyhow::{Context, Result, anyhow, ensure};
+use chrono::{DateTime, Utc};
+use openmls::prelude::Ciphersuite;
+use own_client_info::OwnClientInfo;
 
 use serde::{Deserialize, Serialize};
 use sqlx::{SqliteConnection, SqlitePool};
 use store::ClientRecord;
 use thiserror::Error;
+use tls_codec::DeserializeBytes;
 use tokio_stream::{Stream, StreamExt};
 use tracing::{error, info, warn};
 use url::Url;
@@ -51,20 +49,20 @@ use crate::{
     store::Store,
     utils::{image::resize_profile_image, persistence::delete_client_database},
 };
-use crate::{ConversationId, key_stores::as_credentials::AsCredentials};
+use crate::{ChatId, key_stores::as_credentials::AsCredentials};
 use crate::{
-    ConversationMessageId,
+    MessageId,
+    chats::{
+        Chat, ChatAttributes,
+        messages::{ChatMessage, TimestampedMessage},
+    },
     clients::connection_offer::FriendshipPackage,
     contacts::Contact,
-    conversations::{
-        Conversation, ConversationAttributes,
-        messages::{ConversationMessage, TimestampedMessage},
-    },
-    groups::openmls_provider::PhnxOpenMlsProvider,
+    groups::openmls_provider::AirOpenMlsProvider,
     key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
     store::{StoreNotification, StoreNotifier},
     user_profiles::IndexedUserProfile,
-    utils::persistence::{open_client_db, open_db_in_memory, open_phnx_db},
+    utils::persistence::{open_air_db, open_client_db, open_db_in_memory},
 };
 use crate::{store::StoreNotificationsSender, user_profiles::UserProfile};
 
@@ -73,8 +71,9 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 mod add_contact;
 pub(crate) mod api_clients;
 pub(crate) mod attachment;
+pub(crate) mod block_contact;
+pub mod chats;
 pub(crate) mod connection_offer;
-pub mod conversations;
 mod create_user;
 mod invite_users;
 mod message;
@@ -124,14 +123,14 @@ impl CoreUser {
     ) -> Result<Self> {
         info!(?user_id, "creating new user");
 
-        // Open the phnx db to store the client record
-        let phnx_db = open_phnx_db(db_path).await?;
+        // Open the air db to store the client record
+        let air_db = open_air_db(db_path).await?;
 
         // Open client specific db
         let client_db = open_client_db(&user_id, db_path).await?;
 
         Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, phnx_db, client_db,
+            user_id, server_url, grpc_port, push_token, air_db, client_db,
         )
         .await
     }
@@ -141,23 +140,18 @@ impl CoreUser {
         server_url: Url,
         grpc_port: u16,
         push_token: Option<PushToken>,
-        phnx_db: SqlitePool,
+        air_db: SqlitePool,
         client_db: SqlitePool,
     ) -> Result<Self> {
         let server_url = server_url.to_string();
         let api_clients = ApiClients::new(user_id.domain().clone(), server_url.clone(), grpc_port);
 
-        let user_creation_state = UserCreationState::new(
-            &client_db,
-            &phnx_db,
-            user_id,
-            server_url.clone(),
-            push_token,
-        )
-        .await?;
+        let user_creation_state =
+            UserCreationState::new(&client_db, &air_db, user_id, server_url.clone(), push_token)
+                .await?;
 
         let final_state = user_creation_state
-            .complete_user_creation(&phnx_db, &client_db, &api_clients)
+            .complete_user_creation(&air_db, &client_db, &api_clients)
             .await?;
 
         OwnClientInfo {
@@ -184,14 +178,14 @@ impl CoreUser {
     ) -> Result<Self> {
         info!(?user_id, "creating new ephemeral user");
 
-        // Open the phnx db to store the client record
-        let phnx_db = open_db_in_memory().await?;
+        // Open the air db to store the client record
+        let air_db = open_db_in_memory().await?;
 
         // Open client specific db
         let client_db = open_db_in_memory().await?;
 
         Self::new_with_connections(
-            user_id, server_url, grpc_port, push_token, phnx_db, client_db,
+            user_id, server_url, grpc_port, push_token, air_db, client_db,
         )
         .await
     }
@@ -207,23 +201,23 @@ impl CoreUser {
             .await?
             .context("missing user creation state")?;
 
-        let phnx_db = open_phnx_db(db_path).await?;
+        let air_db = open_air_db(db_path).await?;
         let api_clients = ApiClients::new(
             user_id.domain().clone(),
             user_creation_state.server_url(),
             DEFAULT_PORT_GRPC,
         );
         let final_state = user_creation_state
-            .complete_user_creation(&phnx_db, &client_db, &api_clients)
+            .complete_user_creation(&air_db, &client_db, &api_clients)
             .await?;
-        ClientRecord::set_default(&phnx_db, &user_id).await?;
+        ClientRecord::set_default(&air_db, &user_id).await?;
 
         Ok(final_state.into_self_user(client_db, api_clients))
     }
 
     /// Delete this user on the server and locally.
     ///
-    /// The user database is also deleted. The client record is removed from the phnx database.
+    /// The user database is also deleted. The client record is removed from the air database.
     pub async fn delete(self, db_path: &str) -> anyhow::Result<()> {
         let user_id = self.user_id().clone();
         self.delete_ephemeral().await?;
@@ -349,46 +343,37 @@ impl CoreUser {
             .unwrap_or_else(|| UserProfile::from_user_id(user_id))
     }
 
-    async fn fetch_messages_from_queue(&self, queue_type: QueueType) -> Result<Vec<QueueMessage>> {
-        let mut remaining_messages = 1;
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        let mut sequence_number = queue_type.load_sequence_number(self.pool()).await?;
+    /// Streams all messages from the queue and acks them.
+    ///
+    /// The batch of messages is returned. The stream is closed. This function is intended to be
+    /// called in the background service or tests.
+    async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
+        let (stream, responder) = self.listen_queue().await?;
 
-        while remaining_messages > 0 {
-            let api_client = self.inner.api_clients.default_client()?;
-            let mut response = match &queue_type {
-                QueueType::Qs => {
-                    api_client
-                        .qs_dequeue_messages(
-                            &self.inner.qs_client_id,
-                            sequence_number,
-                            1_000_000,
-                            &self.inner.key_store.qs_client_signing_key,
-                        )
-                        .await?
-                }
-            };
+        let messages: Vec<QueueMessage> = stream
+            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
+            .filter_map(|message| match message.event? {
+                queue_event::Event::Empty(_) => unreachable!(),
+                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
+                queue_event::Event::Payload(_) => None,
+            })
+            .collect()
+            .await;
 
-            remaining_messages = response.remaining_messages_number;
-            messages.append(&mut response.messages);
-
-            if let Some(message) = messages.last() {
-                sequence_number = message.sequence_number + 1;
-                queue_type
-                    .update_sequence_number(self.pool(), sequence_number)
-                    .await?;
-            }
+        if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
+            responder.ack(max_sequence_number + 1).await;
         }
+
         Ok(messages)
     }
 
-    /// Fetch and process AS messages
+    /// Fetch and process messages from all user handle queues.
     ///
-    /// Returns the list of [`ConversationId`]s of any newly created conversations.
-    pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ConversationId>> {
+    /// Returns the list of [`ChatId`]s of any newly created chats.
+    pub async fn fetch_and_process_handle_messages(&self) -> Result<Vec<ChatId>> {
         let records = self.user_handle_records().await?;
         let api_client = self.api_client()?;
-        let mut conversation_ids = Vec::new();
+        let mut chat_ids = Vec::new();
         for record in records {
             let (mut stream, responder) = api_client
                 .as_listen_handle(record.hash, &record.signing_key)
@@ -402,8 +387,8 @@ impl CoreUser {
                     .process_handle_queue_message(&record.handle, message)
                     .await
                 {
-                    Ok(conversation_id) => {
-                        conversation_ids.push(conversation_id);
+                    Ok(chat_id) => {
+                        chat_ids.push(chat_id);
                     }
                     Err(error) => {
                         error!(%error, "failed to process handle queue message");
@@ -413,11 +398,35 @@ impl CoreUser {
                 responder.ack(message_id.into()).await;
             }
         }
-        Ok(conversation_ids)
+        Ok(chat_ids)
+    }
+
+    /// Fetches all messages from all user handle queues and returns them.
+    ///
+    /// Used in integration tests
+    pub async fn fetch_handle_messages(&self) -> Result<Vec<HandleQueueMessage>> {
+        let records = self.user_handle_records().await?;
+        let api_client = self.api_client()?;
+        let mut messages = Vec::new();
+        for record in records {
+            let (mut stream, responder) = api_client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(Some(message)) = stream.next().await {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                // ack the message independently of the result of processing the message
+                responder.ack(message_id.into()).await;
+                messages.push(message);
+            }
+        }
+        Ok(messages)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue(QueueType::Qs).await
+        self.fetch_messages_from_queue().await
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
@@ -449,45 +458,70 @@ impl CoreUser {
         }
     }
 
-    /// Returns None if there is no conversation with the given id.
-    pub async fn conversation_participants(
-        &self,
-        conversation_id: ConversationId,
-    ) -> Option<HashSet<UserId>> {
-        self.try_conversation_participants(conversation_id)
-            .await
-            .ok()?
+    /// Returns None if there is no chat with the given id.
+    pub async fn mls_chat_participants(&self, chat_id: ChatId) -> Option<HashSet<UserId>> {
+        self.try_mls_chat_participants(chat_id).await.ok()?
     }
 
-    pub(crate) async fn try_conversation_participants(
+    pub(crate) async fn try_mls_chat_participants(
         &self,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
     ) -> Result<Option<HashSet<UserId>>> {
         let mut connection = self.pool().acquire().await?;
-        let Some(conversation) = Conversation::load(&mut connection, &conversation_id).await?
-        else {
+        let Some(chat_id) = Chat::load(&mut connection, &chat_id).await? else {
             return Ok(None);
         };
-        let Some(group) = Group::load(&mut connection, conversation.group_id()).await? else {
+        let Some(group) = Group::load(&mut connection, chat_id.group_id()).await? else {
             return Ok(None);
         };
         Ok(Some(group.members(&mut *connection).await))
     }
 
-    pub async fn pending_removes(&self, conversation_id: ConversationId) -> Option<Vec<UserId>> {
+    /// Returns None if there is no chat with the given id.
+    pub async fn chat_participants(&self, chat_id: ChatId) -> Option<HashSet<UserId>> {
+        self.try_chat_participants(chat_id).await.ok()?
+    }
+
+    pub(crate) async fn try_chat_participants(
+        &self,
+        chat_id: ChatId,
+    ) -> Result<Option<HashSet<UserId>>> {
+        let mut connection = self.pool().acquire().await?;
+        let Some(chat) = Chat::load(&mut connection, &chat_id).await? else {
+            return Ok(None);
+        };
+        let Some(group) = Group::load(&mut connection, chat.group_id()).await? else {
+            return Ok(None);
+        };
+        let users = group
+            .room_state
+            .users()
+            .keys()
+            .map(|bytes| Ok(UserId::tls_deserialize_exact_bytes(bytes)?))
+            .collect::<Result<HashSet<_>>>()?;
+        Ok(Some(users))
+    }
+
+    pub async fn pending_removes(&self, chat_id: ChatId) -> Option<Vec<UserId>> {
         let mut connection = self.pool().acquire().await.ok()?;
-        let conversation = Conversation::load(&mut connection, &conversation_id)
-            .await
-            .ok()??;
-        let group = Group::load(&mut connection, conversation.group_id())
-            .await
-            .ok()??;
+        let chat = Chat::load(&mut connection, &chat_id).await.ok()??;
+        let group = Group::load(&mut connection, chat.group_id()).await.ok()??;
         Some(group.pending_removes(&mut connection).await)
     }
 
-    pub async fn listen_queue(&self) -> Result<impl Stream<Item = QueueEvent> + use<>> {
+    pub async fn listen_queue(
+        &self,
+    ) -> Result<(impl Stream<Item = QueueEvent> + use<>, QsListenResponder)> {
+        let sequence_number_start = QueueType::Qs.load_sequence_number(self.pool()).await?;
         let api_client = self.inner.api_clients.default_client()?;
-        Ok(api_client.listen_queue(self.inner.qs_client_id).await?)
+        let (stream, responder) = api_client
+            .listen_queue(self.inner.qs_client_id, sequence_number_start)
+            .await?;
+        let responder = QsListenResponder {
+            responder,
+            pool: self.pool().clone(),
+        };
+        Ok((stream, responder))
     }
 
     pub async fn listen_handle(
@@ -517,14 +551,14 @@ impl CoreUser {
         }
     }
 
-    /// Mark all messages in the conversation with the given conversation id and
+    /// Mark all messages in the chat with the given chat id and
     /// with a timestamp older than the given timestamp as read.
-    pub async fn mark_as_read<T: IntoIterator<Item = (ConversationId, DateTime<Utc>)>>(
+    pub async fn mark_as_read<T: IntoIterator<Item = (ChatId, DateTime<Utc>)>>(
         &self,
         mark_as_read_data: T,
     ) -> anyhow::Result<()> {
         let mut notifier = self.store_notifier();
-        Conversation::mark_as_read(
+        Chat::mark_as_read(
             self.pool().acquire().await?.as_mut(),
             &mut notifier,
             mark_as_read_data,
@@ -534,32 +568,26 @@ impl CoreUser {
         Ok(())
     }
 
-    /// Returns how many messages are marked as unread across all conversations.
+    /// Returns how many messages are marked as unread across all chats.
     pub async fn global_unread_messages_count(&self) -> sqlx::Result<usize> {
-        Conversation::global_unread_message_count(self.pool()).await
+        Chat::global_unread_message_count(self.pool()).await
     }
 
-    /// Returns how many messages in the conversation with the given ID are
+    /// Returns how many messages in the chat with the given ID are
     /// marked as unread.
-    pub async fn unread_messages_count(&self, conversation_id: ConversationId) -> usize {
-        Conversation::unread_messages_count(self.pool(), conversation_id)
+    pub async fn unread_messages_count(&self, chat_id: ChatId) -> usize {
+        Chat::unread_messages_count(self.pool(), chat_id)
             .await
             .inspect_err(|error| error!(%error, "Error while fetching unread messages count"))
             .unwrap_or(0)
     }
 
-    pub(crate) async fn try_messages_count(
-        &self,
-        conversation_id: ConversationId,
-    ) -> sqlx::Result<usize> {
-        Conversation::messages_count(self.pool(), conversation_id).await
+    pub(crate) async fn try_messages_count(&self, chat_id: ChatId) -> sqlx::Result<usize> {
+        Chat::messages_count(self.pool(), chat_id).await
     }
 
-    pub(crate) async fn try_unread_messages_count(
-        &self,
-        conversation_id: ConversationId,
-    ) -> sqlx::Result<usize> {
-        Conversation::unread_messages_count(self.pool(), conversation_id).await
+    pub(crate) async fn try_unread_messages_count(&self, chat_id: ChatId) -> sqlx::Result<usize> {
+        Chat::unread_messages_count(self.pool(), chat_id).await
     }
 
     /// Updates the client's push token on the QS.
@@ -577,12 +605,8 @@ impl CoreUser {
         // Encrypt the push token, if there is one.
         let encrypted_push_token = match push_token {
             Some(push_token) => {
-                let encrypted_push_token = EncryptedPushToken::from(
-                    self.inner
-                        .key_store
-                        .push_token_ear_key
-                        .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-                );
+                let encrypted_push_token =
+                    push_token.encrypt(&self.inner.key_store.push_token_ear_key)?;
                 Some(encrypted_push_token)
             }
             None => None,
@@ -608,14 +632,13 @@ impl CoreUser {
     async fn store_new_messages(
         connection: &mut sqlx::SqliteConnection,
         notifier: &mut StoreNotifier,
-        conversation_id: ConversationId,
+        chat_id: ChatId,
         group_messages: Vec<TimestampedMessage>,
-    ) -> Result<Vec<ConversationMessage>> {
+    ) -> Result<Vec<ChatMessage>> {
         let mut stored_messages = Vec::with_capacity(group_messages.len());
         for timestamped_message in group_messages.into_iter() {
-            let message_id = ConversationMessageId::random();
-            let mut message =
-                ConversationMessage::new(conversation_id, message_id, timestamped_message);
+            let message_id = MessageId::random();
+            let mut message = ChatMessage::new(chat_id, message_id, timestamped_message);
             let attachment_records = Self::extract_attachments(&mut message);
             message.store(&mut *connection, notifier).await?;
             for (record, pending_record) in attachment_records {
@@ -638,6 +661,19 @@ impl CoreUser {
             .await
             // We unwrap here, because we know that the user exists.
             .map(|user_option| user_option.unwrap().into())
+    }
+
+    pub async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()> {
+        self.inner
+            .api_clients
+            .default_client()?
+            .as_report_spam(
+                self.user_id().clone(),
+                spammer_id,
+                &self.inner.key_store.signing_key,
+            )
+            .await?;
+        Ok(())
     }
 
     /// Executes a function with a transaction.
@@ -679,5 +715,27 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
+    }
+}
+
+#[derive(Debug)]
+pub struct QsListenResponder {
+    responder: ListenResponder,
+    pool: SqlitePool,
+}
+
+impl QsListenResponder {
+    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
+        if self.responder.ack(up_to_sequence_number).await {
+            QueueType::Qs
+                .update_sequence_number(&self.pool, up_to_sequence_number)
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to update QS sequence number");
+                })
+                .is_ok()
+        } else {
+            false
+        }
     }
 }

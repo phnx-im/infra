@@ -48,8 +48,8 @@ graph LR
     subgraph k8s namespace
         ingress -->|http 80| backend["Backend<br>Service"]
         ingress -->|grpc 50051| backend
-        backend --> phnxserver["phnxserver<br>Pod"]
+        backend --> airserver["airserver<br>Pod"]
     end
 
-    phnxserver --> postgres["postgres<br>Database<br>(managed)"]
+    airserver --> postgres["postgres<br>Database<br>(managed)"]
 ```

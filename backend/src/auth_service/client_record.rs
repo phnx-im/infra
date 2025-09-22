@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use phnxcommon::{credentials::ClientCredential, identifiers::UserId, time::TimeStamp};
+use aircommon::{credentials::ClientCredential, identifiers::UserId, time::TimeStamp};
 use sqlx::PgExecutor;
 
 use crate::errors::StorageError;
@@ -38,7 +38,7 @@ impl ClientRecord {
 }
 
 pub(crate) mod persistence {
-    use phnxcommon::credentials::persistence::FlatClientCredential;
+    use aircommon::credentials::persistence::FlatClientCredential;
     use sqlx::{
         PgExecutor, query,
         types::chrono::{DateTime, Utc},
@@ -55,7 +55,7 @@ pub(crate) mod persistence {
             let client_credential = FlatClientCredential::new(&self.credential);
             let user_id = self.credential.identity();
             query!(
-                "INSERT INTO as_client_records (
+                "INSERT INTO as_client_record (
                     user_uuid,
                     user_domain,
                     activity_time,
@@ -81,7 +81,7 @@ pub(crate) mod persistence {
             let client_credential = FlatClientCredential::new(&self.credential);
             let user_id = self.credential.identity();
             query!(
-                "UPDATE as_client_records SET
+                "UPDATE as_client_record SET
                     activity_time = $1,
                     credential = $2,
                     remaining_tokens = $3
@@ -106,7 +106,7 @@ pub(crate) mod persistence {
                     activity_time,
                     credential AS "credential: FlatClientCredential",
                     remaining_tokens
-                FROM as_client_records
+                FROM as_client_record
                 WHERE user_uuid = $1 AND user_domain = $2"#,
                 user_id.uuid(),
                 user_id.domain() as _,
@@ -129,7 +129,7 @@ pub(crate) mod persistence {
             user_id: &UserId,
         ) -> Result<(), StorageError> {
             query!(
-                "DELETE FROM as_client_records WHERE user_uuid = $1",
+                "DELETE FROM as_client_record WHERE user_uuid = $1",
                 user_id.uuid(),
             )
             .execute(connection)
@@ -145,7 +145,7 @@ pub(crate) mod persistence {
         ) -> Result<Vec<ClientCredential>, StorageError> {
             let credentials = sqlx::query_scalar!(
                 r#"SELECT credential as "client_credential: FlatClientCredential"
-                FROM as_client_records
+                FROM as_client_record
                 WHERE user_uuid = $1 AND user_domain = $2"#,
                 user_id.uuid(),
                 user_id.domain() as _,
@@ -162,12 +162,12 @@ pub(crate) mod persistence {
 
     #[cfg(test)]
     pub(crate) mod tests {
-        use mls_assist::openmls::prelude::SignatureScheme;
-        use phnxcommon::{
+        use aircommon::{
             credentials::{ClientCredentialCsr, ClientCredentialPayload},
             crypto::{hash::Hash, signatures::signable::Signature},
             time::{Duration, ExpirationData},
         };
+        use mls_assist::openmls::prelude::SignatureScheme;
         use sqlx::PgPool;
 
         use crate::auth_service::user_record::persistence::tests::store_random_user_record;

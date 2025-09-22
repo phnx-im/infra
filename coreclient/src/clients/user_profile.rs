@@ -2,18 +2,19 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use anyhow::Context;
-use phnxcommon::{
+use aircommon::{
     crypto::indexed_aead::{
         ciphertexts::{IndexDecryptable, IndexEncryptable},
         keys::UserProfileKey,
     },
     messages::{client_as_out::GetUserProfileResponse, client_ds::UserProfileKeyUpdateParams},
 };
+use anyhow::Context;
 use sqlx::SqliteConnection;
 
 use crate::{
-    Contact,
+    ChatId,
+    clients::block_contact::BlockedContact,
     groups::{Group, ProfileInfo},
     key_stores::indexed_keys::StorableIndexedKey,
     store::StoreNotifier,
@@ -76,6 +77,12 @@ impl CoreUser {
             let group = Group::load(&mut connection, &group_id)
                 .await?
                 .context("Failed to load group")?;
+
+            let chat_id = ChatId::try_from(&group_id).context("invalid group id")?;
+            if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
+                continue; // Skip blocked chats
+            }
+
             let own_index = group.own_index();
             let user_profile_key =
                 user_profile_key.encrypt(group.identity_link_wrapper_key(), own_user_id)?;
@@ -137,8 +144,6 @@ impl CoreUser {
         user_profile_key.store(&mut *connection).await?;
         persistable_user_profile
             .persist(&mut *connection, notifier)
-            .await?;
-        Contact::update_user_profile_key_index(&mut *connection, user_id, user_profile_key.index())
             .await?;
         if let Some(old_user_profile_index) = persistable_user_profile.old_profile_index() {
             // Delete the old user profile key

@@ -6,14 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/developer/developer.dart';
-import 'package:prototype/home_screen.dart';
-import 'package:prototype/intro_screen.dart';
-import 'package:prototype/registration/registration.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/user/user.dart';
-import 'package:prototype/core/core.dart';
+import 'package:air/chat_details/chat_details.dart';
+import 'package:air/developer/developer.dart';
+import 'package:air/home_screen.dart';
+import 'package:air/intro_screen.dart';
+import 'package:air/registration/registration.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/user/user.dart';
+import 'package:air/core/core.dart';
 
 import 'navigation_cubit.dart';
 
@@ -170,6 +170,8 @@ extension on IntroScreenType {
 
 /// Convert [HomeNavigation] state into a list of pages.
 extension on HomeNavigationState {
+  ChatId? get openChatId => chatOpen ? chatId : null;
+
   List<MaterialPage> pages(ResponsiveScreenType screenType) {
     const homeScreenPage = NoAnimationPage(
       key: ValueKey("home-screen"),
@@ -206,31 +208,30 @@ extension on HomeNavigationState {
             child: AddUserHandleScreen(),
           ),
         ],
+        UserSettingsScreenType.help => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-help"),
+            child: HelpScreen(),
+          ),
+        ],
       },
-      if (conversationId != null &&
-          conversationOpen &&
-          screenType == ResponsiveScreenType.mobile)
+      if (openChatId != null && screenType == ResponsiveScreenType.mobile)
+        const MaterialPage(key: ValueKey("chat-screen"), child: ChatScreen()),
+      if (openChatId != null && chatDetailsOpen)
         const MaterialPage(
-          key: ValueKey("conversation-screen"),
-          child: ConversationScreen(),
+          key: ValueKey("chat-details-screen"),
+          child: ChatDetailsScreen(),
         ),
-      if (conversationId != null && conversationOpen && conversationDetailsOpen)
+      if (openChatId != null && chatDetailsOpen && memberDetails != null)
         const MaterialPage(
-          key: ValueKey("conversation-details-screen"),
-          child: ConversationDetailsScreen(),
-        ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
-          memberDetails != null)
-        const MaterialPage(
-          key: ValueKey("conversation-member-details-screen"),
+          key: ValueKey("chat-member-details-screen"),
           child: MemberDetailsScreen(),
         ),
-      if (conversationId != null &&
-          conversationOpen &&
-          conversationDetailsOpen &&
-          addMembersOpen)
+      if (openChatId != null && chatDetailsOpen && addMembersOpen)
         const MaterialPage(
           key: ValueKey("add-members-screen"),
           child: AddMembersScreen(),

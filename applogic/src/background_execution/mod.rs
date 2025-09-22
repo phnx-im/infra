@@ -14,12 +14,13 @@ pub mod java_api;
 #[cfg(target_os = "ios")]
 pub mod swift_api;
 
-#[expect(
+#[allow(
     dead_code,
     reason = "used only on Android/iOS but is compiled for all targets"
 )]
 pub(crate) mod processing;
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct IncomingNotificationContent {

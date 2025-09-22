@@ -4,18 +4,19 @@
 
 import 'dart:async';
 
+import 'package:air/user/user_settings_cubit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logging/logging.dart';
-import 'package:prototype/conversation_details/conversation_details.dart';
-import 'package:prototype/core/core.dart';
-import 'package:prototype/l10n/l10n.dart' show AppLocalizations;
-import 'package:prototype/main.dart';
-import 'package:prototype/theme/theme.dart';
-import 'package:prototype/ui/colors/themes.dart';
-import 'package:prototype/ui/typography/font_size.dart';
-import 'package:prototype/util/debouncer.dart';
+import 'package:air/chat_details/chat_details.dart';
+import 'package:air/core/core.dart';
+import 'package:air/l10n/l10n.dart' show AppLocalizations;
+import 'package:air/main.dart';
+import 'package:air/theme/theme.dart';
+import 'package:air/ui/colors/themes.dart';
+import 'package:air/ui/typography/font_size.dart';
+import 'package:air/util/debouncer.dart';
 import 'package:provider/provider.dart';
 
 import 'message_renderer.dart';
@@ -35,9 +36,9 @@ class _MessageComposerState extends State<MessageComposer>
   final Debouncer _storeDraftDebouncer = Debouncer(
     delay: const Duration(milliseconds: 500),
   );
-  StreamSubscription<ConversationDetailsState>? _draftLoadingSubscription;
+  StreamSubscription<ChatDetailsState>? _draftLoadingSubscription;
   final _focusNode = FocusNode();
-  late ConversationDetailsCubit _conversationDetailsCubit;
+  late ChatDetailsCubit _chatDetailsCubit;
   bool _keyboardVisible = false;
   bool _inputIsEmpty = true;
 
@@ -49,17 +50,15 @@ class _MessageComposerState extends State<MessageComposer>
         (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
     _inputController.addListener(_onTextChanged);
 
-    _conversationDetailsCubit = context.read<ConversationDetailsCubit>();
+    _chatDetailsCubit = context.read<ChatDetailsCubit>();
 
     // Propagate draft changes to the text field.
     // In particular, this sets the draft message on initial load, if any.
 
-    _draftLoadingSubscription = _conversationDetailsCubit.stream.listen((
-      state,
-    ) {
-      if (state.conversation != null) {
+    _draftLoadingSubscription = _chatDetailsCubit.stream.listen((state) {
+      if (state.chat != null) {
         // state is fully loaded
-        if (state.conversation?.draft case final draft?) {
+        if (state.chat?.draft case final draft?) {
           // We have a draft
           // Ignore user drafts, those were input here and just reflect the change state.
 
@@ -85,7 +84,7 @@ class _MessageComposerState extends State<MessageComposer>
     WidgetsBinding.instance.removeObserver(this);
     _storeDraftDebouncer.dispose();
 
-    _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
+    _chatDetailsCubit.storeDraft(draftMessage: _inputController.text);
     _inputController.dispose();
 
     _draftLoadingSubscription?.cancel();
@@ -108,14 +107,14 @@ class _MessageComposerState extends State<MessageComposer>
 
   @override
   Widget build(BuildContext context) {
-    final (conversationTitle, editingId) = context.select(
-      (ConversationDetailsCubit cubit) => (
-        cubit.state.conversation?.title,
-        cubit.state.conversation?.draft?.editingId,
+    final (chatTitle, editingId) = context.select(
+      (ChatDetailsCubit cubit) => (
+        cubit.state.chat?.title,
+        cubit.state.chat?.draft?.editingId,
       ),
     );
 
-    if (conversationTitle == null) {
+    if (chatTitle == null) {
       return const SizedBox.shrink();
     }
 
@@ -148,7 +147,7 @@ class _MessageComposerState extends State<MessageComposer>
                 child: _MessageInput(
                   focusNode: _focusNode,
                   controller: _inputController,
-                  conversationTitle: conversationTitle,
+                  chatTitle: chatTitle,
                   isEditing: editingId != null,
                 ),
               ),
@@ -167,7 +166,7 @@ class _MessageComposerState extends State<MessageComposer>
                   color: CustomColorScheme.of(context).text.primary,
                   hoverColor: const Color(0x00FFFFFF),
                   onPressed: () {
-                    context.read<ConversationDetailsCubit>().resetDraft();
+                    context.read<ChatDetailsCubit>().resetDraft();
                     _inputController.clear();
                   },
                 ),
@@ -201,19 +200,19 @@ class _MessageComposerState extends State<MessageComposer>
 
   // Key events
   KeyEventResult _onKeyEvent(
-    ConversationDetailsCubit conversationDetailCubit,
+    ChatDetailsCubit chatDetailCubit,
     FocusNode node,
     KeyEvent evt,
   ) {
     if (evt.logicalKey == LogicalKeyboardKey.enter &&
         evt is KeyDownEvent &&
         HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
-      _submitMessage(conversationDetailCubit);
+      _submitMessage(chatDetailCubit);
       return KeyEventResult.handled;
     } else if (evt.logicalKey == LogicalKeyboardKey.arrowUp &&
         evt is KeyDownEvent &&
         HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
-      return _editMessage(conversationDetailCubit)
+      return _editMessage(chatDetailCubit)
           ? KeyEventResult.handled
           : KeyEventResult.ignored;
     } else {
@@ -221,14 +220,14 @@ class _MessageComposerState extends State<MessageComposer>
     }
   }
 
-  void _submitMessage(ConversationDetailsCubit conversationDetailsCubit) async {
+  void _submitMessage(ChatDetailsCubit chatDetailsCubit) async {
     final messageText = _inputController.text.trim();
     if (messageText.isEmpty) {
       return;
     }
 
     // FIXME: Handle errors
-    conversationDetailsCubit.sendMessage(messageText);
+    chatDetailsCubit.sendMessage(messageText);
 
     setState(() {
       _inputController.clear();
@@ -236,11 +235,11 @@ class _MessageComposerState extends State<MessageComposer>
     });
   }
 
-  bool _editMessage(ConversationDetailsCubit cubit) {
+  bool _editMessage(ChatDetailsCubit cubit) {
     if (_inputController.text.trim().isNotEmpty) {
       return false;
     }
-    if (cubit.state.conversation?.draft?.editingId != null) {
+    if (cubit.state.chat?.draft?.editingId != null) {
       return false;
     }
     cubit.editMessage();
@@ -259,7 +258,7 @@ class _MessageComposerState extends State<MessageComposer>
       return;
     }
 
-    final cubit = context.read<ConversationDetailsCubit>();
+    final cubit = context.read<ChatDetailsCubit>();
     try {
       await cubit.uploadAttachment(file.path);
     } catch (e) {
@@ -276,7 +275,7 @@ class _MessageComposerState extends State<MessageComposer>
       _inputIsEmpty = _inputController.text.trim().isEmpty;
     });
     _storeDraftDebouncer.run(() {
-      _conversationDetailsCubit.storeDraft(draftMessage: _inputController.text);
+      _chatDetailsCubit.storeDraft(draftMessage: _inputController.text);
     });
   }
 }
@@ -285,19 +284,21 @@ class _MessageInput extends StatelessWidget {
   const _MessageInput({
     required FocusNode focusNode,
     required TextEditingController controller,
-    required this.conversationTitle,
+    required this.chatTitle,
     required this.isEditing,
   }) : _focusNode = focusNode,
        _controller = controller;
 
   final FocusNode _focusNode;
   final TextEditingController _controller;
-  final String? conversationTitle;
+  final String? chatTitle;
   final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
-    final smallScreen = isSmallScreen(context);
+    final sendOnEnter = context.select(
+      (UserSettingsCubit cubit) => cubit.state.sendOnEnter,
+    );
 
     final loc = AppLocalizations.of(context);
 
@@ -335,13 +336,13 @@ class _MessageInput extends StatelessWidget {
           minLines: 1,
           maxLines: 10,
           decoration: InputDecoration(
-            hintText: loc.composer_inputHint(conversationTitle ?? ""),
+            hintText: loc.composer_inputHint(chatTitle ?? ""),
             hintStyle: TextStyle(
               color: CustomColorScheme.of(context).text.tertiary,
             ),
           ).copyWith(filled: false),
           textInputAction:
-              smallScreen ? TextInputAction.send : TextInputAction.newline,
+              sendOnEnter ? TextInputAction.send : TextInputAction.newline,
           onEditingComplete: () => _focusNode.requestFocus(),
           keyboardType: TextInputType.multiline,
           textCapitalization: TextCapitalization.sentences,

@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -13,8 +16,14 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
 }
 
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    namespace = "im.phnx.prototype"
+    namespace = "ms.air"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -29,7 +38,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "im.phnx.prototype"
+        applicationId = "ms.air"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -38,11 +47,24 @@ android {
         versionName = flutter.versionName
     }
 
+    // Create a release signing configuration only if required keys are present
+    signingConfigs {
+        val keyAlias = keystoreProperties["keyAlias"] as? String ?: return@signingConfigs
+        val keyPassword = keystoreProperties["keyPassword"] as? String ?: return@signingConfigs
+        val storeFile = keystoreProperties["storeFile"]?.let { file(it) } ?: return@signingConfigs
+        val storePassword = keystoreProperties["storePassword"] as? String ?: return@signingConfigs
+
+        create("release") {
+            this.keyAlias = keyAlias
+            this.keyPassword = keyPassword
+            this.storeFile = storeFile
+            this.storePassword = storePassword
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -52,7 +74,7 @@ android {
         create("dev") {
             dimension = "environment"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "prototype (dev)")
+            resValue("string", "app_name", "Air (dev)")
             isDefault = true
         }
         create("prod") {

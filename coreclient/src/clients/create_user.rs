@@ -11,20 +11,18 @@ use crate::{
     },
     user_profiles::generate::NewUserProfile,
 };
-use phnxcommon::{
+use aircommon::{
     credentials::{
         AsIntermediateCredential, VerifiableClientCredential, keys::PreliminaryClientSigningKey,
     },
     crypto::{
-        ear::{EarKey, GenericSerializable},
         indexed_aead::{ciphertexts::IndexEncryptable, keys::UserProfileKey},
-        kdf::keys::ConnectionKey,
         signatures::{DEFAULT_SIGNATURE_SCHEME, signable::Verifiable},
     },
     messages::{
         client_as_out::EncryptedUserProfile,
         client_qs::CreateUserRecordResponse,
-        connection_package::ConnectionPackage,
+        connection_package_v1::ConnectionPackageV1,
         push_token::{EncryptedPushToken, PushToken},
     },
 };
@@ -94,31 +92,22 @@ impl BasicUserData {
         // TODO: The following keys should be derived from a single
         // friendship key. Once that's done, remove the random constructors.
         let friendship_token = FriendshipToken::random()?;
-        let connection_key = ConnectionKey::random()?;
         let wai_ear_key: WelcomeAttributionInfoEarKey = WelcomeAttributionInfoEarKey::random()?;
         let push_token_ear_key = PushTokenEarKey::random()?;
 
-        let connection_decryption_key = ConnectionDecryptionKey::generate()?;
-
         let key_store = MemoryUserKeyStoreBase {
             signing_key: prelim_signing_key,
-            connection_decryption_key,
             qs_client_signing_key,
             qs_user_signing_key,
             qs_queue_decryption_key,
             push_token_ear_key,
             friendship_token,
-            connection_key,
             wai_ear_key,
             qs_client_id_encryption_key: qs_encryption_key,
         };
 
         let encrypted_push_token = match self.push_token {
-            Some(push_token) => Some(EncryptedPushToken::from(
-                key_store
-                    .push_token_ear_key
-                    .encrypt(GenericSerializable::serialize(&push_token)?.as_slice())?,
-            )),
+            Some(push_token) => Some(push_token.encrypt(&key_store.push_token_ear_key)?),
             None => None,
         };
 
@@ -241,13 +230,11 @@ impl PostAsRegistrationState {
         // Replace preliminary signing key in the key store
         let key_store = MemoryUserKeyStore {
             signing_key,
-            connection_decryption_key: key_store.connection_decryption_key,
             qs_client_signing_key: key_store.qs_client_signing_key,
             qs_user_signing_key: key_store.qs_user_signing_key,
             qs_queue_decryption_key: key_store.qs_queue_decryption_key,
             push_token_ear_key: key_store.push_token_ear_key,
             friendship_token: key_store.friendship_token,
-            connection_key: key_store.connection_key,
             wai_ear_key: key_store.wai_ear_key,
             qs_client_id_encryption_key: key_store.qs_client_id_encryption_key,
         };
@@ -281,7 +268,7 @@ pub(crate) struct UnfinalizedRegistrationState {
     key_store: MemoryUserKeyStore,
     server_url: String,
     qs_initial_ratchet_secret: RatchetSecret,
-    connection_packages: Vec<ConnectionPackage>,
+    connection_packages: Vec<ConnectionPackageV1>,
     encrypted_push_token: Option<EncryptedPushToken>,
 }
 
