@@ -41,11 +41,21 @@ allow = [
 ]
 confidence-threshold = 0.8
 exceptions = [
-    { allow = ["AGPL-3.0-or-later"], crate = "mls-assist" },
-    { allow = ["AGPL-3.0-or-later"], crate = "mimi_content" },
-    { allow = ["AGPL-3.0-or-later"], crate = "mimi-room-policy" },
-    { allow = ["AGPL-3.0-or-later"], crate = "serde_list" },
-    { allow = ["AGPL-3.0-or-later"], crate = "serde_list_macros" },
+    { allow = [
+        "AGPL-3.0-or-later",
+    ], crate = "mls-assist" },
+    { allow = [
+        "AGPL-3.0-or-later",
+    ], crate = "mimi_content" },
+    { allow = [
+        "AGPL-3.0-or-later",
+    ], crate = "mimi-room-policy" },
+    { allow = [
+        "AGPL-3.0-or-later",
+    ], crate = "serde_list" },
+    { allow = [
+        "AGPL-3.0-or-later",
+    ], crate = "serde_list_macros" },
 ]
 
 [licenses.private]
@@ -58,7 +68,6 @@ allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
     "https://github.com/boxdot/formats",
     "https://github.com/boxdot/mimi-content",
-    "https://github.com/boxdot/tower-governor",
     "https://github.com/facebook/voprf",
     "https://github.com/openmls/openmls",
     "https://github.com/raphaelrobert/privacypass",
