@@ -126,3 +126,10 @@ extension NotificationHandleExtension on NotificationHandle {
     return NotificationHandle(identifier: identifier, chatId: chatId);
   }
 }
+
+extension UiChatMessageExtension on UiChatMessage {
+  UiUserId? get sender => switch (message) {
+    UiMessage_Content(field0: final content) => content.sender,
+    UiMessage_Display() => null,
+  };
+}

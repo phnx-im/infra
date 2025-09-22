@@ -49,7 +49,7 @@ $Res call({
 });
 
 
-
+$UiChatMessageCopyWith<$Res> get message;
 
 }
 /// @nodoc
@@ -68,7 +68,16 @@ message: null == message ? _self.message : message // ignore: cast_nullable_to_n
 as UiChatMessage,
   ));
 }
-
+/// Create a copy of MessageState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiChatMessageCopyWith<$Res> get message {
+  
+  return $UiChatMessageCopyWith<$Res>(_self.message, (value) {
+    return _then(_self.copyWith(message: value));
+  });
+}
 }
 
 
@@ -116,7 +125,7 @@ $Res call({
 });
 
 
-
+@override $UiChatMessageCopyWith<$Res> get message;
 
 }
 /// @nodoc
@@ -136,7 +145,16 @@ as UiChatMessage,
   ));
 }
 
-
+/// Create a copy of MessageState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiChatMessageCopyWith<$Res> get message {
+  
+  return $UiChatMessageCopyWith<$Res>(_self.message, (value) {
+    return _then(_self.copyWith(message: value));
+  });
+}
 }
 
 // dart format on

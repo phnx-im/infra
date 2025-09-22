@@ -16,6 +16,7 @@ import 'package:air/ui/typography/font_size.dart';
 import 'package:air/ui/typography/monospace.dart';
 import 'package:air/user/user.dart';
 import 'package:air/widgets/widgets.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'message_renderer.dart';
 
@@ -66,7 +67,7 @@ class TextMessageTile extends StatelessWidget {
   }
 }
 
-class _MessageView extends StatelessWidget {
+class _MessageView extends HookWidget {
   const _MessageView({
     required this.messageId,
     required this.contentMessage,
@@ -88,8 +89,13 @@ class _MessageView extends StatelessWidget {
     // We use this to make an indent on the side of the receiver
     const flex = Flexible(child: SizedBox.shrink());
 
+    final isRevealed = useState(false);
+
     final showMessageStatus =
-        isSender && flightPosition.isLast && status != UiMessageStatus.sending;
+        isSender &&
+        flightPosition.isLast &&
+        status != UiMessageStatus.sending &&
+        status != UiMessageStatus.hidden;
 
     return Row(
       mainAxisAlignment:
@@ -109,6 +115,7 @@ class _MessageView extends StatelessWidget {
               children: [
                 InkWell(
                   mouseCursor: SystemMouseCursors.basic,
+                  onTap: () => isRevealed.value = true,
                   onLongPress:
                       () => context.read<ChatDetailsCubit>().editMessage(
                         messageId: messageId,
@@ -118,6 +125,8 @@ class _MessageView extends StatelessWidget {
                     isSender: isSender,
                     flightPosition: flightPosition,
                     isEdited: contentMessage.edited,
+                    isHidden:
+                        status == UiMessageStatus.hidden && !isRevealed.value,
                   ),
                 ),
                 if (flightPosition.isLast) ...[
@@ -158,16 +167,71 @@ class _MessageContent extends StatelessWidget {
     required this.isSender,
     required this.flightPosition,
     required this.isEdited,
+    required this.isHidden,
   });
 
   final UiMimiContent content;
   final bool isSender;
   final UiFlightPosition flightPosition;
   final bool isEdited;
+  final bool isHidden;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+
+    final contentElements =
+        isHidden
+            ? [
+              Padding(
+                padding: _messagePadding,
+                child: Text(
+                  loc.textMessage_hiddenPlaceholder,
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    fontSize: BodyFontSize.base.size,
+                    color: CustomColorScheme.of(context).text.tertiary,
+                  ),
+                ),
+              ),
+            ]
+            : [
+              if (content.attachments.firstOrNull case final attachment?)
+                switch (attachment.imageMetadata) {
+                  null => _FileAttachmentContent(
+                    attachment: attachment,
+                    isSender: isSender,
+                  ),
+                  final imageMetadata => _ImageAttachmentContent(
+                    attachment: attachment,
+                    imageMetadata: imageMetadata,
+                    isSender: isSender,
+                    flightPosition: flightPosition,
+                    hasMessage: content.content?.elements.isNotEmpty ?? false,
+                  ),
+                },
+              ...(content.content?.elements ?? []).map(
+                (inner) => Padding(
+                  padding: _messagePadding.copyWith(
+                    bottom: isEdited ? 0 : null,
+                  ),
+                  child: buildBlockElement(context, inner.element, isSender),
+                ),
+              ),
+              if (isEdited)
+                Padding(
+                  padding: _messagePadding.copyWith(top: 0),
+                  child: Text(
+                    loc.textMessage_edited,
+                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color:
+                          isSender
+                              ? CustomColorScheme.of(context).text.quaternary
+                              : CustomColorScheme.of(context).text.tertiary,
+                    ),
+                  ),
+                ),
+            ];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 1.5),
@@ -189,43 +253,7 @@ class _MessageContent extends StatelessWidget {
           child: DefaultTextStyle.merge(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (content.attachments.firstOrNull case final attachment?)
-                  switch (attachment.imageMetadata) {
-                    null => _FileAttachmentContent(
-                      attachment: attachment,
-                      isSender: isSender,
-                    ),
-                    final imageMetadata => _ImageAttachmentContent(
-                      attachment: attachment,
-                      imageMetadata: imageMetadata,
-                      isSender: isSender,
-                      flightPosition: flightPosition,
-                      hasMessage: content.content?.elements.isNotEmpty ?? false,
-                    ),
-                  },
-                ...(content.content?.elements ?? []).map(
-                  (inner) => Padding(
-                    padding: _messagePadding.copyWith(
-                      bottom: isEdited ? 0 : null,
-                    ),
-                    child: buildBlockElement(context, inner.element, isSender),
-                  ),
-                ),
-                if (isEdited)
-                  Padding(
-                    padding: _messagePadding.copyWith(top: 0),
-                    child: Text(
-                      loc.textMessage_edited,
-                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color:
-                            isSender
-                                ? CustomColorScheme.of(context).text.quaternary
-                                : CustomColorScheme.of(context).text.tertiary,
-                      ),
-                    ),
-                  ),
-              ],
+              children: contentElements,
             ),
           ),
         ),

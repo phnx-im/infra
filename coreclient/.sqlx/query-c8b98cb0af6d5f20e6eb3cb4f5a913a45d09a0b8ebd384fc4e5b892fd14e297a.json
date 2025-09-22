@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                chat_id AS \"chat_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\"\n            FROM message\n            WHERE chat_id = ?\n                AND sender_user_uuid IS NOT NULL\n                AND sender_user_domain IS NOT NULL\n            ORDER BY timestamp DESC LIMIT 1",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                chat_id AS \"chat_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\",\n                b.user_uuid IS NOT NULL AS \"is_blocked!: _\"\n            FROM message\n            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid\n                AND b.user_domain = sender_user_domain\n            WHERE chat_id = ?\n            ORDER BY timestamp DESC\n            LIMIT ?",
   "describe": {
     "columns": [
       {
@@ -52,10 +52,15 @@
         "name": "edited_at: _",
         "ordinal": 9,
         "type_info": "Text"
+      },
+      {
+        "name": "is_blocked!: _",
+        "ordinal": 10,
+        "type_info": "Null"
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 2
     },
     "nullable": [
       false,
@@ -67,8 +72,9 @@
       false,
       false,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "1f1c703e7df67aeaf2a687379cd54ba77f554933d7b4a8556a203f3455175803"
+  "hash": "c8b98cb0af6d5f20e6eb3cb4f5a913a45d09a0b8ebd384fc4e5b892fd14e297a"
 }
