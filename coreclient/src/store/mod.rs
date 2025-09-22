@@ -79,6 +79,8 @@ pub trait Store {
 
     async fn chats(&self) -> StoreResult<Vec<Chat>>;
 
+    async fn chat(&self, chat_id: ChatId) -> StoreResult<Option<Chat>>;
+
     async fn chat_participants(&self, chat_id: ChatId) -> StoreResult<Option<HashSet<UserId>>>;
 
     /// Mark the chat with the given [`ChatId`] as read until the given message id (including).

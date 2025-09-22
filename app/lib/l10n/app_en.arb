@@ -124,6 +124,7 @@
   },
 
   "textMessage_edited": "edited",
+  "textMessage_hiddenPlaceholder": "Blocked contact, tap to reveal message",
 
   "reportSpamButton_text": "Report Spam",
   "reportSpamDialog_title": "Report Spam?",

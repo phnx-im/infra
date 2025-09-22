@@ -10,7 +10,7 @@ use std::{
 };
 
 use aircoreclient::{
-    ChatId, ChatMessage, MessageId,
+    ChatId, ChatMessage, ChatType, MessageId,
     store::{Store, StoreEntityId, StoreNotification, StoreOperation},
 };
 use flutter_rust_bridge::frb;
@@ -42,6 +42,8 @@ pub struct MessageListState {
 #[frb(ignore)]
 #[derive(Debug, Default)]
 struct MessageListStateInner {
+    /// Whether the chat the messages are in is a connection chat
+    is_connection_chat: Option<bool>,
     /// Loaded messages (not all messages in the chat)
     messages: Vec<UiChatMessage>,
     /// Lookup index mapping a message id to the index in `messages`
@@ -62,6 +64,7 @@ impl MessageListState {
     fn rebuild_from_messages(
         &mut self,
         mut new_messages: Vec<ChatMessage>,
+        is_connection_chat: Option<bool>,
         include_first: bool,
         initial_load: bool,
     ) {
@@ -102,6 +105,7 @@ impl MessageListState {
         }
 
         let inner = MessageListStateInner {
+            is_connection_chat: is_connection_chat.or(self.inner.is_connection_chat),
             message_ids_index,
             messages,
             new_messages,
@@ -133,6 +137,11 @@ impl MessageListState {
     #[frb(sync, positional)]
     pub fn is_new_message(&self, message_id: MessageId) -> bool {
         self.inner.new_messages.contains(&message_id)
+    }
+
+    #[frb(sync, getter)]
+    pub fn is_connection_chat(&self) -> Option<bool> {
+        self.inner.is_connection_chat
     }
 }
 
@@ -212,6 +221,17 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
     }
 
     async fn load_and_emit_state(&self, initial_load: bool) {
+        let is_connection_chat = self
+            .store
+            .chat(self.chat_id)
+            .await
+            .inspect_err(|error| {
+                error!(chat_id =% self.chat_id, %error, "Failed to load chat");
+            })
+            .ok()
+            .flatten()
+            .map(|chat| matches!(chat.chat_type(), ChatType::Connection(_)));
+
         const MAX_MESSAGES: usize = 1001;
         let messages = match self.store.messages(self.chat_id, MAX_MESSAGES).await {
             Ok(messages) => messages,
@@ -223,7 +243,7 @@ impl<S: Store + Send + Sync + 'static> MessageListContext<S> {
         debug!(?messages, "MessageListCubit::load_and_emit_state");
         let include_first = messages.len() < MAX_MESSAGES;
         self.state_tx.send_modify(|state| {
-            state.rebuild_from_messages(messages, include_first, initial_load)
+            state.rebuild_from_messages(messages, is_connection_chat, include_first, initial_load)
         });
     }
 
@@ -353,7 +373,7 @@ mod tests {
         let mut state = MessageListState::default();
         let include_first = true;
         let initial_load = false;
-        state.rebuild_from_messages(messages.clone(), include_first, initial_load);
+        state.rebuild_from_messages(messages.clone(), None, include_first, initial_load);
 
         let positions = state
             .inner
@@ -369,7 +389,7 @@ mod tests {
         let mut state = MessageListState::default();
         let include_first = false;
         let initial_load = false;
-        state.rebuild_from_messages(messages.clone(), include_first, initial_load);
+        state.rebuild_from_messages(messages.clone(), None, include_first, initial_load);
 
         let positions = state
             .inner
