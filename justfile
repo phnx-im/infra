@@ -24,6 +24,7 @@ reset-dev:
     just _check-status "cargo deny check"
     just _check-unstaged-changes "git diff"
     just _check-unstaged-changes "cd app && fvm flutter pub get"
+    just _check-unstaged-changes "cd app/rust_builder/cargokit/build_tool && fvm flutter pub get"
     just _check-unstaged-changes "cd app && fvm dart format ."
     just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
@@ -47,11 +48,10 @@ _check-unstaged-changes command:
 
 _log-error msg:
     #!/usr/bin/env -S bash -eu
-    msg="\x1b[1;31mERROR: {{msg}}\x1b[0m"
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-        echo -e "$msg" >> "$GITHUB_STEP_SUMMARY"
         echo -e "::error::$msg"
     else
+        msg="\x1b[1;31mERROR: {{msg}}\x1b[0m"
         echo -e "$msg"
     fi
 
