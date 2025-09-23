@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Build and test Rust code
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@cargo-machete
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+      - run: cargo binstall cargo-deny
+      - uses: extractions/setup-just@v2
+      - run: just check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@1.89.0
+        with:
+          components: clippy
+      - uses: kuhnroyal/flutter-fvm-config-action/setup@v3
+        with:
+          path: "app/.fvmrc"
+          cache: false
+      - uses: extractions/setup-just@v2
+      - run: pip3 install --user podman-compose
+      - run: just run-docker-compose
+      - run: just test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*

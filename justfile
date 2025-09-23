@@ -25,7 +25,7 @@ reset-dev:
     just _check-unstaged-changes "git diff"
     just _check-unstaged-changes "cd app && fvm flutter pub get"
     just _check-unstaged-changes "cd app && dart format ."
-    just _check-unstaged-changes "just regenerate"
+    just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
 
 @_check-status command:
@@ -74,7 +74,7 @@ regenerate-glue:
 # Run cargo build, clippy and test.
 @test-rust:
     just _check-status "cargo build"
-    just _check-status "cargo clippy"
+    just _check-status "cargo clippy --locked --all-targets -- -D warnings"
     just _check-status "just run-docker-compose && cargo test -q"
 
 # Run flutter test.
