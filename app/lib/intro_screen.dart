@@ -22,9 +22,6 @@ class IntroScreen extends StatelessWidget {
 
     final loc = AppLocalizations.of(context);
 
-    EdgeInsets padding = MediaQuery.paddingOf(context);
-    debugPrint("padding: $padding");
-
     return Scaffold(
       body: SafeArea(
         minimum: const EdgeInsets.only(
