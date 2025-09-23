@@ -326,6 +326,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Blocked contact, tap to reveal message';
 
   @override
+  String get textMessage_deleted => 'Deleted message';
+
+  @override
   String get reportSpamButton_text => 'Signaler comme spam';
 
   @override

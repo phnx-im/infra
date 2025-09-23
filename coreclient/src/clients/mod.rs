@@ -34,7 +34,7 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 
 use serde::{Deserialize, Serialize};
-use sqlx::{SqliteConnection, SqlitePool};
+use sqlx::{Row, SqliteConnection, SqlitePool, SqliteTransaction, query};
 use store::ClientRecord;
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
@@ -715,6 +715,52 @@ impl CoreUser {
         let value = f(&mut notifier).await?;
         notifier.notify();
         Ok(value)
+    }
+
+    /// This function goes through all tables of the database and returns all columns that contain the query.
+    pub async fn scan_database(&self, query: &str, strict: bool) -> anyhow::Result<Vec<String>> {
+        self.with_transaction(async |txn: &mut SqliteTransaction| {
+            let tables = query!("SELECT name FROM sqlite_schema WHERE type='table'")
+                .fetch_all(&mut **txn)
+                .await?;
+
+            let mut result = Vec::new();
+
+            for table in tables {
+                for row in sqlx::query(&format!("SELECT * FROM '{}'", table.name.unwrap()))
+                    .fetch_all(&mut **txn)
+                    .await?
+                {
+                    for i in 0..row.len() {
+                        let string = if let Ok(column) = row.try_get::<String, _>(i) {
+                            column
+                        } else if let Ok(column) = row.try_get::<Vec<u8>, _>(i) {
+                            String::from_utf8_lossy(&column).to_string()
+                        } else {
+                            // Unable to decode this type
+                            continue;
+                        };
+
+                        if string.contains(query) {
+                            result.push(string.to_string());
+                            continue;
+                        }
+
+                        if !strict {
+                            // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                            let string2 = string.replace('\x18', "");
+                            if string2.contains(query) {
+                                result.push(string.to_string());
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(result)
+        })
+        .await
     }
 }
 

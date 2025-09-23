@@ -227,7 +227,11 @@ class _MessageComposerState extends State<MessageComposer>
     }
 
     // FIXME: Handle errors
-    chatDetailsCubit.sendMessage(messageText);
+    if (messageText == "delete") {
+      chatDetailsCubit.deleteMessage();
+    } else {
+      chatDetailsCubit.sendMessage(messageText);
+    }
 
     setState(() {
       _inputController.clear();
