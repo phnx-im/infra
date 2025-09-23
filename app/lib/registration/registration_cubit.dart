@@ -59,8 +59,6 @@ class RegistrationCubit extends Cubit<RegistrationState> {
   Future<SignUpError?> signUp() async {
     emit(state.copyWith(isSigningUp: true));
 
-    await Future.delayed(const Duration(seconds: 3), () {});
-
     final url =
         state.domain == "localhost"
             ? "http://${state.domain}"
