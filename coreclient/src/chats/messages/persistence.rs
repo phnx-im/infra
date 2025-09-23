@@ -79,7 +79,7 @@ impl VersionedMessage {
 
 use super::{MessageId, TimestampedMessage};
 
-struct SqlchatMessage {
+struct SqlChatMessage {
     message_id: MessageId,
     mimi_id: Option<MimiId>,
     chat_id: ChatId,
@@ -90,6 +90,7 @@ struct SqlchatMessage {
     sent: bool,
     status: i64,
     edited_at: Option<TimeStamp>,
+    is_blocked: bool,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -104,11 +105,11 @@ impl From<VersionedMessageError> for sqlx::Error {
     }
 }
 
-impl TryFrom<SqlchatMessage> for ChatMessage {
+impl TryFrom<SqlChatMessage> for ChatMessage {
     type Error = VersionedMessageError;
 
     fn try_from(
-        SqlchatMessage {
+        SqlChatMessage {
             message_id,
             mimi_id,
             chat_id,
@@ -119,7 +120,8 @@ impl TryFrom<SqlchatMessage> for ChatMessage {
             sent,
             status,
             edited_at,
-        }: SqlchatMessage,
+            is_blocked,
+        }: SqlChatMessage,
     ) -> Result<Self, Self::Error> {
         let message = match (sender_user_uuid, sender_user_domain) {
             // user message
@@ -152,11 +154,19 @@ impl TryFrom<SqlchatMessage> for ChatMessage {
         };
 
         let timestamped_message = TimestampedMessage { timestamp, message };
+        let status = if is_blocked {
+            MessageStatus::Hidden
+        } else {
+            u8::try_from(status)
+                .map(MessageStatus::from_repr)
+                .unwrap_or(MessageStatus::Unread)
+        };
+
         Ok(ChatMessage {
             message_id,
             chat_id,
             timestamped_message,
-            status: u8::try_from(status).map_or(MessageStatus::Unread, MessageStatus::from_repr),
+            status,
         })
     }
 }
@@ -167,7 +177,7 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -178,8 +188,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE message_id = ?
             "#,
             message_id,
@@ -199,7 +212,7 @@ impl ChatMessage {
         mimi_id: &MimiId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -210,8 +223,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE mimi_id = ?
             "#,
             mimi_id,
@@ -232,7 +248,7 @@ impl ChatMessage {
         number_of_messages: u32,
     ) -> sqlx::Result<Vec<ChatMessage>> {
         let messages: sqlx::Result<Vec<ChatMessage>> = query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -243,8 +259,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE chat_id = ?
             ORDER BY timestamp DESC
             LIMIT ?"#,
@@ -395,7 +414,7 @@ impl ChatMessage {
         chat_id: ChatId,
     ) -> sqlx::Result<Option<Self>> {
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -406,8 +425,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE chat_id = ?
                 AND sender_user_uuid IS NOT NULL
                 AND sender_user_domain IS NOT NULL
@@ -433,7 +455,7 @@ impl ChatMessage {
         let user_uuid = user_id.uuid();
         let user_domain = user_id.domain();
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 chat_id AS "chat_id: _",
@@ -444,8 +466,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE chat_id = ?
                 AND sender_user_uuid = ?
                 AND sender_user_domain = ?
@@ -469,7 +494,7 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -480,8 +505,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE message_id != ?1
                 AND timestamp <= (SELECT timestamp FROM message
                 WHERE message_id = ?1)
@@ -504,7 +532,7 @@ impl ChatMessage {
         message_id: MessageId,
     ) -> sqlx::Result<Option<ChatMessage>> {
         query_as!(
-            SqlchatMessage,
+            SqlChatMessage,
             r#"SELECT
                 message_id AS "message_id: _",
                 mimi_id AS "mimi_id: _",
@@ -515,8 +543,11 @@ impl ChatMessage {
                 content AS "content: _",
                 sent,
                 status,
-                edited_at AS "edited_at: _"
+                edited_at AS "edited_at: _",
+                b.user_uuid IS NOT NULL AS "is_blocked!: _"
             FROM message
+            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid
+                AND b.user_domain = sender_user_domain
             WHERE message_id != ?1
                 AND timestamp >= (SELECT timestamp FROM message
                 WHERE message_id = ?1)

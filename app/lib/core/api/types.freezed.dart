@@ -12,6 +12,167 @@ part of 'types.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
+mixin _$UiChatMessage {
+
+ ChatId get chatId; MessageId get id; String get timestamp; UiMessage get message; UiFlightPosition get position; UiMessageStatus get status;
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiChatMessageCopyWith<UiChatMessage> get copyWith => _$UiChatMessageCopyWithImpl<UiChatMessage>(this as UiChatMessage, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatMessage&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.id, id) || other.id == id)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.message, message) || other.message == message)&&(identical(other.position, position) || other.position == position)&&(identical(other.status, status) || other.status == status));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,chatId,id,timestamp,message,position,status);
+
+@override
+String toString() {
+  return 'UiChatMessage(chatId: $chatId, id: $id, timestamp: $timestamp, message: $message, position: $position, status: $status)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiChatMessageCopyWith<$Res>  {
+  factory $UiChatMessageCopyWith(UiChatMessage value, $Res Function(UiChatMessage) _then) = _$UiChatMessageCopyWithImpl;
+@useResult
+$Res call({
+ ChatId chatId, MessageId id, String timestamp, UiMessage message, UiFlightPosition position, UiMessageStatus status
+});
+
+
+$UiMessageCopyWith<$Res> get message;
+
+}
+/// @nodoc
+class _$UiChatMessageCopyWithImpl<$Res>
+    implements $UiChatMessageCopyWith<$Res> {
+  _$UiChatMessageCopyWithImpl(this._self, this._then);
+
+  final UiChatMessage _self;
+  final $Res Function(UiChatMessage) _then;
+
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? chatId = null,Object? id = null,Object? timestamp = null,Object? message = null,Object? position = null,Object? status = null,}) {
+  return _then(_self.copyWith(
+chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
+as ChatId,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as MessageId,timestamp: null == timestamp ? _self.timestamp : timestamp // ignore: cast_nullable_to_non_nullable
+as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as UiMessage,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
+as UiFlightPosition,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as UiMessageStatus,
+  ));
+}
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiMessageCopyWith<$Res> get message {
+  
+  return $UiMessageCopyWith<$Res>(_self.message, (value) {
+    return _then(_self.copyWith(message: value));
+  });
+}
+}
+
+
+
+/// @nodoc
+
+
+class _UiChatMessage implements UiChatMessage {
+  const _UiChatMessage({required this.chatId, required this.id, required this.timestamp, required this.message, required this.position, required this.status});
+  
+
+@override final  ChatId chatId;
+@override final  MessageId id;
+@override final  String timestamp;
+@override final  UiMessage message;
+@override final  UiFlightPosition position;
+@override final  UiMessageStatus status;
+
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiChatMessageCopyWith<_UiChatMessage> get copyWith => __$UiChatMessageCopyWithImpl<_UiChatMessage>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiChatMessage&&(identical(other.chatId, chatId) || other.chatId == chatId)&&(identical(other.id, id) || other.id == id)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.message, message) || other.message == message)&&(identical(other.position, position) || other.position == position)&&(identical(other.status, status) || other.status == status));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,chatId,id,timestamp,message,position,status);
+
+@override
+String toString() {
+  return 'UiChatMessage(chatId: $chatId, id: $id, timestamp: $timestamp, message: $message, position: $position, status: $status)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiChatMessageCopyWith<$Res> implements $UiChatMessageCopyWith<$Res> {
+  factory _$UiChatMessageCopyWith(_UiChatMessage value, $Res Function(_UiChatMessage) _then) = __$UiChatMessageCopyWithImpl;
+@override @useResult
+$Res call({
+ ChatId chatId, MessageId id, String timestamp, UiMessage message, UiFlightPosition position, UiMessageStatus status
+});
+
+
+@override $UiMessageCopyWith<$Res> get message;
+
+}
+/// @nodoc
+class __$UiChatMessageCopyWithImpl<$Res>
+    implements _$UiChatMessageCopyWith<$Res> {
+  __$UiChatMessageCopyWithImpl(this._self, this._then);
+
+  final _UiChatMessage _self;
+  final $Res Function(_UiChatMessage) _then;
+
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? chatId = null,Object? id = null,Object? timestamp = null,Object? message = null,Object? position = null,Object? status = null,}) {
+  return _then(_UiChatMessage(
+chatId: null == chatId ? _self.chatId : chatId // ignore: cast_nullable_to_non_nullable
+as ChatId,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as MessageId,timestamp: null == timestamp ? _self.timestamp : timestamp // ignore: cast_nullable_to_non_nullable
+as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as UiMessage,position: null == position ? _self.position : position // ignore: cast_nullable_to_non_nullable
+as UiFlightPosition,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as UiMessageStatus,
+  ));
+}
+
+/// Create a copy of UiChatMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiMessageCopyWith<$Res> get message {
+  
+  return $UiMessageCopyWith<$Res>(_self.message, (value) {
+    return _then(_self.copyWith(message: value));
+  });
+}
+}
+
+/// @nodoc
 mixin _$UiChatStatus {
 
 
@@ -132,6 +293,38 @@ int get hashCode => runtimeType.hashCode;
 @override
 String toString() {
   return 'UiChatStatus.active()';
+}
+
+
+}
+
+
+
+
+/// @nodoc
+
+
+class UiChatStatus_Blocked extends UiChatStatus {
+  const UiChatStatus_Blocked(): super._();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiChatStatus_Blocked);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+  return 'UiChatStatus.blocked()';
 }
 
 
@@ -345,6 +538,289 @@ String toString() {
 
 
 /// @nodoc
+mixin _$UiContentMessage {
+
+ UiUserId get sender; bool get sent; UiMimiContent get content; bool get edited;
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiContentMessageCopyWith<UiContentMessage> get copyWith => _$UiContentMessageCopyWithImpl<UiContentMessage>(this as UiContentMessage, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiContentMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.sent, sent) || other.sent == sent)&&(identical(other.content, content) || other.content == content)&&(identical(other.edited, edited) || other.edited == edited));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,sender,sent,content,edited);
+
+@override
+String toString() {
+  return 'UiContentMessage(sender: $sender, sent: $sent, content: $content, edited: $edited)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiContentMessageCopyWith<$Res>  {
+  factory $UiContentMessageCopyWith(UiContentMessage value, $Res Function(UiContentMessage) _then) = _$UiContentMessageCopyWithImpl;
+@useResult
+$Res call({
+ UiUserId sender, bool sent, UiMimiContent content, bool edited
+});
+
+
+$UiMimiContentCopyWith<$Res> get content;
+
+}
+/// @nodoc
+class _$UiContentMessageCopyWithImpl<$Res>
+    implements $UiContentMessageCopyWith<$Res> {
+  _$UiContentMessageCopyWithImpl(this._self, this._then);
+
+  final UiContentMessage _self;
+  final $Res Function(UiContentMessage) _then;
+
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? sender = null,Object? sent = null,Object? content = null,Object? edited = null,}) {
+  return _then(_self.copyWith(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as UiUserId,sent: null == sent ? _self.sent : sent // ignore: cast_nullable_to_non_nullable
+as bool,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
+as UiMimiContent,edited: null == edited ? _self.edited : edited // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiMimiContentCopyWith<$Res> get content {
+  
+  return $UiMimiContentCopyWith<$Res>(_self.content, (value) {
+    return _then(_self.copyWith(content: value));
+  });
+}
+}
+
+
+
+/// @nodoc
+
+
+class _UiContentMessage implements UiContentMessage {
+  const _UiContentMessage({required this.sender, required this.sent, required this.content, required this.edited});
+  
+
+@override final  UiUserId sender;
+@override final  bool sent;
+@override final  UiMimiContent content;
+@override final  bool edited;
+
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiContentMessageCopyWith<_UiContentMessage> get copyWith => __$UiContentMessageCopyWithImpl<_UiContentMessage>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiContentMessage&&(identical(other.sender, sender) || other.sender == sender)&&(identical(other.sent, sent) || other.sent == sent)&&(identical(other.content, content) || other.content == content)&&(identical(other.edited, edited) || other.edited == edited));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,sender,sent,content,edited);
+
+@override
+String toString() {
+  return 'UiContentMessage(sender: $sender, sent: $sent, content: $content, edited: $edited)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiContentMessageCopyWith<$Res> implements $UiContentMessageCopyWith<$Res> {
+  factory _$UiContentMessageCopyWith(_UiContentMessage value, $Res Function(_UiContentMessage) _then) = __$UiContentMessageCopyWithImpl;
+@override @useResult
+$Res call({
+ UiUserId sender, bool sent, UiMimiContent content, bool edited
+});
+
+
+@override $UiMimiContentCopyWith<$Res> get content;
+
+}
+/// @nodoc
+class __$UiContentMessageCopyWithImpl<$Res>
+    implements _$UiContentMessageCopyWith<$Res> {
+  __$UiContentMessageCopyWithImpl(this._self, this._then);
+
+  final _UiContentMessage _self;
+  final $Res Function(_UiContentMessage) _then;
+
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? sender = null,Object? sent = null,Object? content = null,Object? edited = null,}) {
+  return _then(_UiContentMessage(
+sender: null == sender ? _self.sender : sender // ignore: cast_nullable_to_non_nullable
+as UiUserId,sent: null == sent ? _self.sent : sent // ignore: cast_nullable_to_non_nullable
+as bool,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
+as UiMimiContent,edited: null == edited ? _self.edited : edited // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+/// Create a copy of UiContentMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiMimiContentCopyWith<$Res> get content {
+  
+  return $UiMimiContentCopyWith<$Res>(_self.content, (value) {
+    return _then(_self.copyWith(content: value));
+  });
+}
+}
+
+/// @nodoc
+mixin _$UiErrorMessage {
+
+ String get message;
+/// Create a copy of UiErrorMessage
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$UiErrorMessageCopyWith<UiErrorMessage> get copyWith => _$UiErrorMessageCopyWithImpl<UiErrorMessage>(this as UiErrorMessage, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UiErrorMessage&&(identical(other.message, message) || other.message == message));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,message);
+
+@override
+String toString() {
+  return 'UiErrorMessage(message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $UiErrorMessageCopyWith<$Res>  {
+  factory $UiErrorMessageCopyWith(UiErrorMessage value, $Res Function(UiErrorMessage) _then) = _$UiErrorMessageCopyWithImpl;
+@useResult
+$Res call({
+ String message
+});
+
+
+
+
+}
+/// @nodoc
+class _$UiErrorMessageCopyWithImpl<$Res>
+    implements $UiErrorMessageCopyWith<$Res> {
+  _$UiErrorMessageCopyWithImpl(this._self, this._then);
+
+  final UiErrorMessage _self;
+  final $Res Function(UiErrorMessage) _then;
+
+/// Create a copy of UiErrorMessage
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? message = null,}) {
+  return _then(_self.copyWith(
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+
+/// @nodoc
+
+
+class _UiErrorMessage implements UiErrorMessage {
+  const _UiErrorMessage({required this.message});
+  
+
+@override final  String message;
+
+/// Create a copy of UiErrorMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UiErrorMessageCopyWith<_UiErrorMessage> get copyWith => __$UiErrorMessageCopyWithImpl<_UiErrorMessage>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _UiErrorMessage&&(identical(other.message, message) || other.message == message));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,message);
+
+@override
+String toString() {
+  return 'UiErrorMessage(message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$UiErrorMessageCopyWith<$Res> implements $UiErrorMessageCopyWith<$Res> {
+  factory _$UiErrorMessageCopyWith(_UiErrorMessage value, $Res Function(_UiErrorMessage) _then) = __$UiErrorMessageCopyWithImpl;
+@override @useResult
+$Res call({
+ String message
+});
+
+
+
+
+}
+/// @nodoc
+class __$UiErrorMessageCopyWithImpl<$Res>
+    implements _$UiErrorMessageCopyWith<$Res> {
+  __$UiErrorMessageCopyWithImpl(this._self, this._then);
+
+  final _UiErrorMessage _self;
+  final $Res Function(_UiErrorMessage) _then;
+
+/// Create a copy of UiErrorMessage
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? message = null,}) {
+  return _then(_UiErrorMessage(
+message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$UiEventMessage {
 
  Object get field0;
@@ -493,7 +969,7 @@ $Res call({
 });
 
 
-
+$UiErrorMessageCopyWith<$Res> get field0;
 
 }
 /// @nodoc
@@ -513,7 +989,16 @@ as UiErrorMessage,
   ));
 }
 
-
+/// Create a copy of UiEventMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiErrorMessageCopyWith<$Res> get field0 {
+  
+  return $UiErrorMessageCopyWith<$Res>(_self.field0, (value) {
+    return _then(_self.copyWith(field0: value));
+  });
+}
 }
 
 /// @nodoc
@@ -590,7 +1075,7 @@ $Res call({
 });
 
 
-
+$UiContentMessageCopyWith<$Res> get field0;
 
 }
 /// @nodoc
@@ -610,7 +1095,16 @@ as UiContentMessage,
   ));
 }
 
-
+/// Create a copy of UiMessage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$UiContentMessageCopyWith<$Res> get field0 {
+  
+  return $UiContentMessageCopyWith<$Res>(_self.field0, (value) {
+    return _then(_self.copyWith(field0: value));
+  });
+}
 }
 
 /// @nodoc

@@ -71,6 +71,7 @@ use self::{api_clients::ApiClients, create_user::InitialUserState, store::UserCr
 mod add_contact;
 pub(crate) mod api_clients;
 pub(crate) mod attachment;
+pub(crate) mod block_contact;
 pub mod chats;
 pub(crate) mod connection_offer;
 mod create_user;
@@ -366,10 +367,10 @@ impl CoreUser {
         Ok(messages)
     }
 
-    /// Fetch and process AS messages
+    /// Fetch and process messages from all user handle queues.
     ///
     /// Returns the list of [`ChatId`]s of any newly created chats.
-    pub async fn fetch_and_process_as_messages(&self) -> Result<Vec<ChatId>> {
+    pub async fn fetch_and_process_handle_messages(&self) -> Result<Vec<ChatId>> {
         let records = self.user_handle_records().await?;
         let api_client = self.api_client()?;
         let mut chat_ids = Vec::new();
@@ -398,6 +399,30 @@ impl CoreUser {
             }
         }
         Ok(chat_ids)
+    }
+
+    /// Fetches all messages from all user handle queues and returns them.
+    ///
+    /// Used in integration tests
+    pub async fn fetch_handle_messages(&self) -> Result<Vec<HandleQueueMessage>> {
+        let records = self.user_handle_records().await?;
+        let api_client = self.api_client()?;
+        let mut messages = Vec::new();
+        for record in records {
+            let (mut stream, responder) = api_client
+                .as_listen_handle(record.hash, &record.signing_key)
+                .await?;
+            while let Some(Some(message)) = stream.next().await {
+                let Some(message_id) = message.message_id else {
+                    error!("no message id in handle queue message");
+                    continue;
+                };
+                // ack the message independently of the result of processing the message
+                responder.ack(message_id.into()).await;
+                messages.push(message);
+            }
+        }
+        Ok(messages)
     }
 
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {

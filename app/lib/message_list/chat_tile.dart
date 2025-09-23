@@ -13,8 +13,13 @@ import 'message_cubit.dart';
 import 'text_message_tile.dart';
 
 class ChatTile extends StatelessWidget {
-  const ChatTile({super.key, required this.animated});
+  const ChatTile({
+    super.key,
+    required this.isConnectionChat,
+    required this.animated,
+  });
 
+  final bool isConnectionChat;
   final bool animated;
 
   @override
@@ -34,6 +39,12 @@ class ChatTile extends StatelessWidget {
       UiMessage_Display() => false,
     };
 
+    // Don't hide messages in blocked connection chats
+    final adjustedStatus = switch (status) {
+      UiMessageStatus.hidden when isConnectionChat => UiMessageStatus.sent,
+      _ => status,
+    };
+
     final tile = ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: Spacings.s),
       dense: true,
@@ -47,7 +58,7 @@ class ChatTile extends StatelessWidget {
             contentMessage: content,
             timestamp: timestamp,
             flightPosition: position,
-            status: status,
+            status: adjustedStatus,
             isSender: isSender,
           ),
           UiMessage_Display(field0: final display) => DisplayMessageTile(

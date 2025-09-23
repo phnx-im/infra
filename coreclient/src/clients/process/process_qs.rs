@@ -30,11 +30,12 @@ use openmls::{
 };
 use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use crate::{
-    ChatMessage, ContentMessage, Message, SystemMessage,
+    ChatMessage, ChatStatus, ContentMessage, Message, SystemMessage,
     chats::{ChatType, StatusRecord, messages::edit::MessageEdit},
+    clients::block_contact::{BlockedContact, BlockedContactError},
     contacts::HandleContact,
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
@@ -59,6 +60,15 @@ pub struct ProcessedQsMessages {
     pub changed_chats: Vec<ChatId>,
     pub new_messages: Vec<ChatMessage>,
     pub errors: Vec<anyhow::Error>,
+}
+
+impl ProcessedQsMessages {
+    pub fn is_empty(&self) -> bool {
+        self.new_chats.is_empty()
+            && self.changed_chats.is_empty()
+            && self.new_messages.is_empty()
+            && self.errors.is_empty()
+    }
 }
 
 #[derive(Default)]
@@ -257,6 +267,11 @@ impl CoreUser {
                 let (new_messages, updated_messages, chat_changed) =
                     match processed_message.into_content() {
                         ProcessedMessageContent::ApplicationMessage(application_message) => {
+                            // Drop messages in 1:1 blocked chats Note: In group chats, messages
+                            // from blocked users are still received and processed.
+                            if chat.status() == &ChatStatus::Blocked {
+                                bail!(BlockedContactError);
+                            }
                             let ApplicationMessagesHandlerResult {
                                 new_messages,
                                 updated_messages,
@@ -612,6 +627,11 @@ impl CoreUser {
                 .await?
                 .context("No sender credential found")?;
 
+        let chat_id = ChatId::try_from(group.group_id())?;
+        if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
+            bail!(BlockedContactError);
+        }
+
         // Phase 2: Decrypt the new user profile key
         let new_user_profile_key = UserProfileKey::decrypt(
             group.identity_link_wrapper_key(),
@@ -655,6 +675,10 @@ impl CoreUser {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
             let processed = match self.process_qs_message(qs_message_plaintext).await {
                 Ok(processed) => processed,
+                Err(e) if e.downcast_ref::<BlockedContactError>().is_some() => {
+                    info!("Dropping message from blocked contact");
+                    continue;
+                }
                 Err(e) => {
                     error!(error = %e, "Processing message failed");
                     errors.push(e);

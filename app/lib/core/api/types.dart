@@ -14,7 +14,7 @@ import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 import 'package:uuid/uuid.dart';
 part 'types.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `calculate`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_draft`, `from_profile`, `from_user_id`, `into_draft`, `is_empty`, `load_from_chat_type`, `new`, `timestamp`
+// These functions are ignored because they are not marked as `pub`: `calculate`, `connection_user_id`, `flight_break_condition`, `from_asset`, `from_bytes`, `from_draft`, `from_profile`, `from_user_id`, `into_draft`, `is_empty`, `load_from_chat_type`, `new`, `timestamp`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UiChat`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`, `hash`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `from`
@@ -158,43 +158,16 @@ class UiChatDetails {
 }
 
 /// A message in a chat
-class UiChatMessage {
-  final ChatId chatId;
-  final MessageId id;
-  final String timestamp;
-  final UiMessage message;
-  final UiFlightPosition position;
-  final UiMessageStatus status;
-
-  const UiChatMessage({
-    required this.chatId,
-    required this.id,
-    required this.timestamp,
-    required this.message,
-    required this.position,
-    required this.status,
-  });
-
-  @override
-  int get hashCode =>
-      chatId.hashCode ^
-      id.hashCode ^
-      timestamp.hashCode ^
-      message.hashCode ^
-      position.hashCode ^
-      status.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiChatMessage &&
-          runtimeType == other.runtimeType &&
-          chatId == other.chatId &&
-          id == other.id &&
-          timestamp == other.timestamp &&
-          message == other.message &&
-          position == other.position &&
-          status == other.status;
+@freezed
+sealed class UiChatMessage with _$UiChatMessage {
+  const factory UiChatMessage({
+    required ChatId chatId,
+    required MessageId id,
+    required String timestamp,
+    required UiMessage message,
+    required UiFlightPosition position,
+    required UiMessageStatus status,
+  }) = _UiChatMessage;
 }
 
 @freezed
@@ -204,6 +177,7 @@ sealed class UiChatStatus with _$UiChatStatus {
   const factory UiChatStatus.inactive(UiInactiveChat field0) =
       UiChatStatus_Inactive;
   const factory UiChatStatus.active() = UiChatStatus_Active;
+  const factory UiChatStatus.blocked() = UiChatStatus_Blocked;
 }
 
 @freezed
@@ -279,49 +253,20 @@ class UiContact {
 }
 
 /// Content of a message including the sender and whether it was sent
-class UiContentMessage {
-  final UiUserId sender;
-  final bool sent;
-  final UiMimiContent content;
-  final bool edited;
-
-  const UiContentMessage({
-    required this.sender,
-    required this.sent,
-    required this.content,
-    required this.edited,
-  });
-
-  @override
-  int get hashCode =>
-      sender.hashCode ^ sent.hashCode ^ content.hashCode ^ edited.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiContentMessage &&
-          runtimeType == other.runtimeType &&
-          sender == other.sender &&
-          sent == other.sent &&
-          content == other.content &&
-          edited == other.edited;
+@freezed
+sealed class UiContentMessage with _$UiContentMessage {
+  const factory UiContentMessage({
+    required UiUserId sender,
+    required bool sent,
+    required UiMimiContent content,
+    required bool edited,
+  }) = _UiContentMessage;
 }
 
 /// Error message
-class UiErrorMessage {
-  final String message;
-
-  const UiErrorMessage({required this.message});
-
-  @override
-  int get hashCode => message.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UiErrorMessage &&
-          runtimeType == other.runtimeType &&
-          message == other.message;
+@freezed
+sealed class UiErrorMessage with _$UiErrorMessage {
+  const factory UiErrorMessage({required String message}) = _UiErrorMessage;
 }
 
 @freezed
@@ -408,6 +353,9 @@ enum UiMessageStatus {
 
   /// The message was read by at least one user in the chat.
   read,
+
+  /// The message was hidden because it is from a blocked contact.
+  hidden,
 }
 
 @freezed

@@ -4,7 +4,6 @@
 
 //! A single chat details feature
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 
@@ -134,6 +133,55 @@ impl ChatDetailsCubitBase {
         Store::set_chat_picture(&self.context.store, self.context.chat_id, bytes.clone()).await
     }
 
+    pub async fn delete_message(&self) -> anyhow::Result<()> {
+        let mut draft = None;
+        self.core.state_tx().send_if_modified(|state| {
+            let Some(chat) = state.chat.as_mut() else {
+                return false;
+            };
+            draft = chat.draft.take();
+            draft.is_some()
+        });
+
+        let Some(draft) = draft else {
+            return Err(anyhow::anyhow!("You did not select a message to delete"));
+        };
+        if draft.editing_id == None {
+            return Err(anyhow::anyhow!("You did not select a message to delete"));
+        }
+
+        // Remove stored draft
+        self.context
+            .store
+            .store_message_draft(self.context.chat_id, None)
+            .await?;
+
+        let editing_id = draft.editing_id;
+
+        let salt: [u8; 16] = RustCrypto::default().random_array()?;
+        let content = MimiContent {
+            salt: ByteBuf::from(salt),
+            replaces: None, // Replaces is set by store_unsent_message
+            topic_id: Default::default(),
+            expires: None,
+            in_reply_to: None,
+            extensions: Default::default(),
+            nested_part: NestedPart {
+                disposition: Disposition::Render,
+                language: "".to_owned(),
+                part: NestedPartContent::NullPart,
+            },
+        };
+
+        self.context
+            .store
+            .send_message(self.context.chat_id, content, editing_id)
+            .await
+            .inspect_err(|error| error!(%error, "Failed to send message"))?;
+
+        Ok(())
+    }
+
     /// Sends a message to the chat.
     ///
     /// The not yet sent message is immediately stored in the local store and then the message is
@@ -162,10 +210,10 @@ impl ChatDetailsCubitBase {
             MimiContent {
                 salt: ByteBuf::from(salt),
                 replaces: None, // Replaces is set by store_unsent_message
-                topic_id: ByteBuf::from(b""),
+                topic_id: Default::default(),
                 expires: None,
                 in_reply_to: None,
-                extensions: BTreeMap::new(),
+                extensions: Default::default(),
                 nested_part: NestedPart {
                     disposition: Disposition::Render,
                     language: "".to_owned(),
@@ -493,6 +541,20 @@ impl ChatDetailsContext {
     async fn handle_store_notification(&self, notification: &StoreNotification) {
         if notification.ops.contains_key(&self.chat_id.into()) {
             self.load_and_emit_state().await;
+        } else {
+            let user_id = self
+                .state_tx
+                .borrow()
+                .chat
+                .as_ref()
+                .and_then(|chat| chat.connection_user_id())
+                .cloned()
+                .map(UserId::from);
+            if let Some(user_id) = user_id
+                && notification.ops.contains_key(&user_id.into())
+            {
+                self.load_and_emit_state().await;
+            }
         }
     }
 }

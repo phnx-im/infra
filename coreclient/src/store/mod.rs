@@ -79,6 +79,8 @@ pub trait Store {
 
     async fn chats(&self) -> StoreResult<Vec<Chat>>;
 
+    async fn chat(&self, chat_id: ChatId) -> StoreResult<Option<Chat>>;
+
     async fn chat_participants(&self, chat_id: ChatId) -> StoreResult<Option<HashSet<UserId>>>;
 
     /// Mark the chat with the given [`ChatId`] as read until the given message id (including).
@@ -149,6 +151,10 @@ pub trait Store {
     /// Returns the [`ChatId`] of the newly created connection
     /// chat, or `None` if the user handle does not exist.
     async fn add_contact(&self, handle: UserHandle) -> StoreResult<Option<ChatId>>;
+
+    async fn block_contact(&self, user_id: UserId) -> StoreResult<()>;
+
+    async fn unblock_contact(&self, user_id: UserId) -> StoreResult<()>;
 
     async fn contacts(&self) -> StoreResult<Vec<Contact>>;
 

@@ -74,6 +74,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatDetailsScreen_unknownChat => 'Unbekannte Unterhaltung';
 
   @override
+  String get blockedChatFooter_message =>
+      'You have blocked this chat. You will not get any messages, unless you unblock it.';
+
+  @override
+  String get blockedChatFooter_delete => 'Delete';
+
+  @override
+  String get blockedChatFooter_unblock => 'Unblock';
+
+  @override
   String get chatScreen_emptyChat =>
       'Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen';
 
@@ -95,6 +105,38 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get removeUserButton_text => 'Benutzer entfernen';
+
+  @override
+  String get blockConnectionButton_text => 'Block Contact';
+
+  @override
+  String get blockConnectionDialog_title => 'Block Contact';
+
+  @override
+  String get blockConnectionDialog_content =>
+      'Are you sure you want to block this contact? The user will not be able to send messages to you.';
+
+  @override
+  String get blockConnectionDialog_cancel => 'Cancel';
+
+  @override
+  String get blockConnectionDialog_block => 'Block';
+
+  @override
+  String get unblockConnectionButton_text => 'Unblock Contact';
+
+  @override
+  String get unblockConnectionDialog_title => 'Unblock Contact';
+
+  @override
+  String get unblockConnectionDialog_content =>
+      'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.';
+
+  @override
+  String get unblockConnectionDialog_cancel => 'Cancel';
+
+  @override
+  String get unblockConnectionDialog_unblock => 'Unblock';
 
   @override
   String get deleteConnectionButton_text => 'Delete Connection';
@@ -124,6 +166,9 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get userHandleScreen_error_emptyHandle =>
       'Benutzername darf nicht leer sein';
+
+  @override
+  String get userHandleScreen_error_alreadyExists => 'Username already exists';
 
   @override
   String get userHandleScreen_description =>
@@ -190,6 +235,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get chatList_fileEmoji => '📎';
+
+  @override
+  String get chatList_blocked => '🚫 Blocked';
 
   @override
   String get settings_profile => 'Profil';
@@ -272,6 +320,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get textMessage_edited => 'bearbeitet';
+
+  @override
+  String get textMessage_hiddenPlaceholder =>
+      'Blocked contact, tap to reveal message';
+
+  @override
+  String get textMessage_deleted => 'Deleted message';
 
   @override
   String get reportSpamButton_text => 'Spam melden';

@@ -15,6 +15,7 @@ import 'package:air/user/user.dart';
 import 'package:air/widgets/user_avatar.dart';
 
 import 'chat_details_cubit.dart';
+import 'connection_details.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key});
@@ -74,6 +75,13 @@ class ChatScreenView extends StatelessWidget {
       (NavigationCubit cubit) => cubit.state.chatId,
     );
 
+    final blockedUserId = context.select(
+      (ChatDetailsCubit cubit) =>
+          cubit.state.chat?.status == const UiChatStatus.blocked()
+              ? cubit.state.chat?.userId
+              : null,
+    );
+
     if (chatId == null) {
       return const _EmptyChatPane();
     }
@@ -83,14 +91,18 @@ class ChatScreenView extends StatelessWidget {
         decoration: BoxDecoration(
           color: CustomColorScheme.of(context).backgroundBase.primary,
         ),
-        child: Column(
-          children: [
-            const _ChatHeader(),
-            Expanded(
-              child: MessageListView(createMessageCubit: createMessageCubit),
-            ),
-            const MessageComposer(),
-          ],
+        child: SafeArea(
+          child: Column(
+            children: [
+              const _ChatHeader(),
+              Expanded(
+                child: MessageListView(createMessageCubit: createMessageCubit),
+              ),
+              blockedUserId == null
+                  ? const MessageComposer()
+                  : _BlockedChatFooter(chatId: chatId, userId: blockedUserId),
+            ],
+          ),
         ),
       ),
     );
@@ -191,6 +203,63 @@ class _BackButton extends StatelessWidget {
       onPressed: () {
         context.read<NavigationCubit>().closeChat();
       },
+    );
+  }
+}
+
+class _BlockedChatFooter extends StatelessWidget {
+  const _BlockedChatFooter({required this.chatId, required this.userId});
+
+  final ChatId chatId;
+  final UiUserId userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    final deleteButton = OutlinedButton(
+      child: Text(
+        loc.blockedChatFooter_delete,
+        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
+      ),
+      onPressed: () => deleteChatWithConfirmation(context, chatId),
+    );
+
+    var unblockButton = OutlinedButton(
+      child: Text(loc.blockedChatFooter_unblock),
+      onPressed: () => unblockContactWithConfirmation(context, userId),
+    );
+
+    return Container(
+      constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
+      padding: const EdgeInsets.all(Spacings.s),
+      child: Column(
+        children: [
+          Text(loc.blockedChatFooter_message),
+          const SizedBox(height: Spacings.s),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children:
+                isPointer()
+                    ? [
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 100),
+                        child: deleteButton,
+                      ),
+                      const SizedBox(width: Spacings.s),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 100),
+                        child: unblockButton,
+                      ),
+                    ]
+                    : [
+                      Expanded(child: deleteButton),
+                      const SizedBox(width: Spacings.s),
+                      Expanded(child: unblockButton),
+                    ],
+          ),
+        ],
+      ),
     );
   }
 }

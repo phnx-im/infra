@@ -214,6 +214,24 @@ abstract class AppLocalizations {
   /// **'Unknown chat'**
   String get chatDetailsScreen_unknownChat;
 
+  /// No description provided for @blockedChatFooter_message.
+  ///
+  /// In en, this message translates to:
+  /// **'You have blocked this chat. You will not get any messages, unless you unblock it.'**
+  String get blockedChatFooter_message;
+
+  /// No description provided for @blockedChatFooter_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get blockedChatFooter_delete;
+
+  /// No description provided for @blockedChatFooter_unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get blockedChatFooter_unblock;
+
   /// No description provided for @chatScreen_emptyChat.
   ///
   /// In en, this message translates to:
@@ -255,6 +273,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove User'**
   String get removeUserButton_text;
+
+  /// No description provided for @blockConnectionButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Block Contact'**
+  String get blockConnectionButton_text;
+
+  /// No description provided for @blockConnectionDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Block Contact'**
+  String get blockConnectionDialog_title;
+
+  /// No description provided for @blockConnectionDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to block this contact? The user will not be able to send messages to you.'**
+  String get blockConnectionDialog_content;
+
+  /// No description provided for @blockConnectionDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get blockConnectionDialog_cancel;
+
+  /// No description provided for @blockConnectionDialog_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get blockConnectionDialog_block;
+
+  /// No description provided for @unblockConnectionButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock Contact'**
+  String get unblockConnectionButton_text;
+
+  /// No description provided for @unblockConnectionDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock Contact'**
+  String get unblockConnectionDialog_title;
+
+  /// No description provided for @unblockConnectionDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.'**
+  String get unblockConnectionDialog_content;
+
+  /// No description provided for @unblockConnectionDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get unblockConnectionDialog_cancel;
+
+  /// No description provided for @unblockConnectionDialog_unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get unblockConnectionDialog_unblock;
 
   /// No description provided for @deleteConnectionButton_text.
   ///
@@ -309,6 +387,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Username cannot be empty'**
   String get userHandleScreen_error_emptyHandle;
+
+  /// No description provided for @userHandleScreen_error_alreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'Username already exists'**
+  String get userHandleScreen_error_alreadyExists;
 
   /// No description provided for @userHandleScreen_description.
   ///
@@ -436,6 +520,12 @@ abstract class AppLocalizations {
   /// **'📎'**
   String get chatList_fileEmoji;
 
+  /// No description provided for @chatList_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'🚫 Blocked'**
+  String get chatList_blocked;
+
   /// No description provided for @settings_profile.
   ///
   /// In en, this message translates to:
@@ -555,6 +645,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'edited'**
   String get textMessage_edited;
+
+  /// No description provided for @textMessage_hiddenPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked contact, tap to reveal message'**
+  String get textMessage_hiddenPlaceholder;
+
+  /// No description provided for @textMessage_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted message'**
+  String get textMessage_deleted;
 
   /// No description provided for @reportSpamButton_text.
   ///

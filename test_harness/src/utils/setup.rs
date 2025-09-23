@@ -129,6 +129,16 @@ impl TestUser {
 
         Ok(record)
     }
+
+    pub async fn fetch_and_process_qs_messages(&self) -> usize {
+        let qs_messages = self.user.qs_fetch_messages().await.unwrap();
+        let n = qs_messages.len();
+        self.user
+            .fully_process_qs_messages(qs_messages)
+            .await
+            .unwrap();
+        n
+    }
 }
 
 enum TestKind {
@@ -199,6 +209,10 @@ impl TestBackend {
 
     pub fn get_user(&self, user_id: &UserId) -> &TestUser {
         self.users.get(user_id).unwrap()
+    }
+
+    pub fn get_user_mut(&mut self, user_id: &UserId) -> &mut TestUser {
+        self.users.get_mut(user_id).unwrap()
     }
 
     pub fn take_user(&mut self, user_id: &UserId) -> TestUser {
@@ -634,21 +648,6 @@ impl TestBackend {
         orig_message.replaces = Some(ByteBuf::from(
             last_message.message().mimi_id().unwrap().as_slice(),
         ));
-        /*
-        let orig_message = MimiContent {
-            salt: ByteBuf::from(salt),
-            replaces: None, // Replaces is set by store_unsent_message
-            topic_id: ByteBuf::from(b""),
-            expires: None,
-            in_reply_to: None,
-            extensions: BTreeMap::new(),
-            nested_part: NestedPart {
-                disposition: Disposition::Render,
-                language: "".to_owned(),
-                part: NestedPartContent::NullPart,
-            },
-        };
-        */
 
         // Before sending a message, the sender must first fetch and process its QS messages.
 
