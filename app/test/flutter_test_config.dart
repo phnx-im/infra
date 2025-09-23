@@ -23,7 +23,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   setUpAll(() async {
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     await _loadFonts();
-    _setGoldenFileComparatorWithThreshold(goldenThreshold);
+    setGoldenFileComparatorWithThreshold(goldenThreshold);
     _setPhysicalScreenSize(binding, pixel8ScreenSize, pixel8DevicePixelRatio);
   });
 
@@ -45,7 +45,7 @@ Future<void> _loadFonts() async {
   }
 }
 
-void _setGoldenFileComparatorWithThreshold(double threshold) {
+void setGoldenFileComparatorWithThreshold(double threshold) {
   assert(goldenFileComparator is LocalFileComparator);
   final testUrl = (goldenFileComparator as LocalFileComparator).basedir;
   goldenFileComparator = LocalFileComparatorWithThreshold(
