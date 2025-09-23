@@ -76,7 +76,10 @@ class _MessageListViewState extends State<MessageListView> {
               child: _VisibilityChatTile(
                 messageId: message.id,
                 timestamp: DateTime.parse(message.timestamp),
-                child: ChatTile(animated: animate),
+                child: ChatTile(
+                  isConnectionChat: state.isConnectionChat ?? false,
+                  animated: animate,
+                ),
               ),
             );
           },

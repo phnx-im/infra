@@ -396,5 +396,53 @@ void main() {
         matchesGoldenFile('goldens/message_list_attachments.png'),
       );
     });
+
+    testWidgets('renders correctly with blocked messages', (tester) async {
+      final messageWithBobBlocked = [
+        for (final message in messages)
+          switch (message.message) {
+            UiMessage_Content(field0: final content)
+                when content.sender == 2.userId() =>
+              message.copyWith(status: UiMessageStatus.hidden),
+            _ => message,
+          },
+      ];
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(messageWithBobBlocked));
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject());
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/message_list_blocked.png'),
+      );
+    });
+
+    testWidgets('renders correctly with blocked messages in contact chat', (
+      tester,
+    ) async {
+      final messageWithBobBlocked = [
+        for (final message in messages) ...[
+          if (message.sender == 1.userId()) message,
+          if (message.sender == 2.userId())
+            message.copyWith(status: UiMessageStatus.hidden),
+        ],
+      ];
+      when(() => messageListCubit.state).thenReturn(
+        MockMessageListState(messageWithBobBlocked, isConnectionChat: true),
+      );
+
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+      await tester.pumpWidget(buildSubject());
+
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/message_list_blocked_contact_chat.png'),
+      );
+    });
   });
 }

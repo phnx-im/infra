@@ -83,9 +83,12 @@ class MockMessageListCubit extends MockCubit<MessageListState>
     implements MessageListCubit {}
 
 class MockMessageListState implements MessageListState {
-  MockMessageListState(this.messages);
+  MockMessageListState(this.messages, {this.isConnectionChat = false});
 
   final List<UiChatMessage> messages;
+
+  @override
+  final bool isConnectionChat;
 
   @override
   void dispose() {}

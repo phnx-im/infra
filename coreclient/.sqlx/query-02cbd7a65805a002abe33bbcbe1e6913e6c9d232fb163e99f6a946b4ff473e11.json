@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                chat_id AS \"chat_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\"\n            FROM message\n            WHERE message_id = ?\n            ",
+  "query": "SELECT\n                message_id AS \"message_id: _\",\n                mimi_id AS \"mimi_id: _\",\n                chat_id AS \"chat_id: _\",\n                timestamp AS \"timestamp: _\",\n                sender_user_uuid AS \"sender_user_uuid: _\",\n                sender_user_domain AS \"sender_user_domain: _\",\n                content AS \"content: _\",\n                sent,\n                status,\n                edited_at AS \"edited_at: _\",\n                b.user_uuid IS NOT NULL AS \"is_blocked!: _\"\n            FROM message\n            LEFT JOIN blocked_contact b ON b.user_uuid = sender_user_uuid\n                AND b.user_domain = sender_user_domain\n            WHERE chat_id = ?\n                AND sender_user_uuid IS NOT NULL\n                AND sender_user_domain IS NOT NULL\n            ORDER BY timestamp DESC LIMIT 1",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,11 @@
         "name": "edited_at: _",
         "ordinal": 9,
         "type_info": "Text"
+      },
+      {
+        "name": "is_blocked!: _",
+        "ordinal": 10,
+        "type_info": "Null"
       }
     ],
     "parameters": {
@@ -67,8 +72,9 @@
       false,
       false,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "729a0e6bc86bc5d3a71b4aed2e008d2ab0a3d3ca72fde1f55dabd800550c0f11"
+  "hash": "02cbd7a65805a002abe33bbcbe1e6913e6c9d232fb163e99f6a946b4ff473e11"
 }

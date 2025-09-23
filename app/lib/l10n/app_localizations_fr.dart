@@ -354,6 +354,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get textMessage_edited => 'modifié';
 
   @override
+  String get textMessage_hiddenPlaceholder =>
+      'Blocked contact, tap to reveal message';
+
+  @override
   String get reportSpamButton_text => 'Signaler comme spam';
 
   @override

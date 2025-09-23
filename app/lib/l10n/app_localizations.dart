@@ -700,6 +700,12 @@ abstract class AppLocalizations {
   /// **'edited'**
   String get textMessage_edited;
 
+  /// No description provided for @textMessage_hiddenPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked contact, tap to reveal message'**
+  String get textMessage_hiddenPlaceholder;
+
   /// No description provided for @reportSpamButton_text.
   ///
   /// In en, this message translates to:
