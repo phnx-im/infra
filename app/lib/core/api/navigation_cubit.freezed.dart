@@ -223,8 +223,8 @@ String toString() {
 /// @nodoc
 
 
-class IntroScreenType_ServerChoice extends IntroScreenType {
-  const IntroScreenType_ServerChoice(): super._();
+class IntroScreenType_SignUp extends IntroScreenType {
+  const IntroScreenType_SignUp(): super._();
   
 
 
@@ -234,7 +234,7 @@ class IntroScreenType_ServerChoice extends IntroScreenType {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is IntroScreenType_ServerChoice);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is IntroScreenType_SignUp);
 }
 
 
@@ -243,39 +243,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-  return 'IntroScreenType.serverChoice()';
-}
-
-
-}
-
-
-
-
-/// @nodoc
-
-
-class IntroScreenType_DisplayNamePicture extends IntroScreenType {
-  const IntroScreenType_DisplayNamePicture(): super._();
-  
-
-
-
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is IntroScreenType_DisplayNamePicture);
-}
-
-
-@override
-int get hashCode => runtimeType.hashCode;
-
-@override
-String toString() {
-  return 'IntroScreenType.displayNamePicture()';
+  return 'IntroScreenType.signUp()';
 }
 
 

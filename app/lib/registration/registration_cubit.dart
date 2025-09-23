@@ -25,7 +25,7 @@ sealed class RegistrationState with _$RegistrationState {
 
   const factory RegistrationState({
     // Domain choice screen data
-    @Default('') String domain,
+    @Default('dev.phnx.im') String domain,
 
     // Display name/avatar screen data
     ImageData? avatar,
@@ -34,6 +34,7 @@ sealed class RegistrationState with _$RegistrationState {
   }) = _RegistrationState;
 
   bool get isDomainValid => _domainRegex.hasMatch(domain);
+  bool get isValid => isDomainValid && displayName.trim().isNotEmpty;
 }
 
 class RegistrationCubit extends Cubit<RegistrationState> {
@@ -58,6 +59,8 @@ class RegistrationCubit extends Cubit<RegistrationState> {
   Future<SignUpError?> signUp() async {
     emit(state.copyWith(isSigningUp: true));
 
+    await Future.delayed(const Duration(seconds: 3), () {});
+
     final url =
         state.domain == "localhost"
             ? "http://${state.domain}"
@@ -67,10 +70,9 @@ class RegistrationCubit extends Cubit<RegistrationState> {
       _log.info("Registering user...");
       await _coreClient.createUser(url, state.displayName, state.avatar?.data);
     } catch (e) {
-      final message = "Error when registering user: ${e.toString()}";
-      _log.severe(message);
+      _log.severe("Error when registering user: ${e.toString()}");
       emit(state.copyWith(isSigningUp: false));
-      return SignUpError(message);
+      return SignUpError(e.toString());
     }
 
     emit(state.copyWith(isSigningUp: false));

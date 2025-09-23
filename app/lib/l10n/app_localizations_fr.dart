@@ -158,6 +158,38 @@ class AppLocalizationsFr extends AppLocalizations {
   String get introScreen_signUp => 'S\'inscrire';
 
   @override
+  String get signUpScreen_title => 'Sign Up';
+
+  @override
+  String get signUpScreen_actionButton => 'Sign Up';
+
+  @override
+  String get signUpScreen_displayNameLabel =>
+      'Choose a picture and a display name.';
+
+  @override
+  String get signUpScreen_displayNameHint => 'DISPLAY NAME';
+
+  @override
+  String get signUpScreen_serverLabel =>
+      'Choose a server where you want to create your account.';
+
+  @override
+  String get signUpScreen_serverHint => 'DOMAIN NAME';
+
+  @override
+  String get signUpScreen_error_invalidDomain => 'Domain is invalid';
+
+  @override
+  String get signUpScreen_error_emptyDisplayName =>
+      'Display name cannot be empty';
+
+  @override
+  String signUpScreen_error_register(Object error) {
+    return 'Error when registering user: $error';
+  }
+
+  @override
   String get userHandleScreen_title => 'Nom d\'utilisateur';
 
   @override

@@ -367,8 +367,62 @@ abstract class AppLocalizations {
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
-  /// **'Sign up'**
+  /// **'Sign Up'**
   String get introScreen_signUp;
+
+  /// No description provided for @signUpScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_title;
+
+  /// No description provided for @signUpScreen_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_actionButton;
+
+  /// No description provided for @signUpScreen_displayNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a picture and a display name.'**
+  String get signUpScreen_displayNameLabel;
+
+  /// No description provided for @signUpScreen_displayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DISPLAY NAME'**
+  String get signUpScreen_displayNameHint;
+
+  /// No description provided for @signUpScreen_serverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a server where you want to create your account.'**
+  String get signUpScreen_serverLabel;
+
+  /// No description provided for @signUpScreen_serverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DOMAIN NAME'**
+  String get signUpScreen_serverHint;
+
+  /// No description provided for @signUpScreen_error_invalidDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain is invalid'**
+  String get signUpScreen_error_invalidDomain;
+
+  /// No description provided for @signUpScreen_error_emptyDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name cannot be empty'**
+  String get signUpScreen_error_emptyDisplayName;
+
+  /// No description provided for @signUpScreen_error_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Error when registering user: {error}'**
+  String signUpScreen_error_register(Object error);
 
   /// No description provided for @userHandleScreen_title.
   ///
