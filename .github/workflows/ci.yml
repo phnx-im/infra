@@ -27,6 +27,7 @@ jobs:
       - run: curl -fsSL https://fvm.app/install.sh | bash
       - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - run: pip3 install --user reuse
+      - run: pip3 install --user podman-compose
       - run: cargo binstall cargo-deny@0.18.5 flutter_rust_bridge_codegen@2.11.1
       - uses: extractions/setup-just@v2
       - run: just check

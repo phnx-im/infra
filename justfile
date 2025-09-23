@@ -28,6 +28,7 @@ reset-dev:
     just _check-unstaged-changes "cd app && fvm dart format ."
     just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
+    echo "{{BOLD}}Done!{{NORMAL}}"
 
 @_check-status command:
     echo "{{BOLD}}Running {{command}}{{NORMAL}}"
