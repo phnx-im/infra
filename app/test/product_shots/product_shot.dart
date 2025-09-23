@@ -31,6 +31,7 @@ class ProductShot extends StatelessWidget {
     final dev =
         device ??
         (Platform.isAndroid ? Devices.android.pixel4 : Devices.ios.iPhone13);
+    final scale = Platform.isAndroid ? 1.5 : 1.0;
 
     return Center(
       child: SizedBox(
@@ -54,7 +55,8 @@ class ProductShot extends StatelessWidget {
             builder: (context, constraints) {
               final frameMaxWidth = constraints.maxWidth * 0.80;
               final topSpacer = constraints.maxHeight * 0.14;
-              final frameDownwardOffset = constraints.maxHeight * 0.20;
+              final frameDownwardOffset =
+                  constraints.maxHeight * (Platform.isAndroid ? 0.30 : 0.20);
               return Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(
@@ -78,15 +80,18 @@ class ProductShot extends StatelessWidget {
                               alignment: Alignment.topCenter,
                               child: RepaintBoundary(
                                 key: const ValueKey('frame'),
-                                child: DeviceFrame(
-                                  device: dev,
-                                  isFrameVisible: true,
-                                  orientation: Orientation.portrait,
-                                  screen: Stack(
-                                    children: [
-                                      child,
-                                      const _Header(color: Colors.black),
-                                    ],
+                                child: Transform.scale(
+                                  scale: scale,
+                                  child: DeviceFrame(
+                                    device: dev,
+                                    isFrameVisible: true,
+                                    orientation: Orientation.portrait,
+                                    screen: Stack(
+                                      children: [
+                                        child,
+                                        const _Header(color: Colors.black),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
