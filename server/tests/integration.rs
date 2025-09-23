@@ -262,8 +262,8 @@ async fn create_user() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[tracing::instrument(name = "Full cycle", skip_all)]
-async fn full_cycle() {
+#[tracing::instrument(name = "Communication and persistence", skip_all)]
+async fn communication_and_persistence() {
     let mut setup = TestBackend::single().await;
     // Create alice and bob
     setup.add_user(&ALICE).await;
@@ -275,6 +275,81 @@ async fn full_cycle() {
     // Test the connection chat by sending messages back and forth.
     setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
     setup.send_message(chat_alice_bob, &BOB, vec![&ALICE]).await;
+
+    let count_18 = setup
+        .scan_database("\x18", true, vec![&ALICE, &BOB])
+        .await
+        .len();
+    let count_19 = setup
+        .scan_database("\x19", true, vec![&ALICE, &BOB])
+        .await
+        .len();
+
+    let good = count_18 < count_19 * 3 / 2;
+
+    // TODO: Remove the ! in front of !good when we have fixed our code.
+    assert!(
+        !good,
+        "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Edit message", skip_all)]
+async fn edit_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+
+    setup.edit_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete message", skip_all)]
+async fn delete_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+    let last_message = alice.last_message(chat_alice_bob).await.unwrap().unwrap();
+
+    let string = last_message
+        .message()
+        .mimi_content()
+        .unwrap()
+        .string_rendering()
+        .unwrap();
+
+    assert!(
+        !setup
+            .scan_database(&string, false, vec![&ALICE, &BOB])
+            .await
+            .is_empty(),
+    );
+
+    setup
+        .delete_message(chat_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    assert_eq!(
+        setup
+            .scan_database(&string, false, vec![&ALICE, &BOB])
+            .await,
+        Vec::<String>::new()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

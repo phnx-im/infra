@@ -717,6 +717,8 @@ async fn handle_message_edit(
     replaces: MimiId,
     content: MimiContent,
 ) -> anyhow::Result<ChatMessage> {
+    let is_delete = content.nested_part.part == NestedPartContent::NullPart;
+
     // First try to directly load the original message by mimi id (non-edited message) and fallback
     // to the history of edits otherwise.
     let mut message = match ChatMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
@@ -740,25 +742,37 @@ async fn handle_message_edit(
         .message()
         .mimi_id()
         .context("Original message does not have mimi id")?;
+    let original_sender = message
+        .message()
+        .sender()
+        .context("Original message does not have sender")?;
     let original_mimi_content = message
         .message()
         .mimi_content()
         .context("Original message does not have mimi content")?;
 
-    // Store message edit
-    MessageEdit::new(
-        original_mimi_id,
-        message.id(),
-        ds_timestamp,
-        original_mimi_content,
-    )
-    .store(txn.as_mut())
-    .await?;
+    // TODO: Use mimi-room-policy for capabilities
+    ensure!(
+        original_sender == sender,
+        "Only edits and deletes from original users are allowed for now"
+    );
+
+    if !is_delete {
+        // Store message edit
+        MessageEdit::new(
+            original_mimi_id,
+            message.id(),
+            ds_timestamp,
+            original_mimi_content,
+        )
+        .store(txn.as_mut())
+        .await?;
+    }
 
     // Update the original message
     let is_sent = true;
     message.set_content_message(ContentMessage::new(
-        sender.clone(),
+        original_sender.clone(),
         is_sent,
         content,
         group.group_id(),

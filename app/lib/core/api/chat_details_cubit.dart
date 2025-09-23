@@ -25,6 +25,8 @@ part 'chat_details_cubit.freezed.dart';
 abstract class ChatDetailsCubitBase implements RustOpaqueInterface {
   Future<void> close();
 
+  Future<void> deleteMessage();
+
   Future<void> editMessage({MessageId? messageId});
 
   bool get isClosed;

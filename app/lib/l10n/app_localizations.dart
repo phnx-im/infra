@@ -706,6 +706,12 @@ abstract class AppLocalizations {
   /// **'Blocked contact, tap to reveal message'**
   String get textMessage_hiddenPlaceholder;
 
+  /// No description provided for @textMessage_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted message'**
+  String get textMessage_deleted;
+
   /// No description provided for @reportSpamButton_text.
   ///
   /// In en, this message translates to:

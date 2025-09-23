@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/core/api/markdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -117,9 +118,11 @@ class _MessageView extends HookWidget {
                   mouseCursor: SystemMouseCursors.basic,
                   onTap: () => isRevealed.value = true,
                   onLongPress:
-                      () => context.read<ChatDetailsCubit>().editMessage(
-                        messageId: messageId,
-                      ),
+                      isSender
+                          ? () => context.read<ChatDetailsCubit>().editMessage(
+                            messageId: messageId,
+                          )
+                          : null,
                   child: _MessageContent(
                     content: contentMessage.content,
                     isSender: isSender,
@@ -180,6 +183,8 @@ class _MessageContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
+    final bool isDeleted = content.replaces != null && content.content == null;
+
     final contentElements =
         isHidden
             ? [
@@ -196,6 +201,16 @@ class _MessageContent extends StatelessWidget {
               ),
             ]
             : [
+              if (isDeleted)
+                Padding(
+                  padding: _messagePadding,
+                  child: buildBlockElement(
+                    context,
+                    BlockElement.error(loc.textMessage_deleted),
+                    isSender,
+                  ),
+                ),
+
               if (content.attachments.firstOrNull case final attachment?)
                 switch (attachment.imageMetadata) {
                   null => _FileAttachmentContent(
@@ -218,7 +233,7 @@ class _MessageContent extends StatelessWidget {
                   child: buildBlockElement(context, inner.element, isSender),
                 ),
               ),
-              if (isEdited)
+              if (!isDeleted && isEdited)
                 Padding(
                   padding: _messagePadding.copyWith(top: 0),
                   child: Text(

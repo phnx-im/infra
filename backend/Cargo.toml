@@ -24,7 +24,7 @@ tracing = { version = "0.1.35", features = ["log"] }
 # Rust crypto dependencies
 sqlx = { workspace = true, features = ["postgres", "tls-rustls"] }
 mimi-room-policy = { workspace = true }
-tokio = "1"
+tokio = { workspace = true }
 mls-assist = { workspace = true }
 tls_codec = { workspace = true }
 privacypass = { workspace = true }
