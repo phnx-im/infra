@@ -21,15 +21,15 @@ class ChatListContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => ChatListCubit(userCubit: context.read<UserCubit>()),
-      child: ChatListView(isStandalone: isStandalone),
+      child: ChatListView(scaffold: isStandalone),
     );
   }
 }
 
 class ChatListView extends StatelessWidget {
-  const ChatListView({super.key, this.isStandalone = false});
+  const ChatListView({super.key, this.scaffold = false});
 
-  final bool isStandalone;
+  final bool scaffold;
 
   double _topPadding() {
     return isPointer() ? Spacings.l : kToolbarHeight;
@@ -45,7 +45,7 @@ class ChatListView extends StatelessWidget {
         children: [ChatListHeader(), Expanded(child: ChatListContent())],
       ),
     );
-    return isStandalone
+    return scaffold
         ? Scaffold(
           backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
           body: widget,

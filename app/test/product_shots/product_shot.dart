@@ -1,7 +1,9 @@
+import 'dart:math';
+
 import 'package:device_frame_plus/device_frame_plus.dart';
 import 'package:flutter/material.dart';
-import 'dart:math';
-import 'message_list/shot.dart';
+
+import 'product_shots.dart';
 
 class ProductShot extends StatelessWidget {
   const ProductShot({

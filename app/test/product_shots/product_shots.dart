@@ -1,24 +1,24 @@
-import 'package:air/conversation_list/conversation_list_cubit.dart';
-import 'package:air/conversation_list/conversation_list_view.dart';
-import 'package:air/core/api/conversation_details_cubit.dart';
-import 'package:air/core/api/conversation_list_cubit.dart';
+import 'package:air/chat_list/chat_list.dart';
+import 'package:air/chat_list/chat_list_cubit.dart';
+import 'package:air/core/api/chat_details_cubit.dart';
+import 'package:air/core/api/chat_list_cubit.dart';
 import 'package:air/core/api/navigation_cubit.dart';
 import 'package:air/core/api/types.dart';
 import 'package:air/l10n/app_localizations.dart';
 import 'package:air/navigation/navigation_cubit.dart';
 import 'package:air/theme/theme_data.dart';
 import 'package:air/ui/colors/themes.dart';
-import 'package:air/user/user_cubit.dart';
-import 'package:air/user/users_cubit.dart';
+import 'package:air/user/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:path/path.dart' as p;
 
+import '../helpers.dart';
+import '../mocks.dart';
 import 'content.dart';
-import '../../helpers.dart';
-import '../../mocks.dart';
-import '../product_shot.dart';
+import 'product_shot.dart';
 
 /// Large store headline used in product shots.
 class ShotTitle extends StatelessWidget {
@@ -48,19 +48,19 @@ class ShotTitle extends StatelessWidget {
   }
 }
 
-void main() {
+void run({required String outputBase}) {
   late MockNavigationCubit navigationCubit;
-  late MockConversationListCubit conversationListCubit;
+  late MockChatListCubit chatListCubit;
   late MockUserCubit userCubit;
   late MockUsersCubit contactsCubit;
-  late MockConversationDetailsCubit conversationDetailsCubit;
+  late MockChatDetailsCubit chatDetailsCubit;
 
   setUp(() async {
     navigationCubit = MockNavigationCubit();
     userCubit = MockUserCubit();
-    conversationListCubit = MockConversationListCubit();
+    chatListCubit = MockChatListCubit();
     contactsCubit = MockUsersCubit();
-    conversationDetailsCubit = MockConversationDetailsCubit();
+    chatDetailsCubit = MockChatDetailsCubit();
 
     when(() => navigationCubit.state).thenReturn(const NavigationState.home());
     when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
@@ -69,39 +69,32 @@ void main() {
         profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
       ),
     );
-    when(() => conversationDetailsCubit.state).thenReturn(
-      ConversationDetailsState(
-        conversation: conversations[1],
-        members: [1.userId()],
-      ),
-    );
+    when(
+      () => chatDetailsCubit.state,
+    ).thenReturn(ChatDetailsState(chat: chats[1], members: [1.userId()]));
   });
 
-  testWidgets('product shot fixed size with label and 80% frame', (
-    tester,
-  ) async {
+  testWidgets('Chat List', (tester) async {
     when(() => navigationCubit.state).thenReturn(
       NavigationState.home(
-        home: HomeNavigationState(
-          conversationOpen: true,
-          conversationId: conversations[1].id,
-        ),
+        home: HomeNavigationState(chatOpen: true, chatId: chats[1].id),
       ),
     );
-    when(() => conversationListCubit.state).thenReturn(
-      ConversationListState(
-        conversations: List.generate(
-          20,
-          (index) => conversations[index % conversations.length],
-        ),
+    when(() => chatListCubit.state).thenReturn(
+      ChatListState(
+        chats: List.generate(20, (index) => chats[index % chats.length]),
       ),
     );
 
     // Set surface size to exactly match ProductShot dimensions
     const shotWidth = 1242;
-    const shotHeight = 2000; //2688;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    const shotHeight = 2000; // 2688;
+
+    addTearDown(() {
+      tester.view.resetPhysicalSize;
+      tester.view.resetDevicePixelRatio;
+    });
+
     tester.view.physicalSize = Size(
       shotWidth.toDouble(),
       shotHeight.toDouble(),
@@ -118,7 +111,7 @@ void main() {
         234,
       ), // light metallic grey
       label: 'Private messaging.\nFor everybody.',
-      child: ConversationListView(),
+      child: ChatListView(scaffold: true),
     );
 
     Widget buildSubject() => MultiBlocProvider(
@@ -126,18 +119,25 @@ void main() {
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
         BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ConversationListCubit>.value(value: conversationListCubit),
+        BlocProvider<ChatListCubit>.value(value: chatListCubit),
       ],
       child: Builder(
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(
-              MediaQuery.platformBrightnessOf(context),
-              CustomColorScheme.of(context),
-            ),
+            theme: lightTheme,
+            themeMode: ThemeMode.light,
             localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: const Scaffold(body: shot),
+            home: Material(
+              // Note: This is needed because our color scheme is resolved via platform brightness
+              // inside the media query, and not via the theme.
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(platformBrightness: Brightness.light),
+                child: shot,
+              ),
+            ),
           );
         },
       ),
@@ -148,7 +148,11 @@ void main() {
 
     await expectLater(
       find.byType(ProductShot),
-      matchesGoldenFile('../shots/message_list.png'),
+      matchesGoldenFile(p.join(outputBase, 'chat_list.png')),
     );
   });
+}
+
+void main() {
+  run(outputBase: "goldens");
 }
