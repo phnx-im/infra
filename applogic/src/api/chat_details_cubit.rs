@@ -146,7 +146,7 @@ impl ChatDetailsCubitBase {
         let Some(draft) = draft else {
             return Err(anyhow::anyhow!("You did not select a message to delete"));
         };
-        if draft.editing_id == None {
+        if draft.editing_id.is_none() {
             return Err(anyhow::anyhow!("You did not select a message to delete"));
         }
 
