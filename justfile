@@ -24,7 +24,7 @@ reset-dev:
     just _check-status "cargo deny check"
     just _check-unstaged-changes "git diff"
     just _check-unstaged-changes "cd app && fvm flutter pub get"
-    just _check-unstaged-changes "cd app && dart format ."
+    just _check-unstaged-changes "cd app && fvm dart format ."
     just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
 
