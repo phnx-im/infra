@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Phoenix R&D GmbH <hello@phnx.im>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:air/chat_list/chat_list.dart';
 import 'package:air/chat_list/chat_list_cubit.dart';
 import 'package:air/core/api/chat_details_cubit.dart';
@@ -7,7 +11,6 @@ import 'package:air/core/api/types.dart';
 import 'package:air/l10n/app_localizations.dart';
 import 'package:air/navigation/navigation_cubit.dart';
 import 'package:air/theme/theme_data.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
