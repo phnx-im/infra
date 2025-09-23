@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:io';
 import 'dart:math';
 
 import 'package:device_frame_plus/device_frame_plus.dart';
 import 'package:flutter/material.dart';
-
-import 'product_shots.dart';
 
 class ProductShot extends StatelessWidget {
   const ProductShot({
@@ -29,7 +28,10 @@ class ProductShot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dev = device ?? Devices.ios.iPhone13;
+    final dev =
+        device ??
+        (Platform.isAndroid ? Devices.android.pixel4 : Devices.ios.iPhone13);
+
     return Center(
       child: SizedBox(
         width: widthPx.toDouble(),
@@ -59,7 +61,7 @@ class ProductShot extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(height: topSpacer),
-                    ShotTitle(text: label),
+                    _ShotTitle(text: label),
                     const SizedBox(height: 56),
                     Expanded(
                       child: Transform.translate(
@@ -264,6 +266,34 @@ class _IosBattery extends StatelessWidget {
         ),
         Container(width: width / 20, height: height / 3, color: color),
       ],
+    );
+  }
+}
+
+/// Large store headline used in product shots.
+class _ShotTitle extends StatelessWidget {
+  const _ShotTitle({required this.text});
+
+  final String text;
+
+  static const _style = TextStyle(
+    fontSize: 64,
+    fontWeight: FontWeight.w800,
+    color: Color.fromARGB(255, 59, 61, 65), // dark grey title
+    height: 1.5,
+    letterSpacing: -0.5,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTextStyle.merge(
+      style: _style,
+      child: Text(
+        text,
+        maxLines: 2,
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

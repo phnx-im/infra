@@ -23,34 +23,6 @@ import '../mocks.dart';
 import 'content.dart';
 import 'product_shot.dart';
 
-/// Large store headline used in product shots.
-class ShotTitle extends StatelessWidget {
-  const ShotTitle({super.key, required this.text});
-
-  final String text;
-
-  static const _style = TextStyle(
-    fontSize: 64,
-    fontWeight: FontWeight.w800,
-    color: Color.fromARGB(255, 59, 61, 65), // dark grey title
-    height: 1.5,
-    letterSpacing: -0.5,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTextStyle.merge(
-      style: _style,
-      child: Text(
-        text,
-        maxLines: 2,
-        textAlign: TextAlign.center,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
 void run({required String outputBase}) {
   late MockNavigationCubit navigationCubit;
   late MockChatListCubit chatListCubit;
