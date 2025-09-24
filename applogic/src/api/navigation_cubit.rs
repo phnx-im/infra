@@ -161,6 +161,11 @@ impl NavigationCubitBase {
         });
     }
 
+    /// Opens a chat
+    ///
+    /// Note: opening a chat is a two-step process. First, the chat will be opened, and then
+    /// the component responsible for mounting the chat details cubit will confirm that the chat
+    /// is opened. Only after that, the router will navigate to the chat.
     pub async fn open_chat(&self, chat_id: ChatId) {
         self.core.state_tx().send_if_modified(|state| match state {
             NavigationState::Intro { .. } => {
@@ -173,9 +178,13 @@ impl NavigationCubitBase {
                 true
             }
             NavigationState::Home { home } => {
-                let was_open = mem::replace(&mut home.chat_open, true);
                 let different_id = home.chat_id.replace(chat_id) != Some(chat_id);
-                !was_open || different_id
+                if different_id {
+                    // don't immediately open the chat, it is opened when `confirm_opened_chat` is
+                    // called
+                    home.chat_open = false;
+                }
+                different_id
             }
         });
 
@@ -188,6 +197,23 @@ impl NavigationCubitBase {
         self.notification_service
             .cancel_notifications(identifiers)
             .await;
+    }
+
+    /// Confirms that a chat is opened
+    ///
+    /// Called by the component responsible for mounting the chat details cubit.
+    pub async fn confirm_opened_chat(&self, chat_id: ChatId) {
+        self.core.state_tx().send_if_modified(|state| match state {
+            NavigationState::Intro { .. } => false,
+            NavigationState::Home { home } => {
+                if home.chat_id == Some(chat_id) && !home.chat_open {
+                    home.chat_open = true;
+                    true
+                } else {
+                    false
+                }
+            }
+        });
     }
 
     pub fn close_chat(&self) {
