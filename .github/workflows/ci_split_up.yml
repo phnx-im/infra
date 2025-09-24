@@ -25,6 +25,8 @@ jobs:
       ## CHECK FRB
       - uses: dtolnay/rust-toolchain@1.89.0
       - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+      - run: curl -fsSL https://fvm.app/install.sh | bash
+      - run: (cd app && fvm install)
       - uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/flutter_rust_bridge_codegen
