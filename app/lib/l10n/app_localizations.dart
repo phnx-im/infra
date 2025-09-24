@@ -337,20 +337,20 @@ abstract class AppLocalizations {
   /// No description provided for @deleteConnectionButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete Air Contact'**
   String get deleteConnectionButton_text;
 
   /// No description provided for @deleteConnectionDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete Air Contact'**
   String get deleteConnectionDialog_title;
 
   /// No description provided for @deleteConnectionDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this connection? The message history will be also deleted.'**
-  String get deleteConnectionDialog_content;
+  /// **'Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.'**
+  String deleteConnectionDialog_content(Object displayName);
 
   /// No description provided for @deleteConnectionDialog_cancel.
   ///

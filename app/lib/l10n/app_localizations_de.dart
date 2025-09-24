@@ -139,14 +139,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unblockConnectionDialog_unblock => 'Unblock';
 
   @override
-  String get deleteConnectionButton_text => 'Delete Connection';
+  String get deleteConnectionButton_text => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_title => 'Delete Connection';
+  String get deleteConnectionDialog_title => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_content =>
-      'Are you sure you want to delete this connection? The message history will be also deleted.';
+  String deleteConnectionDialog_content(Object displayName) {
+    return 'Are you sure you want to delete your Air Contact $displayName? If you do, the chat and its message history will be deleted.';
+  }
 
   @override
   String get deleteConnectionDialog_cancel => 'Cancel';
