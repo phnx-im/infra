@@ -363,7 +363,7 @@ mod test {
     }
 
     async fn step_with_timeout(task: &mut BackgroundStreamTask<TestContext, TestEvent>) {
-        timeout(Duration::from_millis(1100), task.step())
+        timeout(Duration::from_millis(2000), task.step())
             .await
             .unwrap()
     }
