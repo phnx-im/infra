@@ -6,6 +6,7 @@ export RUST_LOG := "info"
 export RUST_BACKTRACE := "1"
 export SQLX_OFFLINE := "true"
 export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
+export RUSTFLAGS := "-D warnings"
 
 _default:
     just --list
@@ -14,6 +15,9 @@ _default:
 reset-dev:
     cd coreclient && cargo sqlx database reset -y
     cd backend && cargo sqlx database reset -y
+
+@check-frb:
+    just _check-unstaged-changes "just regenerate-frb"
 
 @check-rust:
     just _check-status "cargo machete"
@@ -29,7 +33,6 @@ reset-dev:
     just _check-unstaged-changes "cd app && fvm flutter pub get"
     just _check-unstaged-changes "cd app/rust_builder/cargokit/build_tool && fvm flutter pub get"
     just _check-unstaged-changes "cd app && fvm dart format ."
-    just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
     echo "{{BOLD}}check-flutter done{{NORMAL}}"
 
@@ -65,8 +68,10 @@ _log-error msg:
 
 
 # Regenerate Flutter-Rust bridge files and l10n files.
+regenerate-glue: regenerate-frb regenerate-l10n
+
 [working-directory: 'app']
-regenerate-glue:
+regenerate-frb:
     rm -f ../applogic/src/frb_*.rs
     touch ../applogic/src/frb_generated.rs
     rm -Rf lib/core/api lib/core/frb_*.dart lib/core/lib.dart
@@ -76,18 +81,23 @@ regenerate-glue:
 
     cd .. && cargo fmt
 
+regenerate-l10n:
     fvm flutter gen-l10n
 
 
 # Run cargo build, clippy and test.
 @test-rust:
-    just _check-status "cargo build"
-    just _check-status "cargo clippy --locked --all-targets -- -D warnings"
-    just _check-status "just run-docker-compose && cargo test -q"
+    just _check-status "cargo build --locked --all-targets"
+    just _check-status "cargo clippy --locked --all-targets"
+    just _check-status "just run-docker-compose && cargo test --locked -q"
+    echo "{{BOLD}}test-rust done{{NORMAL}}"
 
 # Run flutter test.
 test-flutter:
     cd app && fvm flutter test
+    echo "{{BOLD}}test-flutter done{{NORMAL}}"
+
+ci: check test
 
 # Run all tests.
 test: test-rust test-flutter

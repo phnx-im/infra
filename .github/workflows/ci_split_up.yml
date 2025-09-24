@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: Build and test Rust code
+name: CI split up
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,13 +17,49 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  frb:
     runs-on: ubuntu-latest
     steps:
-      # CHECK RUST
+      - uses: actions/checkout@v5
+
+      ## CHECK FRB
+      - uses: dtolnay/rust-toolchain@1.89.0
+      - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/flutter_rust_bridge_codegen
+          key: cargo-install-${{ runner.os }}-frb-2.11.1
+      - run: cargo binstall flutter_rust_bridge_codegen@2.11.1
+      - uses: extractions/setup-just@v2
+      - run: just check-frb
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v5
         with:
           lfs: true
+
+      # CHECK FLUTTER
+      - run: curl -fsSL https://fvm.app/install.sh | bash
+      - run: (cd app && fvm install)
+      - uses: extractions/setup-just@v2
+      - run: just check-flutter
+
+      # TEST FLUTTER
+      - run: just test-flutter
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # CHECK RUST
       - uses: taiki-e/install-action@cargo-machete
       - uses: dtolnay/rust-toolchain@1.89.0
       - uses: Swatinem/rust-cache@v2
@@ -34,24 +70,6 @@ jobs:
       - uses: extractions/setup-just@v2
       - run: just check-rust
 
-      # CHECK FLUTTER
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: cargo-install-${{ runner.os }}-frb-2.11.1
-      - run: cargo binstall flutter_rust_bridge_codegen@2.11.1
-      - run: curl -fsSL https://fvm.app/install.sh | bash
-      - run: (cd app && fvm install)
-      - run: just check-flutter
-
       # TEST RUST
       - run: just run-docker-compose
       - run: just test-rust
-
-      # TEST FLUTTER
-      - run: just test-flutter
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: golden-failures
-          path: app/test/**/failures/*
