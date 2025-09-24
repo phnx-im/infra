@@ -50,7 +50,7 @@ _check-unstaged-changes command:
 _log-error msg:
     #!/usr/bin/env -S bash -eu
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-        echo -e "::error::$msg"
+        echo -e "::error::{{msg}}"
     else
         msg="\x1b[1;31mERROR: {{msg}}\x1b[0m"
         echo -e "$msg"
