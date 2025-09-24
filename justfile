@@ -5,6 +5,7 @@
 export RUST_LOG := "info"
 export RUST_BACKTRACE := "1"
 export SQLX_OFFLINE := "true"
+export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 
 _default:
     just --list
