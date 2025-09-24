@@ -24,7 +24,6 @@ jobs:
 
       ## CHECK FRB
       - uses: dtolnay/rust-toolchain@1.89.0
-      - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - run: curl -fsSL https://fvm.app/install.sh | bash
       - run: (cd app && fvm install)
       - uses: actions/cache@v4
@@ -64,11 +63,11 @@ jobs:
       # CHECK RUST
       - uses: taiki-e/install-action@cargo-machete
       - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall cargo-deny@0.18.5 --no-confirm
       - uses: Swatinem/rust-cache@v2
-      - run: curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
       - run: pip3 install --user reuse
       - run: pip3 install --user podman-compose
-      - run: cargo binstall cargo-deny@0.18.5
       - uses: extractions/setup-just@v2
       - run: just check-rust
 
