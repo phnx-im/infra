@@ -14,21 +14,26 @@ reset-dev:
     cd coreclient && cargo sqlx database reset -y
     cd backend && cargo sqlx database reset -y
 
-# Run many fast and simple lints.
-@check:
-    just _check-status "git lfs --version"
+@check-rust:
     just _check-status "cargo machete"
     just _check-status "reuse lint -l"
     just _check-status "cargo metadata --format-version 1 --locked > /dev/null"
     just _check-status "cargo fmt -- --check"
     just _check-status "cargo deny check"
+    echo "{{BOLD}}check-rust done{{NORMAL}}"
+
+@check-flutter:
+    just _check-status "git lfs --version"
     just _check-unstaged-changes "git diff"
     just _check-unstaged-changes "cd app && fvm flutter pub get"
     just _check-unstaged-changes "cd app/rust_builder/cargokit/build_tool && fvm flutter pub get"
     just _check-unstaged-changes "cd app && fvm dart format ."
     just _check-unstaged-changes "just regenerate-glue"
     just _check-status "cd app && fvm flutter analyze --no-pub"
-    echo "{{BOLD}}Done!{{NORMAL}}"
+    echo "{{BOLD}}check-flutter done{{NORMAL}}"
+
+# Run many fast and simple lints.
+@check: check-rust check-flutter
 
 @_check-status command:
     echo "{{BOLD}}Running {{command}}{{NORMAL}}"
@@ -49,8 +54,11 @@ _check-unstaged-changes command:
 
 _log-error msg:
     #!/usr/bin/env -S bash -eu
+    fail=1
+
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo -e "::error::{{msg}}"
+        exit 1 # Fail fast on CI
     else
         msg="\x1b[1;31mERROR: {{msg}}\x1b[0m"
         echo -e "$msg"
