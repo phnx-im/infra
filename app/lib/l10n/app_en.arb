@@ -53,7 +53,17 @@
   "deleteConnectionDialog_cancel": "Cancel",
   "deleteConnectionDialog_delete": "Delete",
 
-  "introScreen_signUp": "Sign up",
+  "introScreen_signUp": "Sign Up",
+
+  "signUpScreen_title": "Sign Up",
+  "signUpScreen_actionButton": "Sign Up",
+  "signUpScreen_displayNameLabel": "Choose a picture and a display name.",
+  "signUpScreen_displayNameHint": "DISPLAY NAME",
+  "signUpScreen_serverLabel": "Choose a server where you want to create your account.",
+  "signUpScreen_serverHint": "DOMAIN NAME",
+  "signUpScreen_error_invalidDomain": "Domain is invalid",
+  "signUpScreen_error_emptyDisplayName": "Display name cannot be empty",
+  "signUpScreen_error_register": "Error when registering user: {error}",
 
   "userHandleScreen_title": "Username",
   "userHandleScreen_inputHint": "Username",
