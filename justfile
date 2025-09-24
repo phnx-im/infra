@@ -35,12 +35,13 @@ reset-dev:
 # Run many fast and simple lints.
 @check: check-rust check-flutter
 
-@_check-status command:
+_check-status command:
+    #!/usr/bin/env -S bash -eu
     echo "{{BOLD}}Running {{command}}{{NORMAL}}"
-    log=$({{command}} 2>&1) || { \
-        just _log-error "{{command}}";\
-        echo "{{RED}}$log{{NORMAL}}" >&2; \
-    }
+    if ! log=$({{command}} 2>&1); then
+        echo "{{RED}}$log{{NORMAL}}" >&2
+        just _log-error "{{command}}"
+    fi
 
 _check-unstaged-changes command:
     #!/usr/bin/env -S bash -eu
@@ -49,20 +50,17 @@ _check-unstaged-changes command:
     if ! git diff --quiet; then
         echo -e "{{RED}}Found unstaged changes.{{NORMAL}}"
         just _log-error "{{command}}"
-        exit 1
     fi
 
 _log-error msg:
     #!/usr/bin/env -S bash -eu
-    fail=1
-
     if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo -e "::error::{{msg}}"
-        exit 1 # Fail fast on CI
     else
         msg="\x1b[1;31mERROR: {{msg}}\x1b[0m"
         echo -e "$msg"
     fi
+    exit 1
 
 
 # Regenerate Flutter-Rust bridge files and l10n files.
