@@ -7,14 +7,14 @@ name: Publish iOS app
 on:
   push:
     branches:
-     - main
+      - main
     paths:
-      - 'coreclient/**'
-      - 'apiclient/**'
-      - 'applogic/**'
-      - 'common/**'
-      - 'app/**'
-      - 'Cargo.toml'
+      - "coreclient/**"
+      - "apiclient/**"
+      - "applogic/**"
+      - "common/**"
+      - "app/**"
+      - "Cargo.toml"
   workflow_dispatch:
 
 env:
@@ -29,19 +29,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Just
-        uses: extractions/setup-just@v2
-
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
 
-      - name: Set up Flutter FVM
-        uses: kuhnroyal/flutter-fvm-config-action/setup@v3
-        with:
-          path: 'app/.fvmrc'
-          cache: false
+      - run: curl -fsSL https://fvm.app/install.sh | bash
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@1.90.0
@@ -49,7 +42,7 @@ jobs:
       - name: Set up iOS CI
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: just setup-ios-ci
+        run: cd app/fastlane && bundle install
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
