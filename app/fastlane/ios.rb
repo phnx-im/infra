@@ -17,7 +17,7 @@ platform :ios do
       matchType = "appstore"
       app_identifier = "ms.air"
       app_identifier_nse = "ms.air.nse"
-    
+
       # Load the app store connect API key
       api_key = app_store_connect_api_key(
         key_id: key_id,
@@ -26,7 +26,7 @@ platform :ios do
         is_key_content_base64: true,
         in_house: false
       )
-    
+
       # Read app version from pubspec.yaml
       pubspec = YAML.load_file("../pubspec.yaml")
       app_version = (pubspec['version'] || '').to_s.split('+').first
@@ -41,12 +41,12 @@ platform :ios do
                         app_identifier: app_identifier
                       ) + 1
                     end
-    
+
       increment_build_number(
         xcodeproj: "ios/Runner.xcodeproj",
         build_number: build_number,
       )
-    
+
       # Use match for code signing
       ["development", "appstore"].each do |i|
         match(
@@ -60,7 +60,7 @@ platform :ios do
           readonly: is_ci,
         )
       end
-  
+
       # Build the app with signing
       build_ios(with_signing: upload_to_test_flight)
 
@@ -74,30 +74,30 @@ platform :ios do
         )
       end
     end
-  
+
     desc "Build app"
     lane :build_ios do |options|
       # The following is false when "with_signing" is not provided in the option
       # and true otherwise
       skip_signing = !options[:with_signing]
-    
+
       # Set up CI
       setup_ci()
-  
+
       # Install flutter dependencies
-      sh "flutter pub get"
+      sh "fvm flutter pub get"
 
       # Build the app with flutter first to create the necessary ephemeral files
-      sh "flutter build ios --config-only #{skip_signing ? '--debug' : '--release'}"
-    
+      sh "fvm flutter build ios --config-only #{skip_signing ? '--debug' : '--release'}"
+
       # Install CocoaPods dependencies
       cocoapods(
         podfile: "ios/Podfile"
       )
-  
+
       # Build the app
       build_app(
-        workspace: "ios/Runner.xcworkspace", 
+        workspace: "ios/Runner.xcworkspace",
         scheme: "Runner",
         configuration: skip_signing ? "Debug" : "Release",
         skip_codesigning: skip_signing,
