@@ -87,7 +87,6 @@ regenerate-l10n:
 
 # Run cargo build, clippy and test.
 @test-rust:
-    just _check-status "cargo build --locked --all-targets"
     just _check-status "cargo clippy --locked --all-targets"
     just _check-status "just run-docker-compose && cargo test --locked -q"
     echo "{{BOLD}}test-rust done{{NORMAL}}"
