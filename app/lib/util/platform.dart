@@ -99,11 +99,17 @@ Future<bool> requestNotificationPermission() async {
     if (result is bool) {
       return result;
     } else {
-      _log.warning("requestNotificationPermission returned unexpected type: ${result.runtimeType}");
+      _log.warning(
+        "requestNotificationPermission returned unexpected type: ${result.runtimeType}",
+      );
       return false;
     }
   } on PlatformException catch (e, stacktrace) {
-    _log.severe("Failed to request notification permission: '${e.message}'.", e, stacktrace);
+    _log.severe(
+      "Failed to request notification permission: '${e.message}'.",
+      e,
+      stacktrace,
+    );
     // Re-throw the error so the caller knows there was a system error vs. permission denial
     rethrow;
   }

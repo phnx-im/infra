@@ -214,7 +214,9 @@ void _requestNotificationPermissions() async {
       final granted = await requestNotificationPermission();
       _log.info("macOS notification permission granted: $granted");
     } on PlatformException catch (e) {
-      _log.severe("System error requesting macOS notification permission: ${e.message}");
+      _log.severe(
+        "System error requesting macOS notification permission: ${e.message}",
+      );
     }
   } else if (Platform.isAndroid || Platform.isIOS) {
     // Mobile: Use permission_handler
