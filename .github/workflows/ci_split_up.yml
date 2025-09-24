@@ -29,7 +29,7 @@ jobs:
         with:
           path: ~/.cargo/bin/flutter_rust_bridge_codegen
           key: cargo-install-${{ runner.os }}-frb-2.11.1
-      - run: cargo binstall flutter_rust_bridge_codegen@2.11.1
+      - run: cargo install flutter_rust_bridge_codegen@2.11.1
       - uses: extractions/setup-just@v2
       - run: just check-frb
 
