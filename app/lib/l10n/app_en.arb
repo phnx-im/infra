@@ -155,17 +155,17 @@
   "contactUsScreen_title": "Contact",
   "contactUsScreen_subject": "Message subject",
   "contactUsScreen_body": "Body",
-  "contactUsScreen_composeEmail": "Compose Email",
+  "contactUsScreen_composeEmail": "Compose email",
 
   "contactUsScreen_subject_somethingNotWorking": "Something's not working",
   "contactUsScreen_subject_iHaveAQuestion": "I have a question",
   "contactUsScreen_subject_requestFeature": "Request a feature",
   "contactUsScreen_subject_other": "Other",
 
-  "contactUsScreen_subject_empty": "Please select a subject",
+  "contactUsScreen_subject_empty": "Select a subject",
   "contactUsScreen_body_empty": "Enter your message",
-  "contactUsScreen_body_tooShort": "Please provide more information",
-  "contactUsScreen_errorLaunchingEmail": "Could not launch email client",
+  "contactUsScreen_body_tooShort": "Provide more information",
+  "contactUsScreen_errorLaunchingEmail": "Couldn't launch email client",
 
   "groupDetails_members": "Members",
   "groupDetails_addMembers": "Add Members",
