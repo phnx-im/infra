@@ -48,6 +48,8 @@ impl GrpcQs {
                 error!(%error, "error processing listen queue request");
             }
         }
+        // Listening stream was closed
+        queues.stop_listening(queue_id).await;
     }
 
     async fn process_listen_queue_request(

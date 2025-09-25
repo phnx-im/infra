@@ -91,18 +91,16 @@ class ChatScreenView extends StatelessWidget {
         decoration: BoxDecoration(
           color: CustomColorScheme.of(context).backgroundBase.primary,
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _ChatHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              blockedUserId == null
-                  ? const MessageComposer()
-                  : _BlockedChatFooter(chatId: chatId, userId: blockedUserId),
-            ],
-          ),
+        child: Column(
+          children: [
+            const _ChatHeader(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
+            blockedUserId == null
+                ? const MessageComposer()
+                : _BlockedChatFooter(chatId: chatId, userId: blockedUserId),
+          ],
         ),
       ),
     );
