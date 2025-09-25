@@ -297,12 +297,8 @@ pub struct ListenResponder {
     tx: mpsc::Sender<ListenRequest>,
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("listen responder is closed")]
-pub struct ListenResponderClosedError;
-
 impl ListenResponder {
-    pub async fn ack(&self, up_to_sequence_number: u64) -> Result<(), ListenResponderClosedError> {
+    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
         self.tx
             .send(ListenRequest {
                 request: Some(listen_request::Request::Ack(AckListenRequest {
@@ -310,15 +306,17 @@ impl ListenResponder {
                 })),
             })
             .await
-            .map_err(|_| ListenResponderClosedError)
+            .inspect_err(|error| error!(%error, "failed to ack listen request"))
+            .is_ok()
     }
 
-    pub async fn fetch(&self) -> Result<(), ListenResponderClosedError> {
+    pub async fn fetch(&self) {
         self.tx
             .send(ListenRequest {
                 request: Some(listen_request::Request::Fetch(FetchListenRequest {})),
             })
             .await
-            .map_err(|_| ListenResponderClosedError)
+            .inspect_err(|error| error!(%error, "failed to fetch listen request"))
+            .ok();
     }
 }

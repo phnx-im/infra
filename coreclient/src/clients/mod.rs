@@ -5,10 +5,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 pub use airapiclient::as_api::ListenHandleResponder;
-use airapiclient::{
-    ApiClient, ApiClientInitError,
-    qs_api::{ListenResponder, ListenResponderClosedError},
-};
+use airapiclient::{ApiClient, ApiClientInitError, qs_api::ListenResponder};
 use aircommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
@@ -353,30 +350,19 @@ impl CoreUser {
     async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
         let (stream, responder) = self.listen_queue().await?;
 
-        let mut stream = stream
+        let messages: Vec<QueueMessage> = stream
             .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
             .filter_map(|message| match message.event? {
                 queue_event::Event::Empty(_) => unreachable!(),
                 queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
                 queue_event::Event::Payload(_) => None,
-            });
-
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        while let Some(message) = stream.next().await {
-            messages.push(message);
-        }
+            })
+            .collect()
+            .await;
 
         if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
-            responder
-                .ack(max_sequence_number + 1)
-                .await
-                .inspect_err(|error| {
-                    error!(%error, "failed to ack QS messages");
-                })
-                .ok();
+            responder.ack(max_sequence_number + 1).await;
         }
-
-        drop(stream); // must be alive until the ack is sent
 
         Ok(messages)
     }
@@ -784,23 +770,18 @@ pub struct QsListenResponder {
     pool: SqlitePool,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum QsListenResponderError {
-    #[error(transparent)]
-    Closed(#[from] ListenResponderClosedError),
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-}
-
 impl QsListenResponder {
-    pub async fn ack(&self, up_to_sequence_number: u64) -> Result<(), QsListenResponderError> {
-        self.responder.ack(up_to_sequence_number).await?;
-        QueueType::Qs
-            .update_sequence_number(&self.pool, up_to_sequence_number)
-            .await
-            .inspect_err(|error| {
-                error!(%error, "failed to update QS sequence number");
-            })?;
-        Ok(())
+    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
+        if self.responder.ack(up_to_sequence_number).await {
+            QueueType::Qs
+                .update_sequence_number(&self.pool, up_to_sequence_number)
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to update QS sequence number");
+                })
+                .is_ok()
+        } else {
+            false
+        }
     }
 }
