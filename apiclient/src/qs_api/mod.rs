@@ -33,9 +33,13 @@ use mls_assist::openmls::prelude::KeyPackage;
 use thiserror::Error;
 use tokio::sync::mpsc;
 use tokio_stream::{Stream, StreamExt, wrappers::ReceiverStream};
+use tokio_util::sync::CancellationToken;
 use tracing::error;
 
-use crate::ApiClient;
+use crate::{
+    ApiClient,
+    util::{CancellableStream, CancellingStream},
+};
 
 pub mod grpc;
 
@@ -244,6 +248,12 @@ impl ApiClient {
         Ok(EncryptionKeyResponse { encryption_key })
     }
 
+    /// Listens to a queue.
+    ///
+    /// Returns a stream of [`QueueEvent`]s and a [`ListenResponder`].
+    ///
+    /// The connection to server is bound to the lifetime of the stream. When the stream has ended
+    /// or is dropped, the connection is closed. In this case, the [`ListenResponder`] is closed.
     pub async fn listen_queue(
         &self,
         queue_id: QsClientId,
@@ -259,16 +269,25 @@ impl ApiClient {
 
         const RESPONSE_CHANNEL_BUFFER_SIZE: usize = 16; // not too big for applying backpressure
         let (tx, rx) = mpsc::channel::<ListenRequest>(RESPONSE_CHANNEL_BUFFER_SIZE);
-        let responder = ListenResponder { tx };
 
-        let requests = tokio_stream::once(init_request).chain(ReceiverStream::new(rx));
+        // Cancels the requests stream when the responses stream is ended or was dropped
+        let cancel = CancellationToken::new();
+
+        let requests = CancellableStream::new(
+            tokio_stream::once(init_request).chain(ReceiverStream::new(rx)),
+            cancel.clone(),
+        );
 
         let response = self.qs_grpc_client.client().listen(requests).await?;
-        let stream = response.into_inner().map_while(|response| {
+        let responses = response.into_inner().map_while(|response| {
             response
                 .inspect_err(|status| error!(?status, "terminating listen stream due to an error"))
                 .ok()
         });
+
+        let stream = CancellingStream::new(responses, cancel);
+        let responder = ListenResponder { tx };
+
         Ok((stream, responder))
     }
 }
