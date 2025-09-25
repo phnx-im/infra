@@ -61,7 +61,7 @@ impl<S: Stream + Unpin> Stream for CancellableStream<S> {
     }
 }
 
-/// A streams the cancels the provided cancellation token when the underlying stream ends.
+/// A streams that cancels the provided cancellation token when the underlying stream ends.
 ///
 /// The token is cancelled when the underlying stream ends, or when the stream is dropped.
 ///
