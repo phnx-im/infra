@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -56,7 +57,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           _navigationCubit.openChat(chatId);
         });
 
-    _requestMobileNotifications();
+    _requestNotificationPermissions();
 
     _backgroundService.start(runImmediately: true);
   }
@@ -205,10 +206,20 @@ bool _isUserLoadedOrUnloaded(LoadableUser previous, LoadableUser current) =>
     (previous.user != null || current.user != null) &&
     previous.user != current.user;
 
-void _requestMobileNotifications() async {
-  // Mobile initialization
-  if (Platform.isAndroid || Platform.isIOS) {
-    // Ask for notification permission
+void _requestNotificationPermissions() async {
+  if (Platform.isMacOS) {
+    // macOS: Use custom method channel
+    _log.info("Requesting notification permission for macOS");
+    try {
+      final granted = await requestNotificationPermission();
+      _log.info("macOS notification permission granted: $granted");
+    } on PlatformException catch (e) {
+      _log.severe(
+        "System error requesting macOS notification permission: ${e.message}",
+      );
+    }
+  } else if (Platform.isAndroid || Platform.isIOS) {
+    // Mobile: Use permission_handler
     var status = await Permission.notification.status;
     switch (status) {
       case PermissionStatus.denied:
