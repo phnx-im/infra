@@ -805,7 +805,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_composeEmail.
   ///
   /// In en, this message translates to:
-  /// **'Compose Email'**
+  /// **'Compose email'**
   String get contactUsScreen_composeEmail;
 
   /// No description provided for @contactUsScreen_subject_somethingNotWorking.
@@ -835,7 +835,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_subject_empty.
   ///
   /// In en, this message translates to:
-  /// **'Please select a subject'**
+  /// **'Select a subject'**
   String get contactUsScreen_subject_empty;
 
   /// No description provided for @contactUsScreen_body_empty.
@@ -847,13 +847,13 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_body_tooShort.
   ///
   /// In en, this message translates to:
-  /// **'Please provide more information'**
+  /// **'Provide more information'**
   String get contactUsScreen_body_tooShort;
 
   /// No description provided for @contactUsScreen_errorLaunchingEmail.
   ///
   /// In en, this message translates to:
-  /// **'Could not launch email client'**
+  /// **'Couldn\'t launch email client'**
   String get contactUsScreen_errorLaunchingEmail;
 
   /// No description provided for @groupDetails_members.

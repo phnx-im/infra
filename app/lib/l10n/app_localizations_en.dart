@@ -403,7 +403,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactUsScreen_body => 'Body';
 
   @override
-  String get contactUsScreen_composeEmail => 'Compose Email';
+  String get contactUsScreen_composeEmail => 'Compose email';
 
   @override
   String get contactUsScreen_subject_somethingNotWorking =>
@@ -419,17 +419,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactUsScreen_subject_other => 'Other';
 
   @override
-  String get contactUsScreen_subject_empty => 'Please select a subject';
+  String get contactUsScreen_subject_empty => 'Select a subject';
 
   @override
   String get contactUsScreen_body_empty => 'Enter your message';
 
   @override
-  String get contactUsScreen_body_tooShort => 'Please provide more information';
+  String get contactUsScreen_body_tooShort => 'Provide more information';
 
   @override
   String get contactUsScreen_errorLaunchingEmail =>
-      'Could not launch email client';
+      'Couldn\'t launch email client';
 
   @override
   String get groupDetails_members => 'Members';
