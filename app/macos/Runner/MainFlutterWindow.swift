@@ -72,9 +72,27 @@ class MainFlutterWindow: NSWindow {
             message: "Failed to decode setBadgeCount arguments",
             details: nil))
       }
+    } else if call.method == "requestNotificationPermission" {
+      requestNotificationPermission(result: result)
     } else {
       NSLog("Unknown method called: \(call.method)")
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func requestNotificationPermission(result: @escaping FlutterResult) {
+    let center = UNUserNotificationCenter.current()
+    center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+      DispatchQueue.main.async {
+        if let error = error {
+          result(FlutterError(
+            code: "PERMISSION_ERROR",
+            message: "Failed to request notification permission: \(error.localizedDescription)",
+            details: nil))
+        } else {
+          result(granted)
+        }
+      }
     }
   }
 }
