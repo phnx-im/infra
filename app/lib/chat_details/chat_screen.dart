@@ -23,7 +23,7 @@ class ChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chatId = context.select(
-      (NavigationCubit cubit) => cubit.state.chatId,
+      (NavigationCubit cubit) => cubit.state.openChatId,
     );
 
     if (chatId == null) {
@@ -91,22 +91,20 @@ class ChatScreenView extends StatelessWidget {
         decoration: BoxDecoration(
           color: CustomColorScheme.of(context).backgroundBase.primary,
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _ChatHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              (blockedUserId == null || blockedUserDisplayName == null)
-                  ? const MessageComposer()
-                  : _BlockedChatFooter(
-                    chatId: chatId,
-                    userId: blockedUserId,
-                    contactName: blockedUserDisplayName,
-                  ),
-            ],
-          ),
+        child: Column(
+          children: [
+            const _ChatHeader(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
+            blockedUserId == null || blockedUserDisplayName == null
+                ? const MessageComposer()
+                : _BlockedChatFooter(
+                  chatId: chatId,
+                  userId: blockedUserId,
+                  displayName: blockedUserDisplayName,
+                ),
+          ],
         ),
       ),
     );
@@ -215,12 +213,12 @@ class _BlockedChatFooter extends StatelessWidget {
   const _BlockedChatFooter({
     required this.chatId,
     required this.userId,
-    required this.contactName,
+    required this.displayName,
   });
 
   final ChatId chatId;
   final UiUserId userId;
-  final String contactName;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +229,7 @@ class _BlockedChatFooter extends StatelessWidget {
         loc.blockedChatFooter_delete,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
-      onPressed: () => deleteChatWithConfirmation(context, chatId, contactName),
+      onPressed: () => deleteChatWithConfirmation(context, chatId, displayName),
     );
 
     var unblockButton = OutlinedButton(
