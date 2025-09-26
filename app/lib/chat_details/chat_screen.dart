@@ -241,7 +241,10 @@ class _BlockedChatFooter extends StatelessWidget {
             children: [
               Container(
                 constraints: buttonWidthConstraints,
-                child: DeleteChatButton(chatId: chatId),
+                child: DeleteContactButton(
+                  chatId: chatId,
+                  displayName: displayName,
+                ),
               ),
               const SizedBox(width: Spacings.s),
               Container(

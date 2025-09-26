@@ -45,11 +45,11 @@
   "unblockContactDialog_cancel": "Cancel",
   "unblockContactDialog_unblock": "Unblock User",
 
-  "deleteChatButton_text": "Delete Air Contact",
-  "deleteChatDialog_title": "Delete Air Contact",
-  "deleteChatDialog_content": "Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.",
-  "deleteChatDialog_cancel": "Cancel",
-  "deleteChatDialog_delete": "Delete",
+  "deleteContactButton_text": "Delete Air Contact",
+  "deleteContactDialog_title": "Delete Air Contact",
+  "deleteContactDialog_content": "Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.",
+  "deleteContactDialog_cancel": "Cancel",
+  "deleteContactDialog_delete": "Delete",
 
   "introScreen_signUp": "Sign Up",
 
@@ -175,10 +175,11 @@
   "leaveChatDialog_cancel": "Cancel",
   "leaveChatDialog_leave": "Leave",
 
-  "deleteChatDialog_title": "Delete Chat",
-  "deleteChatDialog_content": "Are you sure you want to delete this chat? The message history will be also deleted.",
+  "deleteChatDialog_title": "Delete Chat?",
+  "deleteChatDialog_content": "This chat will be deleted. There is no way to undo this.",
   "deleteChatDialog_cancel": "Cancel",
   "deleteChatDialog_delete": "Delete",
+
   "byteUnit_B": "B",
   "byteUnit_KB": "KB",
   "byteUnit_MB": "MB",

@@ -322,35 +322,35 @@ abstract class AppLocalizations {
   /// **'Unblock User'**
   String get unblockContactDialog_unblock;
 
-  /// No description provided for @deleteChatButton_text.
+  /// No description provided for @deleteContactButton_text.
   ///
   /// In en, this message translates to:
   /// **'Delete Air Contact'**
-  String get deleteChatButton_text;
+  String get deleteContactButton_text;
 
-  /// No description provided for @deleteChatDialog_title.
+  /// No description provided for @deleteContactDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Chat'**
-  String get deleteChatDialog_title;
+  /// **'Delete Air Contact'**
+  String get deleteContactDialog_title;
 
-  /// No description provided for @deleteChatDialog_content.
+  /// No description provided for @deleteContactDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this chat? The message history will be also deleted.'**
-  String get deleteChatDialog_content;
+  /// **'Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.'**
+  String deleteContactDialog_content(Object displayName);
 
-  /// No description provided for @deleteChatDialog_cancel.
+  /// No description provided for @deleteContactDialog_cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get deleteChatDialog_cancel;
+  String get deleteContactDialog_cancel;
 
-  /// No description provided for @deleteChatDialog_delete.
+  /// No description provided for @deleteContactDialog_delete.
   ///
   /// In en, this message translates to:
   /// **'Delete'**
-  String get deleteChatDialog_delete;
+  String get deleteContactDialog_delete;
 
   /// No description provided for @introScreen_signUp.
   ///
@@ -891,6 +891,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leave'**
   String get leaveChatDialog_leave;
+
+  /// No description provided for @deleteChatDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Chat?'**
+  String get deleteChatDialog_title;
+
+  /// No description provided for @deleteChatDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'This chat will be deleted. There is no way to undo this.'**
+  String get deleteChatDialog_content;
+
+  /// No description provided for @deleteChatDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteChatDialog_cancel;
+
+  /// No description provided for @deleteChatDialog_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get deleteChatDialog_delete;
 
   /// No description provided for @byteUnit_B.
   ///

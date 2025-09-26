@@ -140,20 +140,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unblockContactDialog_unblock => 'Unblock User';
 
   @override
-  String get deleteChatButton_text => 'Delete Air Contact';
+  String get deleteContactButton_text => 'Delete Air Contact';
 
   @override
-  String get deleteChatDialog_title => 'Delete Chat';
+  String get deleteContactDialog_title => 'Delete Air Contact';
 
   @override
-  String get deleteChatDialog_content =>
-      'Are you sure you want to delete this chat? The message history will be also deleted.';
+  String deleteContactDialog_content(Object displayName) {
+    return 'Are you sure you want to delete your Air Contact $displayName? If you do, the chat and its message history will be deleted.';
+  }
 
   @override
-  String get deleteChatDialog_cancel => 'Cancel';
+  String get deleteContactDialog_cancel => 'Cancel';
 
   @override
-  String get deleteChatDialog_delete => 'Delete';
+  String get deleteContactDialog_delete => 'Delete';
 
   @override
   String get introScreen_signUp => 'Registrieren';
@@ -461,6 +462,19 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get leaveChatDialog_leave => 'Leave';
+
+  @override
+  String get deleteChatDialog_title => 'Delete Chat?';
+
+  @override
+  String get deleteChatDialog_content =>
+      'This chat will be deleted. There is no way to undo this.';
+
+  @override
+  String get deleteChatDialog_cancel => 'Cancel';
+
+  @override
+  String get deleteChatDialog_delete => 'Delete';
 
   @override
   String get byteUnit_B => 'B';

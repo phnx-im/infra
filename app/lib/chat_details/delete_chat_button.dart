@@ -11,10 +11,16 @@ import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class DeleteChatButton extends StatelessWidget {
-  const DeleteChatButton({required this.chatId, super.key});
+class DeleteContactButton extends StatelessWidget {
+  const DeleteContactButton({
+    required this.chatId,
+    required this.displayName,
+
+    super.key,
+  });
 
   final ChatId chatId;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +28,7 @@ class DeleteChatButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: () => _delete(context),
       child: Text(
-        loc.deleteChatButton_text,
+        loc.deleteContactButton_text,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
     );
@@ -34,10 +40,10 @@ class DeleteChatButton extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final confirmed = await showConfirmationDialog(
       context,
-      title: loc.deleteChatDialog_title,
-      message: loc.deleteChatDialog_content,
-      positiveButtonText: loc.deleteChatDialog_delete,
-      negativeButtonText: loc.deleteChatDialog_cancel,
+      title: loc.deleteContactDialog_title,
+      message: loc.deleteContactDialog_content(displayName),
+      positiveButtonText: loc.deleteContactDialog_delete,
+      negativeButtonText: loc.deleteContactDialog_cancel,
     );
     if (confirmed) {
       userCubit.deleteChat(chatId);
