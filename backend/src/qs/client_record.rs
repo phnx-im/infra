@@ -406,6 +406,8 @@ impl QsClientRecord {
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if !has_listener {
+                    trace!("Trying to send push notification");
+
                     // Send a push notification under the following conditions:
                     // - there is a push token associated with the queue
                     // - there is a push token decryption key
@@ -415,18 +417,20 @@ impl QsClientRecord {
                     {
                         // Attempt to decrypt the push token.
                         match PushToken::decrypt(ear_key, encrypted_push_token) {
-                            Err(e) => {
-                                error!("Push token decryption failed: {}", e);
+                            Err(error) => {
+                                error!(%error, "Push token decryption failed");
                             }
                             Ok(push_token) => {
+                                trace!("Send push notification");
+
                                 // Send the push notification.
                                 if let Err(e) = push_notification_provider.push(push_token).await {
                                     match e {
                                         // The push notification failed for some other reason.
                                         PushNotificationError::Other(error_description) => {
                                             error!(
-                                                "Push notification failed unexpectedly: {}",
-                                                error_description
+                                                %error_description,
+                                                "Push notification failed unexpectedly",
                                             )
                                         }
                                         // The token is no longer valid and should be deleted.
