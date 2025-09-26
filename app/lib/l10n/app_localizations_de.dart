@@ -140,7 +140,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unblockContactDialog_unblock => 'Unblock User';
 
   @override
-  String get deleteChatButton_text => 'Delete';
+  String get deleteChatButton_text => 'Delete Air Contact';
 
   @override
   String get deleteChatDialog_title => 'Delete Chat';

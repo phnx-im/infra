@@ -45,9 +45,9 @@
   "unblockContactDialog_cancel": "Cancel",
   "unblockContactDialog_unblock": "Unblock User",
 
-  "deleteChatButton_text": "Delete",
-  "deleteChatDialog_title": "Delete Chat?",
-  "deleteChatDialog_content": "This chat will be deleted. There is no way to undo this.",
+  "deleteChatButton_text": "Delete Air Contact",
+  "deleteChatDialog_title": "Delete Air Contact",
+  "deleteChatDialog_content": "Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.",
   "deleteChatDialog_cancel": "Cancel",
   "deleteChatDialog_delete": "Delete",
 

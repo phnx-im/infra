@@ -325,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @deleteChatButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Delete'**
+  /// **'Delete Air Contact'**
   String get deleteChatButton_text;
 
   /// No description provided for @deleteChatDialog_title.
