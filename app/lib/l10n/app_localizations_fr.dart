@@ -110,58 +110,58 @@ class AppLocalizationsFr extends AppLocalizations {
   String get removeUserButton_text => 'Retirer l\'utilisateur';
 
   @override
-  String get blockConnectionButton_text => 'Block';
+  String get blockContactButton_text => 'Block';
 
   @override
-  String blockConnectionDialog_title(Object displayName) {
+  String blockContactDialog_title(Object displayName) {
     return 'Block $displayName?';
   }
 
   @override
-  String blockConnectionDialog_content(Object displayName) {
+  String blockContactDialog_content(Object displayName) {
     return 'You won’t receive messages from $displayName and they won’t be able to view any updates to your profile. They won’t be able to see that you blocked them. You can unblock them anytime.';
   }
 
   @override
-  String get blockConnectionDialog_cancel => 'Cancel';
+  String get blockContactDialog_cancel => 'Cancel';
 
   @override
-  String get blockConnectionDialog_block => 'Block';
+  String get blockContactDialog_block => 'Block';
 
   @override
-  String get unblockConnectionButton_text => 'Unblock';
+  String get unblockContactButton_text => 'Unblock';
 
   @override
-  String unblockConnectionDialog_title(Object displayName) {
+  String unblockContactDialog_title(Object displayName) {
     return 'Unblock $displayName?';
   }
 
   @override
-  String unblockConnectionDialog_content(Object displayName) {
+  String unblockContactDialog_content(Object displayName) {
     return 'You’ll be able to send and receive messages from $displayName and they’ll be able to view your current profile.';
   }
 
   @override
-  String get unblockConnectionDialog_cancel => 'Cancel';
+  String get unblockContactDialog_cancel => 'Cancel';
 
   @override
-  String get unblockConnectionDialog_unblock => 'Unblock';
+  String get unblockContactDialog_unblock => 'Unblock';
 
   @override
-  String get deleteConnectionButton_text => 'Delete';
+  String get deleteChatButton_text => 'Delete';
 
   @override
-  String get deleteConnectionDialog_title => 'Delete Chat?';
+  String get deleteChatDialog_title => 'Delete Chat';
 
   @override
-  String get deleteConnectionDialog_content =>
-      'This chat will be deleted. There is no way to undo this.';
+  String get deleteChatDialog_content =>
+      'Are you sure you want to delete this chat? The message history will be also deleted.';
 
   @override
-  String get deleteConnectionDialog_cancel => 'Cancel';
+  String get deleteChatDialog_cancel => 'Cancel';
 
   @override
-  String get deleteConnectionDialog_delete => 'Delete';
+  String get deleteChatDialog_delete => 'Delete';
 
   @override
   String get introScreen_signUp => 'S\'inscrire';
@@ -471,19 +471,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get leaveChatDialog_leave => 'Leave';
-
-  @override
-  String get deleteChatDialog_title => 'Delete Chat';
-
-  @override
-  String get deleteChatDialog_content =>
-      'Are you sure you want to delete this chat? The message history will be also deleted.';
-
-  @override
-  String get deleteChatDialog_cancel => 'Cancel';
-
-  @override
-  String get deleteChatDialog_delete => 'Delete';
 
   @override
   String get byteUnit_B => 'o';

@@ -24,7 +24,7 @@ class UnblockContactButton extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     return OutlinedButton(
       onPressed: () => _unblock(context),
-      child: Text(loc.unblockConnectionButton_text),
+      child: Text(loc.unblockContactButton_text),
     );
   }
 
@@ -33,10 +33,10 @@ class UnblockContactButton extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final confirmed = await showConfirmationDialog(
       context,
-      title: loc.unblockConnectionDialog_title(displayName),
-      message: loc.unblockConnectionDialog_content(displayName),
-      positiveButtonText: loc.unblockConnectionDialog_unblock,
-      negativeButtonText: loc.unblockConnectionDialog_cancel,
+      title: loc.unblockContactDialog_title(displayName),
+      message: loc.unblockContactDialog_content(displayName),
+      positiveButtonText: loc.unblockContactDialog_unblock,
+      negativeButtonText: loc.unblockContactDialog_cancel,
     );
     if (confirmed) {
       userCubit.unblockContact(userId);

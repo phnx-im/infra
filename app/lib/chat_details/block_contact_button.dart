@@ -32,7 +32,7 @@ class BlockContactButton extends StatelessWidget {
         children: [
           Icon(Icons.block, color: color),
           const SizedBox(width: Spacings.xxxs),
-          Text(loc.blockConnectionButton_text, style: TextStyle(color: color)),
+          Text(loc.blockContactButton_text, style: TextStyle(color: color)),
         ],
       ),
     );
@@ -43,10 +43,10 @@ class BlockContactButton extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final confirmed = await showConfirmationDialog(
       context,
-      title: loc.blockConnectionDialog_title(displayName),
-      message: loc.blockConnectionDialog_content(displayName),
-      positiveButtonText: loc.blockConnectionDialog_block,
-      negativeButtonText: loc.blockConnectionDialog_cancel,
+      title: loc.blockContactDialog_title(displayName),
+      message: loc.blockContactDialog_content(displayName),
+      positiveButtonText: loc.blockContactDialog_block,
+      negativeButtonText: loc.blockContactDialog_cancel,
     );
     if (confirmed) {
       userCubit.blockContact(userId);

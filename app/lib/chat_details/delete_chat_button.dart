@@ -22,7 +22,7 @@ class DeleteChatButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: () => _delete(context),
       child: Text(
-        loc.deleteConnectionButton_text,
+        loc.deleteChatButton_text,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
     );
@@ -34,10 +34,10 @@ class DeleteChatButton extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final confirmed = await showConfirmationDialog(
       context,
-      title: loc.deleteConnectionDialog_title,
-      message: loc.deleteConnectionDialog_content,
-      positiveButtonText: loc.deleteConnectionDialog_delete,
-      negativeButtonText: loc.deleteConnectionDialog_cancel,
+      title: loc.deleteChatDialog_title,
+      message: loc.deleteChatDialog_content,
+      positiveButtonText: loc.deleteChatDialog_delete,
+      negativeButtonText: loc.deleteChatDialog_cancel,
     );
     if (confirmed) {
       userCubit.deleteChat(chatId);
