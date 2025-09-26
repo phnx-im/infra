@@ -112,7 +112,7 @@ impl BackgroundStreamContext<HandleQueueMessage> for HandleContext {
             .cubit_context
             .app_state
             .clone()
-            .wait_for(|app_state| matches!(app_state, AppState::Background))
+            .wait_for(|app_state| matches!(app_state, AppState::MobileBackground))
             .await;
     }
 

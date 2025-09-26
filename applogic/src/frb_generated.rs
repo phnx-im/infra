@@ -6766,8 +6766,9 @@ impl SseDecode for crate::api::user_cubit::AppState {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
-            0 => crate::api::user_cubit::AppState::Background,
-            1 => crate::api::user_cubit::AppState::Foreground,
+            0 => crate::api::user_cubit::AppState::MobileBackground,
+            1 => crate::api::user_cubit::AppState::DesktopBackground,
+            2 => crate::api::user_cubit::AppState::Foreground,
             _ => unreachable!("Invalid variant for AppState: {}", inner),
         };
     }
@@ -8641,8 +8642,9 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<UsersState>> for UsersState {
 impl flutter_rust_bridge::IntoDart for crate::api::user_cubit::AppState {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
-            Self::Background => 0.into_dart(),
-            Self::Foreground => 1.into_dart(),
+            Self::MobileBackground => 0.into_dart(),
+            Self::DesktopBackground => 1.into_dart(),
+            Self::Foreground => 2.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -10219,8 +10221,9 @@ impl SseEncode for crate::api::user_cubit::AppState {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(
             match self {
-                crate::api::user_cubit::AppState::Background => 0,
-                crate::api::user_cubit::AppState::Foreground => 1,
+                crate::api::user_cubit::AppState::MobileBackground => 0,
+                crate::api::user_cubit::AppState::DesktopBackground => 1,
+                crate::api::user_cubit::AppState::Foreground => 2,
                 _ => {
                     unimplemented!("");
                 }
