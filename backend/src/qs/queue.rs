@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, VecDeque, hash_map::Entry},
     sync::Arc,
 };
 
@@ -113,7 +113,11 @@ impl Queues {
 
         txn.commit().await?;
 
-        let is_listening = self.listeners.lock().await.contains_key(&queue_id);
+        let listeners = self.listeners.lock().await;
+        let is_listening = listeners
+            .get(&queue_id)
+            .map(|context| !context.cancel.is_cancelled())
+            .unwrap_or(false);
         Ok(is_listening)
     }
 
