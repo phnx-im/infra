@@ -434,6 +434,11 @@ enum NotificationContext {
 impl CubitContext {
     /// Show OS notifications depending on the current navigation state and OS.
     async fn show_notifications(&self, mut notifications: Vec<NotificationContent>) {
+        const IS_DESKTOP: bool = cfg!(any(
+            target_os = "macos",
+            target_os = "windows",
+            target_os = "linux"
+        ));
         let notification_context = match &*self.navigation_state.borrow() {
             NavigationState::Intro { .. } => NotificationContext::Intro,
             NavigationState::Home {
@@ -452,11 +457,6 @@ impl CubitContext {
                         ..
                     },
             } => {
-                const IS_DESKTOP: bool = cfg!(any(
-                    target_os = "macos",
-                    target_os = "windows",
-                    target_os = "linux"
-                ));
                 if !IS_DESKTOP
                     && developer_settings_screen.is_none()
                     && user_settings_screen.is_none()
@@ -475,8 +475,10 @@ impl CubitContext {
                 return; // suppress all notifications
             }
             NotificationContext::Chat(chat_id) => {
-                // Remove notifications for the current chat
-                notifications.retain(|notification| notification.chat_id != Some(chat_id));
+                // Remove notifications for the current chat, but only on mobile
+                if !IS_DESKTOP {
+                    notifications.retain(|notification| notification.chat_id != Some(chat_id));
+                }
             }
             NotificationContext::Other => (),
         }
