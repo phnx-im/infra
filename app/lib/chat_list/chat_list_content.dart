@@ -245,6 +245,18 @@ class _LastMessage extends StatelessWidget {
     final lastMessage = chat.lastMessage;
     final draftMessage = chat.draft?.message.trim();
 
+    final isHidden = lastMessage?.status == UiMessageStatus.hidden;
+    if (isHidden) {
+      final loc = AppLocalizations.of(context);
+      return Text(
+        loc.textMessage_hiddenPlaceholder,
+        style: TextStyle(
+          fontStyle: FontStyle.italic,
+          color: CustomColorScheme.of(context).text.tertiary,
+        ),
+      );
+    }
+
     final readStyle = TextStyle(
       color: CustomColorScheme.of(context).text.primary,
       height: 1.2,

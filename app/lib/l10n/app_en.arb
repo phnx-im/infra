@@ -43,7 +43,7 @@
   "unblockContactDialog_title": "Unblock {displayName}?",
   "unblockContactDialog_content": "You’ll be able to send and receive messages from {displayName} and they’ll be able to view your current profile.",
   "unblockContactDialog_cancel": "Cancel",
-  "unblockContactDialog_unblock": "Unblock",
+  "unblockContactDialog_unblock": "Unblock User",
 
   "deleteChatButton_text": "Delete",
   "deleteChatDialog_title": "Delete Chat?",

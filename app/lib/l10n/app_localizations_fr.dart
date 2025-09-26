@@ -137,7 +137,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get unblockContactDialog_cancel => 'Cancel';
 
   @override
-  String get unblockContactDialog_unblock => 'Unblock';
+  String get unblockContactDialog_unblock => 'Unblock User';
 
   @override
   String get deleteChatButton_text => 'Delete';

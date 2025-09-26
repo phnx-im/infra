@@ -319,7 +319,7 @@ abstract class AppLocalizations {
   /// No description provided for @unblockContactDialog_unblock.
   ///
   /// In en, this message translates to:
-  /// **'Unblock'**
+  /// **'Unblock User'**
   String get unblockContactDialog_unblock;
 
   /// No description provided for @deleteChatButton_text.
