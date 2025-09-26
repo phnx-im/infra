@@ -217,20 +217,20 @@ abstract class AppLocalizations {
   /// No description provided for @blockedChatFooter_message.
   ///
   /// In en, this message translates to:
-  /// **'You have blocked this chat. You will not get any messages, unless you unblock it.'**
-  String get blockedChatFooter_message;
+  /// **'You won’t receive messages from {displayName} unless you unblock them.'**
+  String blockedChatFooter_message(Object displayName);
 
   /// No description provided for @blockedChatFooter_delete.
   ///
   /// In en, this message translates to:
-  /// **'Delete'**
+  /// **'Delete Chat?'**
   String get blockedChatFooter_delete;
 
   /// No description provided for @blockedChatFooter_unblock.
   ///
   /// In en, this message translates to:
-  /// **'Unblock'**
-  String get blockedChatFooter_unblock;
+  /// **'Unblock {displayName}?'**
+  String blockedChatFooter_unblock(Object displayName);
 
   /// No description provided for @chatScreen_emptyChat.
   ///
@@ -277,20 +277,20 @@ abstract class AppLocalizations {
   /// No description provided for @blockConnectionButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Block Contact'**
+  /// **'Block'**
   String get blockConnectionButton_text;
 
   /// No description provided for @blockConnectionDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Block Contact'**
-  String get blockConnectionDialog_title;
+  /// **'Block {displayName}?'**
+  String blockConnectionDialog_title(Object displayName);
 
   /// No description provided for @blockConnectionDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to block this contact? The user will not be able to send messages to you.'**
-  String get blockConnectionDialog_content;
+  /// **'You won’t receive messages from {displayName} and they won’t be able to view any updates to your profile. They won’t be able to see that you blocked them. You can unblock them anytime.'**
+  String blockConnectionDialog_content(Object displayName);
 
   /// No description provided for @blockConnectionDialog_cancel.
   ///
@@ -307,20 +307,20 @@ abstract class AppLocalizations {
   /// No description provided for @unblockConnectionButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Unblock Contact'**
+  /// **'Unblock'**
   String get unblockConnectionButton_text;
 
   /// No description provided for @unblockConnectionDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Unblock Contact'**
-  String get unblockConnectionDialog_title;
+  /// **'Unblock {displayName}?'**
+  String unblockConnectionDialog_title(Object displayName);
 
   /// No description provided for @unblockConnectionDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.'**
-  String get unblockConnectionDialog_content;
+  /// **'You’ll be able to send and receive messages from {displayName} and they’ll be able to view your current profile.'**
+  String unblockConnectionDialog_content(Object displayName);
 
   /// No description provided for @unblockConnectionDialog_cancel.
   ///
@@ -337,19 +337,19 @@ abstract class AppLocalizations {
   /// No description provided for @deleteConnectionButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete'**
   String get deleteConnectionButton_text;
 
   /// No description provided for @deleteConnectionDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete Chat?'**
   String get deleteConnectionDialog_title;
 
   /// No description provided for @deleteConnectionDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this connection? The message history will be also deleted.'**
+  /// **'This chat will be deleted. There is no way to undo this.'**
   String get deleteConnectionDialog_content;
 
   /// No description provided for @deleteConnectionDialog_cancel.
@@ -577,7 +577,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatList_blocked.
   ///
   /// In en, this message translates to:
-  /// **'🚫 Blocked'**
+  /// **'Blocked'**
   String get chatList_blocked;
 
   /// No description provided for @settings_profile.

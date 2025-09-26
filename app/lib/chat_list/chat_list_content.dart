@@ -177,12 +177,16 @@ class _BlockedBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    return Text(
-      loc.chatList_blocked,
-      style: TextStyle(
-        fontStyle: FontStyle.italic,
-        color: CustomColorScheme.of(context).text.tertiary,
-      ),
+    final color = CustomColorScheme.of(context).text.tertiary;
+    return Row(
+      children: [
+        Icon(Icons.block, color: color),
+        const SizedBox(width: Spacings.xxxs),
+        Text(
+          loc.chatList_blocked,
+          style: TextStyle(fontStyle: FontStyle.italic, color: color),
+        ),
+      ],
     );
   }
 }

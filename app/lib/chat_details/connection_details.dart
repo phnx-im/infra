@@ -2,11 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:air/l10n/app_localizations.dart';
-import 'package:air/navigation/navigation_cubit.dart';
-import 'package:air/ui/colors/themes.dart';
-import 'package:air/user/user_cubit.dart';
-import 'package:air/util/dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/core.dart';
 import 'package:air/theme/theme.dart';
@@ -14,8 +9,11 @@ import 'package:air/widgets/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 
+import 'block_contact_button.dart';
 import 'chat_details_cubit.dart';
+import 'delete_chat_button.dart';
 import 'report_spam_button.dart';
+import 'unblock_contact_button.dart';
 
 final _log = Logger('ConnectionDetails');
 
@@ -31,12 +29,12 @@ class ConnectionDetails extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final userId = switch (chat.chatType) {
-      UiChatType_Connection(field0: final profile) => profile.userId,
+    final profile = switch (chat.chatType) {
+      UiChatType_Connection(field0: final profile) => profile,
       _ => null,
     };
-    if (userId == null) {
-      _log.warning("memberId is null in 1:1 connection details");
+    if (profile == null) {
+      _log.warning("profile is null in 1:1 connection details");
       return const SizedBox.shrink();
     }
 
@@ -46,9 +44,16 @@ class ConnectionDetails extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: Spacings.l),
-          UserAvatar(size: 128, displayName: chat.title, image: chat.picture),
+          UserAvatar(
+            size: 128,
+            displayName: profile.displayName,
+            image: profile.profilePicture,
+          ),
           const SizedBox(height: Spacings.l),
-          Text(style: Theme.of(context).textTheme.bodyLarge, chat.title),
+          Text(
+            style: Theme.of(context).textTheme.bodyLarge,
+            profile.displayName,
+          ),
           const SizedBox(height: Spacings.l),
           Text(
             chat.chatType.description,
@@ -58,118 +63,23 @@ class ConnectionDetails extends StatelessWidget {
           const Spacer(),
 
           isBlocked
-              ? _UnblockConnectionButton(userId: userId)
-              : _BlockConnectionButton(userId: userId),
+              ? UnblockContactButton(
+                userId: profile.userId,
+                displayName: profile.displayName,
+              )
+              : BlockContactButton(
+                userId: profile.userId,
+                displayName: profile.displayName,
+              ),
           const SizedBox(height: Spacings.s),
 
-          _DeleteConnectionButton(chatId: chat.id),
+          DeleteChatButton(chatId: chat.id),
           const SizedBox(height: Spacings.s),
 
-          ReportSpamButton(userId: userId),
+          ReportSpamButton(userId: profile.userId),
           const SizedBox(height: Spacings.s),
         ],
       ),
     );
-  }
-}
-
-class _BlockConnectionButton extends StatelessWidget {
-  const _BlockConnectionButton({required this.userId});
-
-  final UiUserId userId;
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    return OutlinedButton(
-      onPressed: () => _block(context, userId),
-      child: Text(
-        loc.blockConnectionButton_text,
-        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
-      ),
-    );
-  }
-
-  void _block(BuildContext context, UiUserId userId) async {
-    final userCubit = context.read<UserCubit>();
-    final loc = AppLocalizations.of(context);
-    final confirmed = await showConfirmationDialog(
-      context,
-      title: loc.blockConnectionDialog_title,
-      message: loc.blockConnectionDialog_content,
-      positiveButtonText: loc.blockConnectionDialog_block,
-      negativeButtonText: loc.blockConnectionDialog_cancel,
-    );
-    if (confirmed) {
-      userCubit.blockContact(userId);
-    }
-  }
-}
-
-class _UnblockConnectionButton extends StatelessWidget {
-  const _UnblockConnectionButton({required this.userId});
-
-  final UiUserId userId;
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    return OutlinedButton(
-      onPressed: () => unblockContactWithConfirmation(context, userId),
-      child: Text(loc.unblockConnectionButton_text),
-    );
-  }
-}
-
-void unblockContactWithConfirmation(
-  BuildContext context,
-  UiUserId userId,
-) async {
-  final userCubit = context.read<UserCubit>();
-  final loc = AppLocalizations.of(context);
-  final confirmed = await showConfirmationDialog(
-    context,
-    title: loc.unblockConnectionDialog_title,
-    message: loc.unblockConnectionDialog_content,
-    positiveButtonText: loc.unblockConnectionDialog_unblock,
-    negativeButtonText: loc.unblockConnectionDialog_cancel,
-  );
-  if (confirmed) {
-    userCubit.unblockContact(userId);
-  }
-}
-
-class _DeleteConnectionButton extends StatelessWidget {
-  const _DeleteConnectionButton({required this.chatId});
-
-  final ChatId chatId;
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    return OutlinedButton(
-      onPressed: () => deleteChatWithConfirmation(context, chatId),
-      child: Text(
-        loc.deleteConnectionButton_text,
-        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
-      ),
-    );
-  }
-}
-
-void deleteChatWithConfirmation(BuildContext context, ChatId chatId) async {
-  final userCubit = context.read<UserCubit>();
-  final navigationCubit = context.read<NavigationCubit>();
-  final loc = AppLocalizations.of(context);
-  final confirmed = await showConfirmationDialog(
-    context,
-    title: loc.deleteConnectionDialog_title,
-    message: loc.deleteConnectionDialog_content,
-    positiveButtonText: loc.deleteConnectionDialog_delete,
-    negativeButtonText: loc.deleteConnectionDialog_cancel,
-  );
-  if (confirmed) {
-    userCubit.deleteChat(chatId);
-    navigationCubit.closeChat();
   }
 }
