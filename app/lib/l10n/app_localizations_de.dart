@@ -79,14 +79,6 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get blockedChatFooter_delete => 'Delete Chat?';
-
-  @override
-  String blockedChatFooter_unblock(Object displayName) {
-    return 'Unblock $displayName?';
-  }
-
-  @override
   String get chatScreen_emptyChat =>
       'Wähle eine Unterhaltung aus, um mit dem Nachrichten schreiben zu beginnen';
 

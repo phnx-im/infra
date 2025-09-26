@@ -220,18 +220,6 @@ abstract class AppLocalizations {
   /// **'You won’t receive messages from {displayName} unless you unblock them.'**
   String blockedChatFooter_message(Object displayName);
 
-  /// No description provided for @blockedChatFooter_delete.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete Chat?'**
-  String get blockedChatFooter_delete;
-
-  /// No description provided for @blockedChatFooter_unblock.
-  ///
-  /// In en, this message translates to:
-  /// **'Unblock {displayName}?'**
-  String blockedChatFooter_unblock(Object displayName);
-
   /// No description provided for @chatScreen_emptyChat.
   ///
   /// In en, this message translates to:

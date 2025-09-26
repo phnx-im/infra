@@ -23,8 +23,6 @@
   "chatDetailsScreen_unknownChat": "Unknown chat",
 
   "blockedChatFooter_message": "You won’t receive messages from {displayName} unless you unblock them.",
-  "blockedChatFooter_delete": "Delete Chat?",
-  "blockedChatFooter_unblock": "Unblock {displayName}?",
 
   "chatScreen_emptyChat": "Select a chat to start messaging",
 
