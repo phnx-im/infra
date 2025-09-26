@@ -47,9 +47,9 @@
   "unblockConnectionDialog_cancel": "Cancel",
   "unblockConnectionDialog_unblock": "Unblock",
 
-  "deleteConnectionButton_text": "Delete Connection",
-  "deleteConnectionDialog_title": "Delete Connection",
-  "deleteConnectionDialog_content": "Are you sure you want to delete this connection? The message history will be also deleted.",
+  "deleteConnectionButton_text": "Delete Air Contact",
+  "deleteConnectionDialog_title": "Delete Air Contact",
+  "deleteConnectionDialog_content": "Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.",
   "deleteConnectionDialog_cancel": "Cancel",
   "deleteConnectionDialog_delete": "Delete",
 
