@@ -75,11 +75,11 @@ class ChatScreenView extends StatelessWidget {
       (NavigationCubit cubit) => cubit.state.chatId,
     );
 
-    final blockedUserId = context.select(
+    final (blockedUserId, blockedUserDisplayName) = context.select(
       (ChatDetailsCubit cubit) =>
           cubit.state.chat?.status == const UiChatStatus.blocked()
-              ? cubit.state.chat?.userId
-              : null,
+              ? (cubit.state.chat?.userId, cubit.state.chat?.attributes.title)
+              : (null, null),
     );
 
     if (chatId == null) {
@@ -97,9 +97,13 @@ class ChatScreenView extends StatelessWidget {
             Expanded(
               child: MessageListView(createMessageCubit: createMessageCubit),
             ),
-            blockedUserId == null
+            blockedUserId == null || blockedUserDisplayName == null
                 ? const MessageComposer()
-                : _BlockedChatFooter(chatId: chatId, userId: blockedUserId),
+                : _BlockedChatFooter(
+                  chatId: chatId,
+                  userId: blockedUserId,
+                  displayName: blockedUserDisplayName,
+                ),
           ],
         ),
       ),
@@ -206,10 +210,15 @@ class _BackButton extends StatelessWidget {
 }
 
 class _BlockedChatFooter extends StatelessWidget {
-  const _BlockedChatFooter({required this.chatId, required this.userId});
+  const _BlockedChatFooter({
+    required this.chatId,
+    required this.userId,
+    required this.displayName,
+  });
 
   final ChatId chatId;
   final UiUserId userId;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +229,7 @@ class _BlockedChatFooter extends StatelessWidget {
         loc.blockedChatFooter_delete,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
       ),
-      onPressed: () => deleteChatWithConfirmation(context, chatId),
+      onPressed: () => deleteChatWithConfirmation(context, chatId, displayName),
     );
 
     var unblockButton = OutlinedButton(

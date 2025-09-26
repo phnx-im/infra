@@ -62,7 +62,7 @@ class ConnectionDetails extends StatelessWidget {
               : _BlockConnectionButton(userId: userId),
           const SizedBox(height: Spacings.s),
 
-          _DeleteConnectionButton(chatId: chat.id),
+          _DeleteConnectionButton(chatId: chat.id, contactName: chat.title),
           const SizedBox(height: Spacings.s),
 
           ReportSpamButton(userId: userId),
@@ -140,15 +140,19 @@ void unblockContactWithConfirmation(
 }
 
 class _DeleteConnectionButton extends StatelessWidget {
-  const _DeleteConnectionButton({required this.chatId});
+  const _DeleteConnectionButton({
+    required this.chatId,
+    required this.contactName,
+  });
 
   final ChatId chatId;
+  final String contactName;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     return OutlinedButton(
-      onPressed: () => deleteChatWithConfirmation(context, chatId),
+      onPressed: () => deleteChatWithConfirmation(context, chatId, contactName),
       child: Text(
         loc.deleteConnectionButton_text,
         style: TextStyle(color: CustomColorScheme.of(context).function.danger),
@@ -157,14 +161,18 @@ class _DeleteConnectionButton extends StatelessWidget {
   }
 }
 
-void deleteChatWithConfirmation(BuildContext context, ChatId chatId) async {
+void deleteChatWithConfirmation(
+  BuildContext context,
+  ChatId chatId,
+  String contactName,
+) async {
   final userCubit = context.read<UserCubit>();
   final navigationCubit = context.read<NavigationCubit>();
   final loc = AppLocalizations.of(context);
   final confirmed = await showConfirmationDialog(
     context,
     title: loc.deleteConnectionDialog_title,
-    message: loc.deleteConnectionDialog_content,
+    message: loc.deleteConnectionDialog_content(contactName),
     positiveButtonText: loc.deleteConnectionDialog_delete,
     negativeButtonText: loc.deleteConnectionDialog_cancel,
   );
