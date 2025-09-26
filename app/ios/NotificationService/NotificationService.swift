@@ -5,8 +5,11 @@
 
 import Foundation
 import UserNotifications
+import os
 
 private let kProtectedBlockedCategory = "protected-blocked"
+private let log = Logger(
+  subsystem: Bundle.main.bundleIdentifier ?? "NotificationService", category: "NSE")
 
 struct IncomingNotificationContent: Codable {
   let title: String
@@ -26,7 +29,7 @@ struct NotificationContent: Codable {
   let identifier: UUID
   let title: String
   let body: String
-  let chatId: ChatId
+  let chatId: ChatId?
 }
 
 struct ChatId: Codable {
@@ -43,7 +46,7 @@ class NotificationService: UNNotificationServiceExtension {
     withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
   ) {
 
-    NSLog("NSE Received notification")
+    log.info("Received notification")
     self.contentHandler = contentHandler
     bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
 
@@ -55,13 +58,13 @@ class NotificationService: UNNotificationServiceExtension {
     // Extract the "data" field from the push notification payload
     let userInfo = request.content.userInfo
     guard let data = userInfo["data"] as? String else {
-      NSLog("NSE Data field not set")
+      log.info("Data field not set")
       contentHandler(request.content)
       return
     }
 
     guard let dbUrl = getDatabasesDirectoryPath() else {
-      NSLog("NSE Could not find databases directory")
+      log.error("Could not find databases directory")
       contentHandler(request.content)
       return
     }
@@ -69,7 +72,7 @@ class NotificationService: UNNotificationServiceExtension {
     // If protected data is not yet available (e.g. device never unlocked after reboot),
     // show a minimal notification and skip DB access.
     if !protectedDataAvailable(at: dbUrl) {
-      NSLog("NSE Protected data unavailable; sending fallback notification")
+      log.notice("Protected data unavailable; sending fallback notification")
       // Always remove any previously delivered "blocked" notifications to avoid duplicates
       clearProtectedBlockedNotifications()
       let fallback = UNMutableNotificationContent()
@@ -89,11 +92,12 @@ class NotificationService: UNNotificationServiceExtension {
       let cachesDirectory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
         .first
     else {
-      NSLog("NSE Could not find cache directory")
+      log.error("Could not find cache directory")
       contentHandler(request.content)
       return
     }
     let logFilePath = cachesDirectory.appendingPathComponent("background.log").path
+    log.info("Log file path: \(logFilePath, privacy: .public)")
 
     // Create IncomingNotificationContent object
     let incomingContent = IncomingNotificationContent(
@@ -109,7 +113,11 @@ class NotificationService: UNNotificationServiceExtension {
     {
 
       jsonString.withCString { cString in
-        if let responsePointer = process_new_messages(cString) {
+        let rawPointer = process_new_messages(cString)
+        if rawPointer == nil {
+          log.error("process_new_messages returned nil")
+        }
+        if let responsePointer = rawPointer {
           let responseString = String(cString: responsePointer)
           free_string(responsePointer)
 
@@ -117,9 +125,11 @@ class NotificationService: UNNotificationServiceExtension {
             let notificationBatch = try? JSONDecoder().decode(
               NotificationBatch.self, from: responseData)
           {
-
             handleNotificationBatch(notificationBatch, contentHandler: contentHandler)
+            log.info(
+              "Number of successfully processed messages: \(notificationBatch.additions.count)")
           } else {
+            log.error("Could not decode response from Rust: \(responseString, privacy: .public)")
             contentHandler(request.content)
           }
         } else {
@@ -132,7 +142,7 @@ class NotificationService: UNNotificationServiceExtension {
   }
 
   override func serviceExtensionTimeWillExpire() {
-    NSLog("NSE Expiration handler invoked")
+    log.notice("Expiration handler invoked")
     if let contentHandler = contentHandler, let bestAttemptContent = bestAttemptContent {
       bestAttemptContent.title = "Timer expired"
       bestAttemptContent.body = "Please report this issue"
@@ -161,14 +171,16 @@ class NotificationService: UNNotificationServiceExtension {
         newContent.title = notificationContent.title
         newContent.body = notificationContent.body
         newContent.sound = UNNotificationSound.default
-        newContent.userInfo["chatId"] = notificationContent.chatId.uuid.uuidString
+        if let chatId = notificationContent.chatId {
+          newContent.userInfo["chatId"] = chatId.uuid.uuidString
+        }
         let request = UNNotificationRequest(
           identifier: notificationContent.identifier.uuidString,
           content: newContent,
           trigger: nil)
         center.add(request) { error in
           if let error = error {
-            NSLog("NSE Error adding notification: \(error)")
+            log.error("Error adding notification: \(error.localizedDescription, privacy: .public)")
           }
           dispatchGroup.leave()
         }
@@ -182,7 +194,9 @@ class NotificationService: UNNotificationServiceExtension {
         content.title = lastNotification.title
         content.body = lastNotification.body
         content.sound = UNNotificationSound.default
-        content.userInfo["chatId"] = lastNotification.chatId.uuid.uuidString
+        if let chatId = lastNotification.chatId {
+          content.userInfo["chatId"] = chatId.uuid.uuidString
+        }
       }
       // Add the badge number
       content.badge = NSNumber(value: batch.badgeCount)
