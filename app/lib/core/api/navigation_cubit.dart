@@ -23,11 +23,6 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> closeChat();
 
-  /// Confirms that a chat is opened
-  ///
-  /// Called by the component responsible for mounting the chat details cubit.
-  Future<void> confirmOpenedChat({required ChatId chatId});
-
   bool get isClosed;
 
   factory NavigationCubitBase({
@@ -38,11 +33,6 @@ abstract class NavigationCubitBase implements RustOpaqueInterface {
 
   Future<void> openAddMembers();
 
-  /// Opens a chat
-  ///
-  /// Note: opening a chat is a two-step process. First, the chat will be opened, and then
-  /// the component responsible for mounting the chat details cubit will confirm that the chat
-  /// is opened. Only after that, the router will navigate to the chat.
   Future<void> openChat({required ChatId chatId});
 
   Future<void> openChatDetails();
