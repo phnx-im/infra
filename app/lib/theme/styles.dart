@@ -81,7 +81,28 @@ ButtonStyle dynamicTextButtonStyle(
   );
 }
 
-ButtonStyle buttonStyle(CustomColorScheme colorScheme, bool isActive) {
+ButtonStyle buttonStyle(BuildContext context, bool isActive) {
+  final colorScheme = CustomColorScheme.of(context);
+  final overrides = buttonStyleFromColorScheme(colorScheme, isActive).merge(
+    ButtonStyle(
+      textStyle: WidgetStateProperty.all(
+        Theme.of(context).textTheme.labelLarge!.copyWith(
+          fontSize: LabelFontSize.large1.size,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+  );
+
+  return (OutlinedButtonTheme.of(context).style ?? const ButtonStyle()).merge(
+    overrides,
+  );
+}
+
+ButtonStyle buttonStyleFromColorScheme(
+  CustomColorScheme colorScheme,
+  bool isActive,
+) {
   return ButtonStyle(
     foregroundColor: WidgetStateProperty.all<Color>(
       isActive ? colorScheme.text.primary : colorScheme.text.quaternary,
@@ -118,9 +139,6 @@ ButtonStyle buttonStyle(CustomColorScheme colorScheme, bool isActive) {
         ),
         borderRadius: BorderRadius.circular(12),
       ),
-    ),
-    textStyle: WidgetStateProperty.all<TextStyle>(
-      TextStyle(fontSize: LabelFontSize.base.size, fontWeight: FontWeight.bold),
     ),
   );
 }
