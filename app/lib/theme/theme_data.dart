@@ -50,7 +50,7 @@ ThemeData themeData(
   highlightColor: Colors.transparent,
   hoverColor: Colors.transparent,
   outlinedButtonTheme: OutlinedButtonThemeData(
-    style: buttonStyle(colorScheme, true),
+    style: buttonStyleFromColorScheme(colorScheme, true),
   ),
   iconButtonTheme: IconButtonThemeData(
     style: ButtonStyle(
