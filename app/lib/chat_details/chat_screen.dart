@@ -25,7 +25,7 @@ class ChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chatId = context.select(
-      (NavigationCubit cubit) => cubit.state.openChatId,
+      (NavigationCubit cubit) => cubit.state.chatId,
     );
 
     if (chatId == null) {

@@ -78,8 +78,19 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   }
 
   Future<void> _onStateChanged(AppLifecycleState state) async {
-    if (state == AppLifecycleState.paused) {
-      _appStateController.sink.add(AppState.background);
+    // Detect background transitions
+
+    if (isPointer() && state == AppLifecycleState.inactive) {
+      // On desktop platforms, the inactive state is entered when the user
+      // switches to another app. In that case, we want to treat it as
+      // background state.
+      _appStateController.sink.add(AppState.desktopBackground);
+      return;
+    }
+    if (isTouch() && state == AppLifecycleState.paused) {
+      // On mobile platforms, the paused state is entered when the app
+      // is closed. In that case, we want to treat it as background state.
+      _appStateController.sink.add(AppState.mobileBackground);
 
       // iOS only
       if (Platform.isIOS) {
@@ -89,7 +100,12 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           await setBadgeCount(count);
         }
       }
-    } else if (state == AppLifecycleState.resumed) {
+      return;
+    }
+
+    // Detect foreground transitions
+
+    if (state == AppLifecycleState.resumed) {
       _appStateController.sink.add(AppState.foreground);
     }
   }
@@ -127,7 +143,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           builder:
               (context, router) => LoadableUserCubitProvider(
                 appStateController: _appStateController,
-                child: _ChatDetailsCubitProvider(child: router!),
+                child: ChatDetailsCubitProvider(child: router!),
               ),
         ),
       ),
@@ -236,31 +252,22 @@ void _requestNotificationPermissions() async {
 /// Creates a [ChatDetailsCubit] for the current chat
 ///
 /// This is used to mount the chat details cubit when the user
-/// navigates to a chat and to confirm that that chat is fully opened.
-/// The [ChatDetailsCubit] can be then used from any screen.
-class _ChatDetailsCubitProvider extends StatelessWidget {
-  const _ChatDetailsCubitProvider({required this.child});
+/// navigates to a chat. The [ChatDetailsCubit] can be
+/// then used from any screen.
+class ChatDetailsCubitProvider extends StatelessWidget {
+  const ChatDetailsCubitProvider({required this.child, super.key});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<NavigationCubit, NavigationState>(
-      listenWhen: (previous, current) => current.chatId != previous.chatId,
-      listener: (context, state) {
-        final chatId = state.chatId;
-        if (chatId != null) {
-          context.read<NavigationCubit>().confirmOpenedChat(chatId);
-        }
-      },
+    return BlocBuilder<NavigationCubit, NavigationState>(
       buildWhen: (previous, current) => current.chatId != previous.chatId,
       builder: (context, state) {
         final chatId = state.chatId;
-
         if (chatId == null) {
           return child;
         }
-
         return BlocProvider(
           // rebuilds the cubit when a different chat is selected
           key: ValueKey("chat-details-cubit-$chatId"),
