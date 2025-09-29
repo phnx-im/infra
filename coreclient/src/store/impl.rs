@@ -43,6 +43,10 @@ impl Store for CoreUser {
         self.report_spam(spammer_id).await
     }
 
+    async fn delete_account(&self) -> anyhow::Result<()> {
+        self.delete_account().await
+    }
+
     async fn user_setting<T: UserSetting>(&self) -> Option<T> {
         match UserSettingRecord::load(self.pool(), T::KEY).await {
             Ok(Some(bytes)) => match T::decode(bytes) {

@@ -37,6 +37,7 @@ class UserSettingsScreen extends StatelessWidget {
         leading: const AppBarBackButton(),
       ),
       body: SafeArea(
+        minimum: const EdgeInsets.only(bottom: Spacings.m),
         child: Align(
           alignment: Alignment.topCenter,
           child: Container(
@@ -71,6 +72,8 @@ class UserSettingsScreen extends StatelessWidget {
 
                   const SettingsDivider(),
                   const _Help(),
+                  const SizedBox(height: Spacings.xs),
+                  const _DeleteAccount(),
                 ],
               ),
             ),
@@ -333,7 +336,6 @@ class _DesktopSettingsState extends State<_DesktopSettings> {
             },
           ),
         ),
-        const SizedBox(height: Spacings.s),
       ],
     );
   }
@@ -365,12 +367,34 @@ class _Help extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.help, size: _listIconSize),
           title: Text(loc.userSettingsScreen_help),
-          onTap:
-              () => context.read<NavigationCubit>().openUserSettings(
-                screen: UserSettingsScreenType.help,
-              ),
+          onTap: () {
+            context.read<NavigationCubit>().openUserSettings(
+              screen: UserSettingsScreenType.help,
+            );
+          },
         ),
       ],
+    );
+  }
+}
+
+class _DeleteAccount extends StatelessWidget {
+  const _DeleteAccount();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final color = CustomColorScheme.of(context).function.danger;
+    return ListTile(
+      leading: const Icon(Icons.person_outline, size: _listIconSize),
+      title: Text(loc.userSettingsScreen_deleteAccount),
+      iconColor: color,
+      textColor: color,
+      onTap: () {
+        context.read<NavigationCubit>().openUserSettings(
+          screen: UserSettingsScreenType.deleteAccount,
+        );
+      },
     );
   }
 }

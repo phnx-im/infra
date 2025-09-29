@@ -7,6 +7,7 @@
   "userSettingsScreen_userNamesDescription": "Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.",
   "userSettingsScreen_interfaceScale": "Interface scale",
   "userSettingsScreen_help": "Help",
+  "userSettingsScreen_deleteAccount": "Delete Account",
 
   "removeUsernameDialog_title": "Remove Username",
   "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
@@ -189,5 +190,13 @@
   "byteUnit_PB": "PB",
   "byteUnit_EB": "EB",
   "byteUnit_ZB": "ZB",
-  "byteUnit_YB": "YB"
+  "byteUnit_YB": "YB",
+
+  "deleteAccountScreen_title": "Delete My Account",
+  "deleteAccountScreen_explanatoryText": "This will delete your Air account and reset the application. You will not be able to recover your account.",
+  "deleteAccountScreen_confirmationInputHint": "Confirmation",
+  "deleteAccountScreen_confirmationInputLabel": "Type 'delete' to confirm",
+  "deleteAccountScreen_confirmButtonText": "Delete Account",
+  "deleteAccountScreen_cancelButtonText": "Cancel",
+  "deleteAccountScreen_deleteAccountError": "Something went wrong on our end. Wait a moment, then try again."
 }

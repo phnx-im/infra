@@ -174,6 +174,9 @@ extension on HomeNavigationState {
       canPop: false,
       child: HomeScreen(),
     );
+    debugPrint(
+      "NavigationState.home: pages: homeScreenPage=$userSettingsScreen",
+    );
     return [
       homeScreenPage,
       ...switch (userSettingsScreen) {
@@ -212,6 +215,16 @@ extension on HomeNavigationState {
           const MaterialPage(
             key: ValueKey("user-settings-screen-help"),
             child: HelpScreen(),
+          ),
+        ],
+        UserSettingsScreenType.deleteAccount => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-delete-account"),
+            child: DeleteAccountScreen(),
           ),
         ],
       },
