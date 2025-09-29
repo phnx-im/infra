@@ -5,7 +5,6 @@
 import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/main.dart';
-import 'package:air/theme/theme.dart';
 import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:flutter/material.dart';
@@ -44,12 +43,10 @@ class ReportSpamButton extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              style: textButtonStyle(context),
               child: Text(loc.reportSpamDialog_cancel),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              style: textButtonStyle(context),
               child: Text(loc.reportSpamDialog_reportSpam),
             ),
           ],

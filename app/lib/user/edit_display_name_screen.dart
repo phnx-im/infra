@@ -71,7 +71,6 @@ class EditDisplayNameScreen extends HookWidget {
                 ),
                 const Spacer(),
                 OutlinedButton(
-                  style: buttonStyle(context, true),
                   onPressed: () => _submit(context, controller.text),
                   child: Text(loc.editDisplayNameScreen_save),
                 ),

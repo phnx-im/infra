@@ -5,6 +5,7 @@
 import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/main.dart';
+import 'package:air/ui/typography/font_size.dart';
 import 'package:flutter/material.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
@@ -233,8 +234,8 @@ class _SignUpButton extends StatelessWidget {
       ),
     );
     return OutlinedButton(
-      onPressed: () => _submit(context, formKey),
-      style: buttonStyle(context, isValid && !isSigningUp),
+      onPressed:
+          isValid && !isSigningUp ? () => _submit(context, formKey) : null,
       child:
           isSigningUp
               ? const CircularProgressIndicator()

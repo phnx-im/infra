@@ -152,7 +152,6 @@ class _RemoveUserButton extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              style: textButtonStyle(context),
               child: Text(loc.removeUserDialog_cancel),
             ),
             TextButton(
@@ -165,7 +164,6 @@ class _RemoveUserButton extends StatelessWidget {
                   Navigator.of(context).pop(true);
                 }
               },
-              style: textButtonStyle(context),
               child: Text(loc.removeUserDialog_removeUser),
             ),
           ],

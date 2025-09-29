@@ -127,7 +127,6 @@ class _PlusButtonState extends State<_PlusButton> {
         ),
       ],
       child: TextButton(
-        style: textButtonStyle(context),
         onPressed: () {
           contextMenuController.show();
         },
