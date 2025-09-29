@@ -233,8 +233,8 @@ class _SignUpButton extends StatelessWidget {
       ),
     );
     return OutlinedButton(
-      onPressed: () => _submit(context, formKey),
-      style: buttonStyle(context, isValid && !isSigningUp),
+      onPressed:
+          isValid && !isSigningUp ? () => _submit(context, formKey) : null,
       child:
           isSigningUp
               ? const CircularProgressIndicator()
