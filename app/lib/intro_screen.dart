@@ -55,7 +55,7 @@ class IntroScreen extends StatelessWidget {
                               context
                                   .read<NavigationCubit>()
                                   .openServerChoice(),
-                      style: buttonStyle(CustomColorScheme.of(context), true),
+                      style: buttonStyle(context, true),
                       child: Text(loc.introScreen_signUp),
                     ),
                   ],
