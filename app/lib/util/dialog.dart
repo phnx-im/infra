@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:air/theme/styles.dart';
 import 'package:flutter/material.dart';
 
 /// Shows a confirmation dialog with the given [title], [message],
@@ -27,14 +26,12 @@ Future<bool> showConfirmationDialog(
             onPressed: () {
               Navigator.of(context).pop(false);
             },
-            style: textButtonStyle(context),
             child: Text(negativeButtonText),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(true);
             },
-            style: textButtonStyle(context),
             child: Text(positiveButtonText),
           ),
         ],

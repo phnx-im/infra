@@ -130,7 +130,6 @@ class _EmailForm extends HookWidget {
                   _launchEmail(context, selectedSubject.value, body.value);
                 }
               },
-              style: buttonStyle(context, true),
               child: Text(loc.contactUsScreen_composeEmail),
             ),
           ],

@@ -55,7 +55,6 @@ class IntroScreen extends StatelessWidget {
                               context
                                   .read<NavigationCubit>()
                                   .openServerChoice(),
-                      style: buttonStyle(context, true),
                       child: Text(loc.introScreen_signUp),
                     ),
                   ],
@@ -65,8 +64,10 @@ class IntroScreen extends StatelessWidget {
                 onPressed:
                     () =>
                         context.read<NavigationCubit>().openDeveloperSettings(),
-                style: dynamicTextButtonStyle(context, true, true),
-                child: Text(loc.settings_developerSettings),
+                child: Text(
+                  loc.settings_developerSettings,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
