@@ -14,12 +14,14 @@ members = [
     "common",
     "applogic",
     "protos",
+    "mls-assist",
 ]
 
 [workspace.dependencies]
 # internal dependencies
 aircommon = { path = "./common" }
 airprotos = { path = "./protos" }
+mls-assist = { path = "./mls-assist" }
 
 uuid = "1.16.0"
 
@@ -48,14 +50,12 @@ thiserror = "2.0"
 blake3 = "1.8.2"
 sha2 = "0.10.9"
 
+openmls_traits = { version = "0.4.1" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
-openmls_traits = { git = "https://github.com/openmls/openmls", rev = "e19efc810cf6c703b2ec8cc4fd7661a3c17e42d1" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", rev = "24d8b36aa3b903abda3bf70e445d871ab48a07dd" }
-
+openmls = { version = "0.7.1" }
+openmls_memory_storage = { version = "0.4.1" }
+openmls_rust_crypto = { version = "0.4.1" }
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
     "tracing-log",
