@@ -73,7 +73,10 @@ class ConnectionDetails extends StatelessWidget {
               ),
           const SizedBox(height: Spacings.s),
 
-          DeleteContactButton(chatId: chat.id),
+          DeleteContactButton(
+            chatId: chat.id,
+            displayName: profile.displayName,
+          ),
           const SizedBox(height: Spacings.s),
 
           ReportSpamButton(userId: profile.userId),

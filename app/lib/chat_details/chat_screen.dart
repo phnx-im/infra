@@ -227,33 +227,32 @@ class _BlockedChatFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final buttonWidthConstraints =
-        isPointer() ? const BoxConstraints(minWidth: 100) : null;
+    final buttonWidth = isSmallScreen(context) ? double.infinity : null;
     return Container(
-      constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
       padding: const EdgeInsets.all(Spacings.s),
       child: Column(
         children: [
           Text(loc.blockedChatFooter_message(displayName)),
           const SizedBox(height: Spacings.s),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            runSpacing: Spacings.xxs,
+            alignment: WrapAlignment.center,
             children: [
-              Container(
-                constraints: buttonWidthConstraints,
+              SizedBox(
+                width: buttonWidth,
                 child: DeleteContactButton(
                   chatId: chatId,
                   displayName: displayName,
                 ),
               ),
               const SizedBox(width: Spacings.s),
-              Container(
-                constraints: buttonWidthConstraints,
+              SizedBox(
+                width: buttonWidth,
                 child: ReportSpamButton(userId: userId),
               ),
               const SizedBox(width: Spacings.s),
-              Container(
-                constraints: buttonWidthConstraints,
+              SizedBox(
+                width: buttonWidth,
                 child: UnblockContactButton(
                   userId: userId,
                   displayName: displayName,
