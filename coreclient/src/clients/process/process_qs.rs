@@ -30,11 +30,12 @@ use openmls::{
 };
 use sqlx::{Acquire, SqliteTransaction};
 use tls_codec::DeserializeBytes;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use crate::{
-    ChatMessage, ContentMessage, Message, SystemMessage,
+    ChatMessage, ChatStatus, ContentMessage, Message, SystemMessage,
     chats::{ChatType, StatusRecord, messages::edit::MessageEdit},
+    clients::block_contact::{BlockedContact, BlockedContactError},
     contacts::HandleContact,
     groups::{Group, client_auth_info::StorableClientCredential, process::ProcessMessageResult},
     key_stores::indexed_keys::StorableIndexedKey,
@@ -59,6 +60,15 @@ pub struct ProcessedQsMessages {
     pub changed_chats: Vec<ChatId>,
     pub new_messages: Vec<ChatMessage>,
     pub errors: Vec<anyhow::Error>,
+}
+
+impl ProcessedQsMessages {
+    pub fn is_empty(&self) -> bool {
+        self.new_chats.is_empty()
+            && self.changed_chats.is_empty()
+            && self.new_messages.is_empty()
+            && self.errors.is_empty()
+    }
 }
 
 #[derive(Default)]
@@ -257,6 +267,11 @@ impl CoreUser {
                 let (new_messages, updated_messages, chat_changed) =
                     match processed_message.into_content() {
                         ProcessedMessageContent::ApplicationMessage(application_message) => {
+                            // Drop messages in 1:1 blocked chats Note: In group chats, messages
+                            // from blocked users are still received and processed.
+                            if chat.status() == &ChatStatus::Blocked {
+                                bail!(BlockedContactError);
+                            }
                             let ApplicationMessagesHandlerResult {
                                 new_messages,
                                 updated_messages,
@@ -612,6 +627,11 @@ impl CoreUser {
                 .await?
                 .context("No sender credential found")?;
 
+        let chat_id = ChatId::try_from(group.group_id())?;
+        if BlockedContact::check_blocked_chat(&mut *connection, chat_id).await? {
+            bail!(BlockedContactError);
+        }
+
         // Phase 2: Decrypt the new user profile key
         let new_user_profile_key = UserProfileKey::decrypt(
             group.identity_link_wrapper_key(),
@@ -655,6 +675,10 @@ impl CoreUser {
             let qs_message_plaintext = self.decrypt_qs_queue_message(qs_message).await?;
             let processed = match self.process_qs_message(qs_message_plaintext).await {
                 Ok(processed) => processed,
+                Err(e) if e.downcast_ref::<BlockedContactError>().is_some() => {
+                    info!("Dropping message from blocked contact");
+                    continue;
+                }
                 Err(e) => {
                     error!(error = %e, "Processing message failed");
                     errors.push(e);
@@ -693,6 +717,8 @@ async fn handle_message_edit(
     replaces: MimiId,
     content: MimiContent,
 ) -> anyhow::Result<ChatMessage> {
+    let is_delete = content.nested_part.part == NestedPartContent::NullPart;
+
     // First try to directly load the original message by mimi id (non-edited message) and fallback
     // to the history of edits otherwise.
     let mut message = match ChatMessage::load_by_mimi_id(txn.as_mut(), &replaces).await? {
@@ -716,25 +742,37 @@ async fn handle_message_edit(
         .message()
         .mimi_id()
         .context("Original message does not have mimi id")?;
+    let original_sender = message
+        .message()
+        .sender()
+        .context("Original message does not have sender")?;
     let original_mimi_content = message
         .message()
         .mimi_content()
         .context("Original message does not have mimi content")?;
 
-    // Store message edit
-    MessageEdit::new(
-        original_mimi_id,
-        message.id(),
-        ds_timestamp,
-        original_mimi_content,
-    )
-    .store(txn.as_mut())
-    .await?;
+    // TODO: Use mimi-room-policy for capabilities
+    ensure!(
+        original_sender == sender,
+        "Only edits and deletes from original users are allowed for now"
+    );
+
+    if !is_delete {
+        // Store message edit
+        MessageEdit::new(
+            original_mimi_id,
+            message.id(),
+            ds_timestamp,
+            original_mimi_content,
+        )
+        .store(txn.as_mut())
+        .await?;
+    }
 
     // Update the original message
     let is_sent = true;
     message.set_content_message(ContentMessage::new(
-        sender.clone(),
+        original_sender.clone(),
         is_sent,
         content,
         group.group_id(),

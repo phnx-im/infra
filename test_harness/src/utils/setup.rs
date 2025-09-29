@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::Path,
     time::Duration,
 };
@@ -16,7 +16,7 @@ use aircoreclient::{ChatId, ChatStatus, ChatType, clients::CoreUser, store::Stor
 use airserver::{RateLimitsConfig, network_provider::MockNetworkProvider};
 use anyhow::Context;
 use mimi_content::{
-    MimiContent,
+    ByteBuf, Disposition, MimiContent, NestedPart,
     content_container::{EncryptionAlgorithm, HashAlgorithm, NestedPartContent},
 };
 use rand::{Rng, RngCore, distributions::Alphanumeric, seq::IteratorRandom};
@@ -129,6 +129,16 @@ impl TestUser {
 
         Ok(record)
     }
+
+    pub async fn fetch_and_process_qs_messages(&self) -> usize {
+        let qs_messages = self.user.qs_fetch_messages().await.unwrap();
+        let n = qs_messages.len();
+        self.user
+            .fully_process_qs_messages(qs_messages)
+            .await
+            .unwrap();
+        n
+    }
 }
 
 enum TestKind {
@@ -199,6 +209,10 @@ impl TestBackend {
 
     pub fn get_user(&self, user_id: &UserId) -> &TestUser {
         self.users.get(user_id).unwrap()
+    }
+
+    pub fn get_user_mut(&mut self, user_id: &UserId) -> &mut TestUser {
+        self.users.get_mut(user_id).unwrap()
     }
 
     pub fn take_user(&mut self, user_id: &UserId) -> TestUser {
@@ -600,8 +614,8 @@ impl TestBackend {
                 .unwrap();
 
             let message = messages.new_messages.last().unwrap();
-            let conversaion = recipient_user.chat(&message.chat_id()).await.unwrap();
-            let group_id = conversaion.group_id();
+            let chat = recipient_user.chat(&message.chat_id()).await.unwrap();
+            let group_id = chat.group_id();
 
             assert_eq!(
                 message.message(),
@@ -612,6 +626,161 @@ impl TestBackend {
                     group_id
                 )))
             );
+        }
+        message.id()
+    }
+
+    pub async fn edit_message(
+        &mut self,
+        chat_id: ChatId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+    ) -> MessageId {
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        let last_messages = sender.messages(chat_id, 1).await.unwrap();
+        assert_eq!(last_messages.len(), 1);
+        let last_message = &last_messages[0];
+
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let mut orig_message = MimiContent::simple_markdown_message("edited".to_owned(), salt);
+        orig_message.replaces = Some(ByteBuf::from(
+            last_message.message().mimi_id().unwrap().as_slice(),
+        ));
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let message = test_sender
+            .user
+            .send_message(chat_id, orig_message.clone(), Some(last_message.id()))
+            .await
+            .unwrap();
+        let sender_user_id = test_sender.user.user_id().clone();
+
+        let chat = test_sender.user.chat(&chat_id).await.unwrap();
+        let group_id = chat.group_id();
+
+        let mut target_message = ChatMessage::new_for_test(
+            chat_id,
+            last_message.id(),
+            last_message.timestamp().into(),
+            Message::Content(Box::new(ContentMessage::new(
+                sender_user_id.clone(),
+                true,
+                orig_message.clone(),
+                group_id,
+            ))),
+        );
+        target_message.set_edited_at(message.edited_at().unwrap());
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let message = messages.new_messages.last().unwrap();
+            let chat = recipient_user.chat(&message.chat_id()).await.unwrap();
+            let _group_id = chat.group_id();
+
+            assert_eq!(message.message(), target_message.message());
+        }
+        message.id()
+    }
+
+    pub async fn delete_message(
+        &mut self,
+        chat_id: ChatId,
+        sender_id: &UserId,
+        recipients: Vec<&UserId>,
+    ) -> MessageId {
+        let test_sender = self.users.get_mut(sender_id).unwrap();
+        let sender = &mut test_sender.user;
+
+        let last_messages = sender.messages(chat_id, 1).await.unwrap();
+        assert_eq!(last_messages.len(), 1);
+        let last_message = &last_messages[0];
+
+        let salt: [u8; 16] = RustCrypto::default().random_array().unwrap();
+        let orig_message = MimiContent {
+            salt: ByteBuf::from(salt),
+            replaces: Some(ByteBuf::from(
+                last_message.message().mimi_id().unwrap().as_slice(),
+            )),
+            topic_id: ByteBuf::from(b""),
+            expires: None,
+            in_reply_to: None,
+            extensions: BTreeMap::new(),
+            nested_part: NestedPart {
+                disposition: Disposition::Render,
+                language: "".to_owned(),
+                part: NestedPartContent::NullPart,
+            },
+        };
+
+        // Before sending a message, the sender must first fetch and process its QS messages.
+
+        let sender_qs_messages = sender.qs_fetch_messages().await.unwrap();
+
+        sender
+            .fully_process_qs_messages(sender_qs_messages)
+            .await
+            .unwrap();
+
+        let message = test_sender
+            .user
+            .send_message(chat_id, orig_message.clone(), Some(last_message.id()))
+            .await
+            .unwrap();
+
+        let sender_user_id = test_sender.user.user_id().clone();
+
+        let chat = test_sender.user.chat(&chat_id).await.unwrap();
+
+        let group_id = chat.group_id();
+
+        let mut target_message = ChatMessage::new_for_test(
+            chat_id,
+            last_message.id(),
+            last_message.timestamp().into(),
+            Message::Content(Box::new(ContentMessage::new(
+                sender_user_id.clone(),
+                true,
+                orig_message.clone(),
+                group_id,
+            ))),
+        );
+        target_message.set_edited_at(message.edited_at().unwrap());
+
+        for recipient_id in &recipients {
+            let recipient = self.users.get_mut(recipient_id).unwrap();
+            let recipient_user = &mut recipient.user;
+
+            let recipient_qs_messages = recipient_user.qs_fetch_messages().await.unwrap();
+
+            let messages = recipient_user
+                .fully_process_qs_messages(recipient_qs_messages)
+                .await
+                .unwrap();
+
+            let message = messages.new_messages.last().unwrap();
+            let chat = recipient_user.chat(&message.chat_id()).await.unwrap();
+            let _group_id = chat.group_id();
+
+            assert_eq!(message.message(), target_message.message());
         }
         message.id()
     }
@@ -723,6 +892,24 @@ impl TestBackend {
         }
 
         (message.id(), external_part)
+    }
+
+    /// This function goes through all tables of the database and returns all columns that contain the query.
+    pub async fn scan_database(
+        &mut self,
+        query: &str,
+        strict: bool,
+        users: Vec<&UserId>,
+    ) -> Vec<String> {
+        let mut result = Vec::new();
+        for user_id in &users {
+            let user = self.users.get_mut(user_id).unwrap();
+            let user = &mut user.user;
+
+            result.append(&mut user.scan_database(query, strict).await.unwrap());
+        }
+
+        result
     }
 
     pub async fn create_group(&mut self, user_id: &UserId) -> ChatId {

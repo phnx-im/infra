@@ -19,8 +19,8 @@ use aircommon::{
     identifiers::{UserHandle, UserId},
 };
 use aircoreclient::{
-    Asset, ChatId, ChatMessage, DisplayName, DownloadProgressEvent, UserProfile, clients::CoreUser,
-    store::Store,
+    Asset, BlockedContactError, ChatId, ChatMessage, DisplayName, DownloadProgressEvent,
+    UserProfile, clients::CoreUser, store::Store,
 };
 use airserver::RateLimitsConfig;
 use airserver_test_harness::utils::setup::{TestBackend, TestUser};
@@ -56,11 +56,11 @@ async fn connect_users() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[tracing::instrument(name = "Send message test", skip_all)]
 async fn send_message() {
-    tracing::info!("Setting up setup");
+    info!("Setting up setup");
     let mut setup = TestBackend::single().await;
-    tracing::info!("Creating users");
+    info!("Creating users");
     setup.add_user(&ALICE).await;
-    tracing::info!("Created alice");
+    info!("Created alice");
     setup.add_user(&BOB).await;
     let chat_id = setup.connect_users(&ALICE, &BOB).await;
     setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
@@ -158,19 +158,19 @@ async fn invite_to_group() {
 #[tracing::instrument(name = "Invite to group test", skip_all)]
 async fn update_group() {
     let mut setup = TestBackend::single().await;
-    tracing::info!("Adding users");
+    info!("Adding users");
     setup.add_user(&ALICE).await;
     setup.add_user(&BOB).await;
     setup.add_user(&CHARLIE).await;
-    tracing::info!("Connecting users");
+    info!("Connecting users");
     setup.connect_users(&ALICE, &BOB).await;
     setup.connect_users(&ALICE, &CHARLIE).await;
     let chat_id = setup.create_group(&ALICE).await;
-    tracing::info!("Inviting to group");
+    info!("Inviting to group");
     setup
         .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
-    tracing::info!("Updating group");
+    info!("Updating group");
     setup.update_group(chat_id, &BOB).await
 }
 
@@ -262,8 +262,8 @@ async fn create_user() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[tracing::instrument(name = "Full cycle", skip_all)]
-async fn full_cycle() {
+#[tracing::instrument(name = "Communication and persistence", skip_all)]
+async fn communication_and_persistence() {
     let mut setup = TestBackend::single().await;
     // Create alice and bob
     setup.add_user(&ALICE).await;
@@ -275,6 +275,81 @@ async fn full_cycle() {
     // Test the connection chat by sending messages back and forth.
     setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
     setup.send_message(chat_alice_bob, &BOB, vec![&ALICE]).await;
+
+    let count_18 = setup
+        .scan_database("\x18", true, vec![&ALICE, &BOB])
+        .await
+        .len();
+    let count_19 = setup
+        .scan_database("\x19", true, vec![&ALICE, &BOB])
+        .await
+        .len();
+
+    let good = count_18 < count_19 * 3 / 2;
+
+    // TODO: Remove the ! in front of !good when we have fixed our code.
+    assert!(
+        !good,
+        "Having too many 0x18 is an indicator for using Vec<u8> instead of ByteBuf"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Edit message", skip_all)]
+async fn edit_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+
+    setup.edit_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete message", skip_all)]
+async fn delete_message() {
+    let mut setup = TestBackend::single().await;
+    // Create alice and bob
+    setup.add_user(&ALICE).await;
+    setup.add_user(&BOB).await;
+
+    // Connect them
+    let chat_alice_bob = setup.connect_users(&ALICE, &BOB).await;
+
+    setup.send_message(chat_alice_bob, &ALICE, vec![&BOB]).await;
+
+    let alice = &mut setup.users.get_mut(&ALICE).unwrap().user;
+    let last_message = alice.last_message(chat_alice_bob).await.unwrap().unwrap();
+
+    let string = last_message
+        .message()
+        .mimi_content()
+        .unwrap()
+        .string_rendering()
+        .unwrap();
+
+    assert!(
+        !setup
+            .scan_database(&string, false, vec![&ALICE, &BOB])
+            .await
+            .is_empty(),
+    );
+
+    setup
+        .delete_message(chat_alice_bob, &ALICE, vec![&BOB])
+        .await;
+
+    assert_eq!(
+        setup
+            .scan_database(&string, false, vec![&ALICE, &BOB])
+            .await,
+        Vec::<String>::new()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -996,4 +1071,138 @@ async fn user_deletion_triggers() {
         bob_user_profile_charlie,
         UserProfile::from_user_id(&CHARLIE)
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Blocked contact", skip_all)]
+async fn blocked_contact() {
+    info!("Setting up setup");
+    let mut setup = TestBackend::single().await;
+    info!("Creating users");
+    setup.add_user(&ALICE).await;
+    setup.get_user_mut(&ALICE).add_user_handle().await.unwrap();
+    info!("Created alice");
+    setup.add_user(&BOB).await;
+
+    let chat_id = setup.connect_users(&ALICE, &BOB).await;
+    setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
+    setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
+
+    let alice = setup.get_user(&ALICE);
+    let bob = setup.get_user(&BOB);
+
+    alice.user.block_contact(BOB.clone()).await.unwrap();
+
+    alice.fetch_and_process_qs_messages().await;
+    bob.fetch_and_process_qs_messages().await;
+
+    // Not possible to send a message to Bob
+    let msg = MimiContent::simple_markdown_message("Hello".into(), [0; 16]);
+    let res = alice.user.send_message(chat_id, msg.clone(), None).await;
+    res.unwrap_err().downcast::<BlockedContactError>().unwrap();
+
+    assert_eq!(bob.fetch_and_process_qs_messages().await, 0);
+
+    // Updating Alice's profile is not communicated to Bob
+    alice
+        .user
+        .update_user_profile(UserProfile {
+            user_id: ALICE.clone(),
+            display_name: "Alice in Wonderland".parse().unwrap(),
+            profile_picture: None,
+        })
+        .await
+        .unwrap();
+    assert_eq!(bob.fetch_and_process_qs_messages().await, 0);
+
+    // Updating Bob's profile is not communicated to Alice
+    bob.user
+        .update_user_profile(UserProfile {
+            user_id: BOB.clone(),
+            display_name: "Annoying Bob".parse().unwrap(),
+            profile_picture: None,
+        })
+        .await
+        .unwrap();
+    // We get the message but it is dropped
+    let messages = alice.user.qs_fetch_messages().await.unwrap();
+    assert_eq!(messages.len(), 1);
+    let res = alice
+        .user
+        .fully_process_qs_messages(messages)
+        .await
+        .unwrap();
+    assert!(res.is_empty(), "message is dropped");
+
+    // Messages from bob are dropped
+    bob.user.send_message(chat_id, msg, None).await.unwrap();
+    // We get the message but it is dropped
+    let messages = alice.user.qs_fetch_messages().await.unwrap();
+    assert_eq!(messages.len(), 1);
+    let res = alice
+        .user
+        .fully_process_qs_messages(messages)
+        .await
+        .unwrap();
+    assert!(res.is_empty(), "message is dropped");
+
+    // Bob cannot establish a new connection with Alice
+    let alice_handle = alice.user_handle_record.as_ref().unwrap().handle.clone();
+    bob.user.add_contact(alice_handle.clone()).await.unwrap();
+    let mut messages = alice.user.fetch_handle_messages().await.unwrap();
+    assert_eq!(messages.len(), 1);
+
+    let res = alice
+        .user
+        .process_handle_queue_message(&alice_handle, messages.pop().unwrap())
+        .await;
+    res.unwrap_err().downcast::<BlockedContactError>().unwrap();
+
+    // Unblock Bob
+    alice.user.unblock_contact(BOB.clone()).await.unwrap();
+
+    // Sending messages works again
+    setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
+    setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Group with blocked contacts", skip_all)]
+async fn group_with_blocked_contact() {
+    let mut setup = TestBackend::single().await;
+
+    setup.add_user(&ALICE).await;
+    setup.get_user_mut(&ALICE).add_user_handle().await.unwrap();
+
+    setup.add_user(&BOB).await;
+    setup.add_user(&CHARLIE).await;
+
+    setup.connect_users(&ALICE, &BOB).await;
+    setup.connect_users(&ALICE, &CHARLIE).await;
+
+    // Create a group with alice, bob and charlie
+    let chat_id = setup.create_group(&ALICE).await;
+    setup
+        .invite_to_group(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
+
+    // Sending messages works before blocking
+    setup
+        .send_message(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
+    setup
+        .send_message(chat_id, &BOB, vec![&ALICE, &CHARLIE])
+        .await;
+
+    // Block bob
+    let alice = setup.get_user(&ALICE);
+    alice.user.block_contact(BOB.clone()).await.unwrap();
+
+    // Messages are still sent and received
+    setup
+        .send_message(chat_id, &BOB, vec![&ALICE, &CHARLIE])
+        .await;
+    setup
+        .send_message(chat_id, &ALICE, vec![&BOB, &CHARLIE])
+        .await;
 }

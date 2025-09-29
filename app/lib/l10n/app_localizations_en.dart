@@ -137,14 +137,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unblockConnectionDialog_unblock => 'Unblock';
 
   @override
-  String get deleteConnectionButton_text => 'Delete Connection';
+  String get deleteConnectionButton_text => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_title => 'Delete Connection';
+  String get deleteConnectionDialog_title => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_content =>
-      'Are you sure you want to delete this connection? The message history will be also deleted.';
+  String deleteConnectionDialog_content(Object displayName) {
+    return 'Are you sure you want to delete your Air Contact $displayName? If you do, the chat and its message history will be deleted.';
+  }
 
   @override
   String get deleteConnectionDialog_cancel => 'Cancel';
@@ -153,7 +154,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteConnectionDialog_delete => 'Delete';
 
   @override
-  String get introScreen_signUp => 'Sign up';
+  String get introScreen_signUp => 'Sign Up';
+
+  @override
+  String get signUpScreen_title => 'Sign Up';
+
+  @override
+  String get signUpScreen_actionButton => 'Sign Up';
+
+  @override
+  String get signUpScreen_displayNameLabel =>
+      'Choose a picture and a display name.';
+
+  @override
+  String get signUpScreen_displayNameHint => 'DISPLAY NAME';
+
+  @override
+  String get signUpScreen_serverLabel =>
+      'Choose a server where you want to create your account.';
+
+  @override
+  String get signUpScreen_serverHint => 'DOMAIN NAME';
+
+  @override
+  String get signUpScreen_error_invalidDomain => 'Domain is invalid';
+
+  @override
+  String get signUpScreen_error_emptyDisplayName =>
+      'Display name cannot be empty';
+
+  @override
+  String signUpScreen_error_register(Object error) {
+    return 'Error when registering user: $error';
+  }
 
   @override
   String get userHandleScreen_title => 'Username';
@@ -317,6 +350,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get textMessage_edited => 'edited';
 
   @override
+  String get textMessage_hiddenPlaceholder =>
+      'Blocked contact, tap to reveal message';
+
+  @override
+  String get textMessage_deleted => 'Deleted message';
+
+  @override
   String get reportSpamButton_text => 'Report Spam';
 
   @override
@@ -364,7 +404,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactUsScreen_body => 'Body';
 
   @override
-  String get contactUsScreen_composeEmail => 'Compose Email';
+  String get contactUsScreen_composeEmail => 'Compose email';
 
   @override
   String get contactUsScreen_subject_somethingNotWorking =>
@@ -380,17 +420,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contactUsScreen_subject_other => 'Other';
 
   @override
-  String get contactUsScreen_subject_empty => 'Please select a subject';
+  String get contactUsScreen_subject_empty => 'Select a subject';
 
   @override
   String get contactUsScreen_body_empty => 'Enter your message';
 
   @override
-  String get contactUsScreen_body_tooShort => 'Please provide more information';
+  String get contactUsScreen_body_tooShort => 'Provide more information';
 
   @override
   String get contactUsScreen_errorLaunchingEmail =>
-      'Could not launch email client';
+      'Couldn\'t launch email client';
 
   @override
   String get groupDetails_members => 'Members';

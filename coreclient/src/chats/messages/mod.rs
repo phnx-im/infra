@@ -189,7 +189,7 @@ impl ChatMessage {
         }
     }
 
-    pub(crate) fn set_edited_at(&mut self, edit_created_at: TimeStamp) {
+    pub fn set_edited_at(&mut self, edit_created_at: TimeStamp) {
         if let Message::Content(content_message) = &mut self.timestamped_message.message {
             content_message.edited_at = Some(edit_created_at)
         }
@@ -282,6 +282,13 @@ impl Message {
     pub fn mimi_id(&self) -> Option<&MimiId> {
         match self {
             Message::Content(content_message) => content_message.mimi_id(),
+            Message::Event(_) => None,
+        }
+    }
+
+    pub fn sender(&self) -> Option<&UserId> {
+        match self {
+            Message::Content(content_message) => Some(content_message.sender()),
             Message::Event(_) => None,
         }
     }

@@ -337,20 +337,20 @@ abstract class AppLocalizations {
   /// No description provided for @deleteConnectionButton_text.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete Air Contact'**
   String get deleteConnectionButton_text;
 
   /// No description provided for @deleteConnectionDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
+  /// **'Delete Air Contact'**
   String get deleteConnectionDialog_title;
 
   /// No description provided for @deleteConnectionDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this connection? The message history will be also deleted.'**
-  String get deleteConnectionDialog_content;
+  /// **'Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.'**
+  String deleteConnectionDialog_content(Object displayName);
 
   /// No description provided for @deleteConnectionDialog_cancel.
   ///
@@ -367,8 +367,62 @@ abstract class AppLocalizations {
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
-  /// **'Sign up'**
+  /// **'Sign Up'**
   String get introScreen_signUp;
+
+  /// No description provided for @signUpScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_title;
+
+  /// No description provided for @signUpScreen_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_actionButton;
+
+  /// No description provided for @signUpScreen_displayNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a picture and a display name.'**
+  String get signUpScreen_displayNameLabel;
+
+  /// No description provided for @signUpScreen_displayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DISPLAY NAME'**
+  String get signUpScreen_displayNameHint;
+
+  /// No description provided for @signUpScreen_serverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a server where you want to create your account.'**
+  String get signUpScreen_serverLabel;
+
+  /// No description provided for @signUpScreen_serverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DOMAIN NAME'**
+  String get signUpScreen_serverHint;
+
+  /// No description provided for @signUpScreen_error_invalidDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain is invalid'**
+  String get signUpScreen_error_invalidDomain;
+
+  /// No description provided for @signUpScreen_error_emptyDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name cannot be empty'**
+  String get signUpScreen_error_emptyDisplayName;
+
+  /// No description provided for @signUpScreen_error_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Error when registering user: {error}'**
+  String signUpScreen_error_register(Object error);
 
   /// No description provided for @userHandleScreen_title.
   ///
@@ -646,6 +700,18 @@ abstract class AppLocalizations {
   /// **'edited'**
   String get textMessage_edited;
 
+  /// No description provided for @textMessage_hiddenPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked contact, tap to reveal message'**
+  String get textMessage_hiddenPlaceholder;
+
+  /// No description provided for @textMessage_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted message'**
+  String get textMessage_deleted;
+
   /// No description provided for @reportSpamButton_text.
   ///
   /// In en, this message translates to:
@@ -739,7 +805,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_composeEmail.
   ///
   /// In en, this message translates to:
-  /// **'Compose Email'**
+  /// **'Compose email'**
   String get contactUsScreen_composeEmail;
 
   /// No description provided for @contactUsScreen_subject_somethingNotWorking.
@@ -769,7 +835,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_subject_empty.
   ///
   /// In en, this message translates to:
-  /// **'Please select a subject'**
+  /// **'Select a subject'**
   String get contactUsScreen_subject_empty;
 
   /// No description provided for @contactUsScreen_body_empty.
@@ -781,13 +847,13 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_body_tooShort.
   ///
   /// In en, this message translates to:
-  /// **'Please provide more information'**
+  /// **'Provide more information'**
   String get contactUsScreen_body_tooShort;
 
   /// No description provided for @contactUsScreen_errorLaunchingEmail.
   ///
   /// In en, this message translates to:
-  /// **'Could not launch email client'**
+  /// **'Couldn\'t launch email client'**
   String get contactUsScreen_errorLaunchingEmail;
 
   /// No description provided for @groupDetails_members.

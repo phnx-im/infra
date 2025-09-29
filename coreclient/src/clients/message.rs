@@ -18,8 +18,9 @@ use sqlx::{SqliteConnection, SqliteTransaction};
 use uuid::Uuid;
 
 use crate::{
-    Chat, ChatId, ChatMessage, ContentMessage, Message, MessageId,
+    Chat, ChatId, ChatMessage, ChatStatus, ContentMessage, Message, MessageId,
     chats::{StatusRecord, messages::edit::MessageEdit},
+    clients::block_contact::BlockedContactError,
 };
 
 use super::{AirOpenMlsProvider, ApiClients, CoreUser, Group, StoreNotifier};
@@ -40,6 +41,9 @@ impl CoreUser {
                 let chat = Chat::load(txn.as_mut(), &chat_id)
                     .await?
                     .with_context(|| format!("Can't find chat with id {chat_id}"))?;
+                if let ChatStatus::Blocked = chat.status() {
+                    bail!(BlockedContactError);
+                }
                 let group_id = chat.group_id;
                 let group = Group::load_clean(txn, &group_id)
                     .await?
@@ -143,11 +147,15 @@ impl CoreUser {
             return Ok(()); // Nothing to send
         };
 
-        let (chat, group, params) = self
+        let chat = Chat::load(self.pool().acquire().await?.as_mut(), &chat_id)
+            .await?
+            .with_context(|| format!("Can't find chat with id {chat_id}"))?;
+        if let ChatStatus::Blocked = chat.status() {
+            return Ok(());
+        }
+
+        let (group, params) = self
             .with_transaction(async |txn| {
-                let chat = Chat::load(&mut *txn, &chat_id)
-                    .await?
-                    .with_context(|| format!("Can't find chat with id {chat_id}"))?;
                 let group_id = chat.group_id();
                 let mut group = Group::load_clean(txn, group_id)
                     .await?
@@ -158,7 +166,7 @@ impl CoreUser {
                     unsent_receipt.content,
                 )?;
                 group.store_update(txn.as_mut()).await?;
-                Ok((chat, group, params))
+                Ok((group, params))
             })
             .await?;
 
@@ -204,6 +212,8 @@ impl UnsentContent {
             .await?
             .with_context(|| format!("Can't find chat with id {chat_id}"))?;
 
+        let is_deletion = content.nested_part.part == NestedPartContent::NullPart;
+
         let message = if let Some(replaces_id) = replaces_id {
             // Load the original message and the Mimi ID of the original message
             let mut original = ChatMessage::load(txn.as_mut(), replaces_id)
@@ -220,14 +230,16 @@ impl UnsentContent {
             content.replaces = Some(original_mimi_id.as_slice().to_vec().into());
             let edit_created_at = TimeStamp::now();
 
-            // Store the edit
-            let edit = MessageEdit::new(
-                original_mimi_id,
-                original.id(),
-                edit_created_at,
-                original_mimi_content,
-            );
-            edit.store(txn.as_mut()).await?;
+            if !is_deletion {
+                // Store the edit
+                let edit = MessageEdit::new(
+                    original_mimi_id,
+                    original.id(),
+                    edit_created_at,
+                    original_mimi_content,
+                );
+                edit.store(txn.as_mut()).await?;
+            }
 
             // Edit the original message and clear its status
             let is_sent = false;
@@ -237,7 +249,11 @@ impl UnsentContent {
                 content.clone(),
                 chat.group_id(),
             ));
-            original.set_status(MessageStatus::Unread);
+            if is_deletion {
+                original.set_status(MessageStatus::Deleted);
+            } else {
+                original.set_status(MessageStatus::Unread);
+            }
             original.set_edited_at(edit_created_at);
             original.update(txn.as_mut(), notifier).await?;
             StatusRecord::clear(txn.as_mut(), notifier, original.id()).await?;
@@ -435,14 +451,16 @@ impl SentMessage {
             ds_timestamp,
         } = self;
 
-        let new_timestamp = if message.edited_at().is_some() {
-            message.timestamp().into()
+        if message.edited_at().is_some() {
+            message
+                .mark_as_sent(&mut *txn, notifier, message.timestamp().into())
+                .await?;
+            message.set_edited_at(ds_timestamp);
         } else {
-            ds_timestamp
-        };
-        message
-            .mark_as_sent(&mut *txn, notifier, new_timestamp)
-            .await?;
+            message
+                .mark_as_sent(&mut *txn, notifier, ds_timestamp)
+                .await?;
+        }
 
         // Note: even though the message was already marked as read, we still need to move the last
         // read timestamp down. After a message was sent to DS, it is marked as read, which updates

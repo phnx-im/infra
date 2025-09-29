@@ -99,6 +99,10 @@ impl Store for CoreUser {
         Ok(self.chats().await?)
     }
 
+    async fn chat(&self, chat_id: ChatId) -> StoreResult<Option<Chat>> {
+        Ok(Chat::load(self.pool().acquire().await?.as_mut(), &chat_id).await?)
+    }
+
     async fn chat_participants(&self, chat_id: ChatId) -> StoreResult<Option<HashSet<UserId>>> {
         self.try_chat_participants(chat_id).await
     }

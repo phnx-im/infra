@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +14,7 @@ import 'package:air/ui/colors/themes.dart';
 import '../mocks.dart';
 
 void main() {
-  group('DisplayNameAvatarChoice', () {
+  group('SignUp', () {
     late MockRegistrationCubit registrationCubit;
 
     setUp(() async {
@@ -32,7 +33,8 @@ void main() {
               MediaQuery.platformBrightnessOf(context),
               CustomColorScheme.of(context),
             ),
-            home: const Scaffold(body: DisplayNameAvatarChoice()),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            home: const Scaffold(body: SignUpScreen()),
           );
         },
       ),
@@ -45,20 +47,20 @@ void main() {
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/display_name_avatar_choice_empty.png'),
+        matchesGoldenFile('goldens/sign_up_empty.png'),
       );
     });
 
     testWidgets('renders correctly', (tester) async {
-      when(
-        () => registrationCubit.state,
-      ).thenReturn(const RegistrationState(displayName: "Alice"));
+      when(() => registrationCubit.state).thenReturn(
+        const RegistrationState(displayName: "Ellie", domain: 'example.com'),
+      );
 
       await tester.pumpWidget(buildSubject());
 
       await expectLater(
         find.byType(MaterialApp),
-        matchesGoldenFile('goldens/display_name_avatar_choice.png'),
+        matchesGoldenFile('goldens/sign_up.png'),
       );
     });
   });

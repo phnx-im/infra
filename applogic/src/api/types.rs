@@ -260,6 +260,7 @@ pub struct _MessageId {
 
 /// A message in a chat
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub struct UiChatMessage {
     pub chat_id: ChatId,
     pub id: MessageId,
@@ -278,19 +279,19 @@ pub enum UiMessageStatus {
     Delivered,
     /// The message was read by at least one user in the chat.
     Read,
+    /// The message was hidden because it is from a blocked contact.
+    Hidden,
 }
 
 impl From<ChatMessage> for UiChatMessage {
     #[frb(ignore)]
     fn from(message: ChatMessage) -> Self {
-        let status = if !message.is_sent() {
-            UiMessageStatus::Sending
-        } else if message.status() == MessageStatus::Read {
-            UiMessageStatus::Read
-        } else if message.status() == MessageStatus::Delivered {
-            UiMessageStatus::Delivered
-        } else {
-            UiMessageStatus::Sent
+        let status = match message.status() {
+            _ if !message.is_sent() => UiMessageStatus::Sending,
+            MessageStatus::Read => UiMessageStatus::Read,
+            MessageStatus::Delivered => UiMessageStatus::Delivered,
+            MessageStatus::Hidden => UiMessageStatus::Hidden,
+            _ => UiMessageStatus::Sent,
         };
 
         Self {
@@ -314,6 +315,7 @@ impl UiChatMessage {
 ///
 /// Can be either a message to display (e.g. a system message) or a message from a user.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub enum UiMessage {
     Content(Box<UiContentMessage>),
     Display(UiEventMessage),
@@ -334,6 +336,7 @@ impl From<Message> for UiMessage {
 
 /// Content of a message including the sender and whether it was sent
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub struct UiContentMessage {
     pub sender: UiUserId,
     pub sent: bool,
@@ -357,6 +360,7 @@ impl From<ContentMessage> for UiContentMessage {
 
 /// Event message (e.g. a message from the system)
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub enum UiEventMessage {
     System(UiSystemMessage),
     Error(UiErrorMessage),
@@ -373,6 +377,7 @@ impl From<EventMessage> for UiEventMessage {
 
 /// System message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub enum UiSystemMessage {
     Add(UiUserId, UiUserId),
     Remove(UiUserId, UiUserId),
@@ -393,6 +398,7 @@ impl From<SystemMessage> for UiSystemMessage {
 
 /// Error message
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[frb(dart_metadata = ("freezed"))]
 pub struct UiErrorMessage {
     pub message: String,
 }
