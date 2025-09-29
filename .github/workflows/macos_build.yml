@@ -32,12 +32,12 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
 
       - name: Set up Flutter FVM
         uses: kuhnroyal/flutter-fvm-config-action/setup@v3
         with:
-          path: 'app/.fvmrc'
+          path: "app/.fvmrc"
           cache: false
 
       - name: Set up Rust toolchain
@@ -61,7 +61,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: 26
 
       - name: Detect if PR is from a fork
         id: detect_fork
