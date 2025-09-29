@@ -15,7 +15,7 @@ import 'package:air/user/user.dart';
 import 'package:air/widgets/user_avatar.dart';
 
 import 'chat_details_cubit.dart';
-import 'delete_chat_button.dart';
+import 'delete_contact_button.dart';
 import 'report_spam_button.dart';
 import 'unblock_contact_button.dart';
 
