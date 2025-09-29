@@ -47,11 +47,7 @@ class CustomTextButtonStyle extends ButtonStyle {
          splashFactory: NoSplash.splashFactory,
          padding: WidgetStateProperty.all(const EdgeInsets.all(20)),
          textStyle: WidgetStateProperty.all<TextStyle>(
-           baselineTextTheme.labelLarge!.merge(
-             customTextScheme.labelLarge!.copyWith(
-               fontSize: LabelFontSize.base.size,
-             ),
-           ),
+           baselineTextTheme.labelLarge!.merge(customTextScheme.labelLarge!),
          ),
        );
 }
@@ -99,10 +95,7 @@ class CustomOutlineButtonStyle extends ButtonStyle {
          ),
          textStyle: WidgetStatePropertyAll(
            baselineTextTheme.labelLarge!.merge(
-             customTextScheme.labelLarge!.copyWith(
-               fontSize: LabelFontSize.large1.size,
-               fontWeight: FontWeight.bold,
-             ),
+             customTextScheme.labelLarge!.copyWith(fontWeight: FontWeight.bold),
            ),
          ),
        );
