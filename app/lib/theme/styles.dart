@@ -5,7 +5,6 @@
 import 'package:air/ui/theme/font.dart';
 import 'package:flutter/material.dart';
 import 'package:air/ui/colors/themes.dart';
-import 'package:air/ui/typography/font_size.dart';
 import 'dart:io' show Platform;
 
 // === Devices ===
