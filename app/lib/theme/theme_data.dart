@@ -9,11 +9,16 @@ import 'package:air/ui/colors/themes.dart';
 import 'package:air/ui/theme/font.dart';
 import 'package:air/ui/typography/font_size.dart';
 
-ThemeData darkTheme = themeData(Brightness.dark, darkCustomColorScheme);
-ThemeData lightTheme = themeData(Brightness.light, lightCustomColorScheme);
+ThemeData darkTheme = themeData(Brightness.dark);
+ThemeData lightTheme = themeData(Brightness.light);
 
-ThemeData themeData(Brightness brightness, CustomColorScheme colorScheme) {
+ThemeData themeData(Brightness brightness) {
   final baselineTheme = ThemeData(brightness: brightness);
+
+  final colorScheme = switch (brightness) {
+    Brightness.dark => darkCustomColorScheme,
+    Brightness.light => lightCustomColorScheme,
+  };
 
   // AppBar title style
   final baseAppBarTitleStyle =
@@ -58,7 +63,16 @@ ThemeData themeData(Brightness brightness, CustomColorScheme colorScheme) {
     highlightColor: Colors.transparent,
     hoverColor: Colors.transparent,
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: buttonStyleFromColorScheme(colorScheme, true),
+      style: CustomOutlineButtonStyle(
+        colorScheme: colorScheme,
+        baselineTextTheme: baselineTheme.textTheme,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: CustomTextButtonStyle(
+        colorScheme: colorScheme,
+        baselineTextTheme: baselineTheme.textTheme,
+      ),
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(

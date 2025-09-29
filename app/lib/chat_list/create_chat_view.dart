@@ -98,14 +98,12 @@ class CreateChatView extends HookWidget {
       ),
       actions: <Widget>[
         TextButton(
-          style: dynamicTextButtonStyle(context, true, false),
-          child: const Text('Cancel'),
           onPressed: () {
-            Navigator.of(context).pop(null);
+            Navigator.of(context).pop();
           },
+          child: const Text('Cancel'),
         ),
         TextButton(
-          style: dynamicTextButtonStyle(context, isInputValid.value, true),
           onPressed:
               isInputValid.value
                   ? () => _onAction(

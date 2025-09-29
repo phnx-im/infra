@@ -24,7 +24,18 @@ class DeleteAccountScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final confirmationText = useState("");
+    final isConfirmed = confirmationText.value == _confirmationText;
+    return DeleteAccountView(isConfirmed: isConfirmed);
+  }
+}
 
+class DeleteAccountView extends HookWidget {
+  const DeleteAccountView({required this.isConfirmed, super.key});
+
+  final bool isConfirmed;
+
+  @override
+  Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
     final dangerColor = CustomColorScheme.of(context).function.danger;
@@ -62,7 +73,7 @@ class DeleteAccountScreen extends HookWidget {
                     const SizedBox(height: Spacings.l),
 
                     TextField(
-                      onChanged: (value) => confirmationText.value = value,
+                      onChanged: (value) => isConfirmed,
                       decoration: InputDecoration(
                         hintText: loc.deleteAccountScreen_confirmationInputHint,
                       ),
@@ -95,15 +106,13 @@ class DeleteAccountScreen extends HookWidget {
                             width:
                                 isSmallScreen(context) ? double.infinity : null,
                             child: _DeleteAccountButton(
-                              isConfirmed:
-                                  confirmationText.value == _confirmationText,
+                              isConfirmed: isConfirmed,
                             ),
                           ),
                           SizedBox(
                             width:
                                 isSmallScreen(context) ? double.infinity : null,
                             child: OutlinedButton(
-                              style: buttonStyle(context, true),
                               onPressed: () {
                                 Navigator.of(context).pop();
                               },
@@ -126,41 +135,26 @@ class DeleteAccountScreen extends HookWidget {
   }
 }
 
-class _DeleteAccountButton extends HookWidget {
+class _DeleteAccountButton extends StatelessWidget {
   const _DeleteAccountButton({required this.isConfirmed});
 
   final bool isConfirmed;
 
   @override
   Widget build(BuildContext context) {
-    final isDeleting = useState(false);
-
     final loc = AppLocalizations.of(context);
-
     final dangerColor = CustomColorScheme.of(context).function.danger;
-
-    return OutlinedButton(
-      style: buttonStyle(
-        context,
-        isConfirmed,
-      ).copyWith(backgroundColor: WidgetStatePropertyAll(dangerColor)),
-      onPressed:
-          isConfirmed && !isDeleting.value
-              ? () => _deleteAccount(context, isDeleting)
-              : null,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isDeleting.value)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(),
-            ),
-          if (isDeleting.value) const SizedBox(width: Spacings.s),
-          Text(loc.deleteAccountScreen_confirmButtonText),
-        ],
+    return ProgressButton(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: dangerColor,
+        disabledBackgroundColor: dangerColor.withValues(alpha: 0.7),
+        overlayColor: dangerColor,
       ),
+      onPressed:
+          isConfirmed
+              ? (isDeleting) => _deleteAccount(context, isDeleting)
+              : null,
+      label: loc.deleteAccountScreen_confirmButtonText,
     );
   }
 

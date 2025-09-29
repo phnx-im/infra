@@ -194,7 +194,6 @@ class _UserHandle extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              style: textButtonStyle(context),
               child: Text(loc.removeUsernameDialog_cancel),
             ),
             TextButton(
@@ -204,7 +203,6 @@ class _UserHandle extends StatelessWidget {
                   Navigator.of(context).pop(true);
                 }
               },
-              style: textButtonStyle(context),
               child: Text(loc.removeUsernameDialog_remove),
             ),
           ],

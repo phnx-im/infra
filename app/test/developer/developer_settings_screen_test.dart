@@ -50,10 +50,7 @@ void main() {
         builder: (context) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: themeData(
-              MediaQuery.platformBrightnessOf(context),
-              CustomColorScheme.of(context),
-            ),
+            theme: themeData(MediaQuery.platformBrightnessOf(context)),
             home: DeveloperSettingsScreenView(
               deviceToken: deviceToken,
               isMobile: true,
