@@ -15,7 +15,9 @@ import 'package:air/user/user.dart';
 import 'package:air/widgets/user_avatar.dart';
 
 import 'chat_details_cubit.dart';
-import 'connection_details.dart';
+import 'delete_contact_button.dart';
+import 'report_spam_button.dart';
+import 'unblock_contact_button.dart';
 
 class ChatScreen extends StatelessWidget {
   const ChatScreen({super.key});
@@ -74,35 +76,39 @@ class ChatScreenView extends StatelessWidget {
     final chatId = context.select(
       (NavigationCubit cubit) => cubit.state.chatId,
     );
-
-    final blockedUserId = context.select(
-      (ChatDetailsCubit cubit) =>
-          cubit.state.chat?.status == const UiChatStatus.blocked()
-              ? cubit.state.chat?.userId
-              : null,
-    );
-
     if (chatId == null) {
       return const _EmptyChatPane();
     }
+
+    final (blockedUserId, blockedUserDisplayName) = context.select((
+      ChatDetailsCubit cubit,
+    ) {
+      final chat = cubit.state.chat;
+      return switch (chat?.status) {
+        UiChatStatus_Blocked() => (chat?.userId, chat?.displayName),
+        _ => (null, null),
+      };
+    });
 
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           color: CustomColorScheme.of(context).backgroundBase.primary,
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const _ChatHeader(),
-              Expanded(
-                child: MessageListView(createMessageCubit: createMessageCubit),
-              ),
-              blockedUserId == null
-                  ? const MessageComposer()
-                  : _BlockedChatFooter(chatId: chatId, userId: blockedUserId),
-            ],
-          ),
+        child: Column(
+          children: [
+            const _ChatHeader(),
+            Expanded(
+              child: MessageListView(createMessageCubit: createMessageCubit),
+            ),
+            blockedUserId == null || blockedUserDisplayName == null
+                ? const MessageComposer()
+                : _BlockedChatFooter(
+                  chatId: chatId,
+                  userId: blockedUserId,
+                  displayName: blockedUserDisplayName,
+                ),
+          ],
         ),
       ),
     );
@@ -208,55 +214,51 @@ class _BackButton extends StatelessWidget {
 }
 
 class _BlockedChatFooter extends StatelessWidget {
-  const _BlockedChatFooter({required this.chatId, required this.userId});
+  const _BlockedChatFooter({
+    required this.chatId,
+    required this.userId,
+    required this.displayName,
+  });
 
   final ChatId chatId;
   final UiUserId userId;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-
-    final deleteButton = OutlinedButton(
-      child: Text(
-        loc.blockedChatFooter_delete,
-        style: TextStyle(color: CustomColorScheme.of(context).function.danger),
-      ),
-      onPressed: () => deleteChatWithConfirmation(context, chatId),
-    );
-
-    var unblockButton = OutlinedButton(
-      child: Text(loc.blockedChatFooter_unblock),
-      onPressed: () => unblockContactWithConfirmation(context, userId),
-    );
-
+    final buttonWidth = isSmallScreen(context) ? double.infinity : null;
     return Container(
-      constraints: isPointer() ? const BoxConstraints(maxWidth: 800) : null,
       padding: const EdgeInsets.all(Spacings.s),
       child: Column(
         children: [
-          Text(loc.blockedChatFooter_message),
+          Text(loc.blockedChatFooter_message(displayName)),
           const SizedBox(height: Spacings.s),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children:
-                isPointer()
-                    ? [
-                      Container(
-                        constraints: const BoxConstraints(minWidth: 100),
-                        child: deleteButton,
-                      ),
-                      const SizedBox(width: Spacings.s),
-                      Container(
-                        constraints: const BoxConstraints(minWidth: 100),
-                        child: unblockButton,
-                      ),
-                    ]
-                    : [
-                      Expanded(child: deleteButton),
-                      const SizedBox(width: Spacings.s),
-                      Expanded(child: unblockButton),
-                    ],
+          Wrap(
+            runSpacing: Spacings.xxs,
+            alignment: WrapAlignment.center,
+            children: [
+              SizedBox(
+                width: buttonWidth,
+                child: DeleteContactButton(
+                  chatId: chatId,
+                  displayName: displayName,
+                ),
+              ),
+              const SizedBox(width: Spacings.s),
+              SizedBox(
+                width: buttonWidth,
+                child: ReportSpamButton(userId: userId),
+              ),
+              const SizedBox(width: Spacings.s),
+              SizedBox(
+                width: buttonWidth,
+                child: UnblockContactButton(
+                  userId: userId,
+                  displayName: displayName,
+                ),
+              ),
+            ],
           ),
         ],
       ),

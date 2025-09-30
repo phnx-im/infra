@@ -5,7 +5,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:air/theme/theme.dart';
 import 'package:air/ui/colors/themes.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -98,14 +97,12 @@ class CreateChatView extends HookWidget {
       ),
       actions: <Widget>[
         TextButton(
-          style: dynamicTextButtonStyle(context, true, false),
-          child: const Text('Cancel'),
           onPressed: () {
-            Navigator.of(context).pop(null);
+            Navigator.of(context).pop();
           },
+          child: const Text('Cancel'),
         ),
         TextButton(
-          style: dynamicTextButtonStyle(context, isInputValid.value, true),
           onPressed:
               isInputValid.value
                   ? () => _onAction(

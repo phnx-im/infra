@@ -72,7 +72,13 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                         .as_ref()
                         .expect("logic error: no responder")
                         .clone();
-                    responder.ack(max_sequence_number + 1).await;
+                    responder
+                        .ack(max_sequence_number + 1)
+                        .await
+                        .inspect_err(|error| {
+                            error!(%error, "failed to ack QS messages");
+                        })
+                        .ok();
                 }
 
                 let core_user = self.cubit_context.core_user.clone();
@@ -117,7 +123,7 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
             .cubit_context
             .app_state
             .clone()
-            .wait_for(|app_state| matches!(app_state, AppState::Background))
+            .wait_for(|app_state| matches!(app_state, AppState::MobileBackground))
             .await;
     }
 }

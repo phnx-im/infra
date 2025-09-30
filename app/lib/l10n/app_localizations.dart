@@ -217,20 +217,8 @@ abstract class AppLocalizations {
   /// No description provided for @blockedChatFooter_message.
   ///
   /// In en, this message translates to:
-  /// **'You have blocked this chat. You will not get any messages, unless you unblock it.'**
-  String get blockedChatFooter_message;
-
-  /// No description provided for @blockedChatFooter_delete.
-  ///
-  /// In en, this message translates to:
-  /// **'Delete'**
-  String get blockedChatFooter_delete;
-
-  /// No description provided for @blockedChatFooter_unblock.
-  ///
-  /// In en, this message translates to:
-  /// **'Unblock'**
-  String get blockedChatFooter_unblock;
+  /// **'You won’t receive messages from {displayName} unless you unblock them.'**
+  String blockedChatFooter_message(Object displayName);
 
   /// No description provided for @chatScreen_emptyChat.
   ///
@@ -274,101 +262,155 @@ abstract class AppLocalizations {
   /// **'Remove User'**
   String get removeUserButton_text;
 
-  /// No description provided for @blockConnectionButton_text.
-  ///
-  /// In en, this message translates to:
-  /// **'Block Contact'**
-  String get blockConnectionButton_text;
-
-  /// No description provided for @blockConnectionDialog_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Block Contact'**
-  String get blockConnectionDialog_title;
-
-  /// No description provided for @blockConnectionDialog_content.
-  ///
-  /// In en, this message translates to:
-  /// **'Are you sure you want to block this contact? The user will not be able to send messages to you.'**
-  String get blockConnectionDialog_content;
-
-  /// No description provided for @blockConnectionDialog_cancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get blockConnectionDialog_cancel;
-
-  /// No description provided for @blockConnectionDialog_block.
+  /// No description provided for @blockContactButton_text.
   ///
   /// In en, this message translates to:
   /// **'Block'**
-  String get blockConnectionDialog_block;
+  String get blockContactButton_text;
 
-  /// No description provided for @unblockConnectionButton_text.
+  /// No description provided for @blockContactDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Unblock Contact'**
-  String get unblockConnectionButton_text;
+  /// **'Block {displayName}?'**
+  String blockContactDialog_title(Object displayName);
 
-  /// No description provided for @unblockConnectionDialog_title.
+  /// No description provided for @blockContactDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Unblock Contact'**
-  String get unblockConnectionDialog_title;
+  /// **'You won’t receive messages from {displayName} and they won’t be able to view any updates to your profile. They won’t be able to see that you blocked them. You can unblock them anytime.'**
+  String blockContactDialog_content(Object displayName);
 
-  /// No description provided for @unblockConnectionDialog_content.
-  ///
-  /// In en, this message translates to:
-  /// **'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.'**
-  String get unblockConnectionDialog_content;
-
-  /// No description provided for @unblockConnectionDialog_cancel.
+  /// No description provided for @blockContactDialog_cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get unblockConnectionDialog_cancel;
+  String get blockContactDialog_cancel;
 
-  /// No description provided for @unblockConnectionDialog_unblock.
+  /// No description provided for @blockContactDialog_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get blockContactDialog_block;
+
+  /// No description provided for @unblockContactButton_text.
   ///
   /// In en, this message translates to:
   /// **'Unblock'**
-  String get unblockConnectionDialog_unblock;
+  String get unblockContactButton_text;
 
-  /// No description provided for @deleteConnectionButton_text.
+  /// No description provided for @unblockContactDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
-  String get deleteConnectionButton_text;
+  /// **'Unblock {displayName}?'**
+  String unblockContactDialog_title(Object displayName);
 
-  /// No description provided for @deleteConnectionDialog_title.
+  /// No description provided for @unblockContactDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Delete Connection'**
-  String get deleteConnectionDialog_title;
+  /// **'You’ll be able to send and receive messages from {displayName} and they’ll be able to view your current profile.'**
+  String unblockContactDialog_content(Object displayName);
 
-  /// No description provided for @deleteConnectionDialog_content.
-  ///
-  /// In en, this message translates to:
-  /// **'Are you sure you want to delete this connection? The message history will be also deleted.'**
-  String get deleteConnectionDialog_content;
-
-  /// No description provided for @deleteConnectionDialog_cancel.
+  /// No description provided for @unblockContactDialog_cancel.
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
-  String get deleteConnectionDialog_cancel;
+  String get unblockContactDialog_cancel;
 
-  /// No description provided for @deleteConnectionDialog_delete.
+  /// No description provided for @unblockContactDialog_unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock User'**
+  String get unblockContactDialog_unblock;
+
+  /// No description provided for @deleteContactButton_text.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Air Contact'**
+  String get deleteContactButton_text;
+
+  /// No description provided for @deleteContactDialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Air Contact'**
+  String get deleteContactDialog_title;
+
+  /// No description provided for @deleteContactDialog_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.'**
+  String deleteContactDialog_content(Object displayName);
+
+  /// No description provided for @deleteContactDialog_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteContactDialog_cancel;
+
+  /// No description provided for @deleteContactDialog_delete.
   ///
   /// In en, this message translates to:
   /// **'Delete'**
-  String get deleteConnectionDialog_delete;
+  String get deleteContactDialog_delete;
 
   /// No description provided for @introScreen_signUp.
   ///
   /// In en, this message translates to:
-  /// **'Sign up'**
+  /// **'Sign Up'**
   String get introScreen_signUp;
+
+  /// No description provided for @signUpScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_title;
+
+  /// No description provided for @signUpScreen_actionButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUpScreen_actionButton;
+
+  /// No description provided for @signUpScreen_displayNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a picture and a display name.'**
+  String get signUpScreen_displayNameLabel;
+
+  /// No description provided for @signUpScreen_displayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DISPLAY NAME'**
+  String get signUpScreen_displayNameHint;
+
+  /// No description provided for @signUpScreen_serverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a server where you want to create your account.'**
+  String get signUpScreen_serverLabel;
+
+  /// No description provided for @signUpScreen_serverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'DOMAIN NAME'**
+  String get signUpScreen_serverHint;
+
+  /// No description provided for @signUpScreen_error_invalidDomain.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain is invalid'**
+  String get signUpScreen_error_invalidDomain;
+
+  /// No description provided for @signUpScreen_error_emptyDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name cannot be empty'**
+  String get signUpScreen_error_emptyDisplayName;
+
+  /// No description provided for @signUpScreen_error_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Error when registering user: {error}'**
+  String signUpScreen_error_register(Object error);
 
   /// No description provided for @userHandleScreen_title.
   ///
@@ -523,7 +565,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatList_blocked.
   ///
   /// In en, this message translates to:
-  /// **'🚫 Blocked'**
+  /// **'Blocked'**
   String get chatList_blocked;
 
   /// No description provided for @settings_profile.
@@ -751,7 +793,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_composeEmail.
   ///
   /// In en, this message translates to:
-  /// **'Compose Email'**
+  /// **'Compose email'**
   String get contactUsScreen_composeEmail;
 
   /// No description provided for @contactUsScreen_subject_somethingNotWorking.
@@ -781,7 +823,7 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_subject_empty.
   ///
   /// In en, this message translates to:
-  /// **'Please select a subject'**
+  /// **'Select a subject'**
   String get contactUsScreen_subject_empty;
 
   /// No description provided for @contactUsScreen_body_empty.
@@ -793,13 +835,13 @@ abstract class AppLocalizations {
   /// No description provided for @contactUsScreen_body_tooShort.
   ///
   /// In en, this message translates to:
-  /// **'Please provide more information'**
+  /// **'Provide more information'**
   String get contactUsScreen_body_tooShort;
 
   /// No description provided for @contactUsScreen_errorLaunchingEmail.
   ///
   /// In en, this message translates to:
-  /// **'Could not launch email client'**
+  /// **'Couldn\'t launch email client'**
   String get contactUsScreen_errorLaunchingEmail;
 
   /// No description provided for @groupDetails_members.
@@ -853,13 +895,13 @@ abstract class AppLocalizations {
   /// No description provided for @deleteChatDialog_title.
   ///
   /// In en, this message translates to:
-  /// **'Delete Chat'**
+  /// **'Delete Chat?'**
   String get deleteChatDialog_title;
 
   /// No description provided for @deleteChatDialog_content.
   ///
   /// In en, this message translates to:
-  /// **'Are you sure you want to delete this chat? The message history will be also deleted.'**
+  /// **'This chat will be deleted. There is no way to undo this.'**
   String get deleteChatDialog_content;
 
   /// No description provided for @deleteChatDialog_cancel.

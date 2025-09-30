@@ -44,7 +44,7 @@ jobs:
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: 16.4
 
       - name: Detect if PR is from a fork
         id: detect_fork

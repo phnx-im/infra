@@ -36,8 +36,7 @@ pub enum NavigationState {
 #[frb(dart_metadata = ("freezed"))]
 pub enum IntroScreenType {
     Intro,
-    ServerChoice,
-    DisplayNamePicture,
+    SignUp,
     DeveloperSettings(DeveloperSettingsScreenType),
 }
 

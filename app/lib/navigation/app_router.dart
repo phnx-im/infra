@@ -147,10 +147,7 @@ class AppBackButtonDispatcher extends RootBackButtonDispatcher {}
 extension on IntroScreenType {
   ValueKey<String> get key => switch (this) {
     IntroScreenType_Intro() => const ValueKey("intro-screen"),
-    IntroScreenType_ServerChoice() => const ValueKey("server-choice-screen"),
-    IntroScreenType_DisplayNamePicture() => const ValueKey(
-      "display-name-picture-screen",
-    ),
+    IntroScreenType_SignUp() => const ValueKey("sign-up-screen"),
     IntroScreenType_DeveloperSettings(field0: final screen) => ValueKey(
       "developer-settings-screen-$screen",
     ),
@@ -158,8 +155,7 @@ extension on IntroScreenType {
 
   Widget get screen => switch (this) {
     IntroScreenType_Intro() => const IntroScreen(),
-    IntroScreenType_ServerChoice() => const ServerChoice(),
-    IntroScreenType_DisplayNamePicture() => const DisplayNameAvatarChoice(),
+    IntroScreenType_SignUp() => const SignUpScreen(),
     IntroScreenType_DeveloperSettings(field0: final screen) => switch (screen) {
       DeveloperSettingsScreenType.root => const DeveloperSettingsScreen(),
       DeveloperSettingsScreenType.changeUser => const ChangeUserScreen(),

@@ -91,7 +91,6 @@ class AddUserHandleScreen extends HookWidget {
                   ),
                   const Spacer(),
                   OutlinedButton(
-                    style: buttonStyle(CustomColorScheme.of(context), true),
                     onPressed:
                         () => _submit(
                           context,

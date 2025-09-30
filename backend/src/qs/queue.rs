@@ -34,10 +34,19 @@ pub(crate) struct Queues {
     pg_listener_task_handle: PgListenerTaskHandle<QsClientId>,
 }
 
+/// Context for a queue listener
+///
+/// Cancels background tasks when dropped.
 #[derive(Debug)]
 struct ListenerContext {
     cancel: CancellationToken,
     payload_tx: mpsc::Sender<QueueEventPayload>,
+}
+
+impl Drop for ListenerContext {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
 }
 
 impl Queues {
@@ -104,7 +113,11 @@ impl Queues {
 
         txn.commit().await?;
 
-        let is_listening = self.listeners.lock().await.contains_key(&queue_id);
+        let listeners = self.listeners.lock().await;
+        let is_listening = listeners
+            .get(&queue_id)
+            .map(|context| !context.cancel.is_cancelled())
+            .unwrap_or(false);
         Ok(is_listening)
     }
 
@@ -132,17 +145,24 @@ impl Queues {
         for (id, _) in listeners.extract_if(|_, context| context.cancel.is_cancelled()) {
             self.pg_listener_task_handle.unlisten(id).await;
         }
+
         let cancel = CancellationToken::new();
         let context = ListenerContext {
             cancel: cancel.clone(),
             payload_tx,
         };
-        if let Some(prev_context) = listeners.insert(client_id, context) {
-            prev_context.cancel.cancel();
-        } else {
+
+        if listeners.insert(client_id, context).is_none() {
             self.pg_listener_task_handle.listen(client_id).await;
         }
+
         Ok(cancel)
+    }
+
+    pub(crate) async fn stop_listening(&self, queue_id: QsClientId) {
+        if let Some(context) = self.listeners.lock().await.remove(&queue_id) {
+            context.cancel.cancel();
+        }
     }
 }
 

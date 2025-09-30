@@ -24,6 +24,12 @@ extension UiChatDetailsExtension on UiChatDetails {
     UiChatType_Group() => attributes.title,
   };
 
+  /// Display name of the user if this is a 1:1 chat
+  String? get displayName => switch (chatType) {
+    UiChatType_Connection(field0: final profile) => profile.displayName,
+    _ => null,
+  };
+
   /// Picture of the chat
   ///
   /// The picture is either the one from the chat attributes (when this is a group
