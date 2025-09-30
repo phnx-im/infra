@@ -16,10 +16,6 @@ reset-dev:
     cd coreclient && cargo sqlx database reset -y
     cd backend && cargo sqlx database reset -y
 
-# Run Flutter-Rust bridge lint.
-@check-frb:
-    just _check-unstaged-changes "just regenerate-frb"
-
 # Run fast and simple Rust lints.
 @check-rust:
     just _check-status "cargo machete"
@@ -39,6 +35,10 @@ reset-dev:
     just _check-status "cd app && fvm flutter analyze --no-pub"
     just _check-unstaged-changes "just regenerate-l10n"
     echo "{{BOLD}}check-flutter done{{NORMAL}}"
+
+# Run Flutter-Rust bridge lint.
+@check-frb:
+    just _check-unstaged-changes "just regenerate-frb"
 
 # Run all fast and simple lints.
 @check: check-rust check-flutter check-frb
