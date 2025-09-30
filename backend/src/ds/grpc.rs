@@ -141,7 +141,7 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
         &self,
         mls_message: SerializedMlsMessage,
         destination_clients: impl IntoIterator<Item = identifiers::QsReference>,
-    ) -> Result<TimeStamp, Status> {
+    ) -> TimeStamp {
         let queue_message_payload = QsQueueMessagePayload::from(mls_message);
         let timestamp = queue_message_payload.timestamp;
         let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
@@ -172,7 +172,7 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
                 .ok();
         }
 
-        Ok(timestamp)
+        timestamp
     }
 
     async fn update_group_data(
@@ -504,7 +504,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(JoinConnectionGroupResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -541,7 +541,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(ResyncResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -578,7 +578,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(SelfRemoveResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -619,7 +619,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 mls_message.into_serialized_mls_message(),
                 destination_clients,
             )
-            .await?;
+            .await;
 
         Ok(Response::new(SendMessageResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -657,7 +657,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(DeleteGroupResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -705,7 +705,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         for message in welcome_bundles {
             self.qs_connector
