@@ -15,7 +15,6 @@ import 'package:air/core/core.dart';
 import 'package:air/l10n/app_localizations.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 
 import '../mocks.dart';

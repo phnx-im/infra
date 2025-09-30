@@ -12,7 +12,6 @@ import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 
 import '../helpers.dart';

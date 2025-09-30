@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:air/registration/registration.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 
 import '../mocks.dart';
 

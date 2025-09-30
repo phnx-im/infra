@@ -15,7 +15,6 @@ import 'package:air/l10n/l10n.dart';
 import 'package:air/message_list/message_list.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
