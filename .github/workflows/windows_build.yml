@@ -35,7 +35,7 @@ jobs:
           cache-directories: app/build/windows/x64/plugins/airapplogic/cargokit_build
 
       - name: Build Windows app
-        run: fvm flutter build windows -v
+        run: flutter build windows -v
 
       - name: Upload Windows app
         uses: actions/upload-artifact@v4

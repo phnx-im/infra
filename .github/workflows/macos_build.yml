@@ -59,7 +59,7 @@ jobs:
       - name: Build macOS app
         if: ${{ steps.detect_fork.outputs.is_fork == 'true' }}
         run: |
-          cd app && fastlane mac build_macos
+          cd app && fastlane mac build_macos with_signing:true
 
       - name: Build and sign macOS app
         if: ${{ steps.detect_fork.outputs.is_fork == 'false' }}
