@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: CI split up
+name: CI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v5
 
       ## CHECK FRB
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@1.90.0
       - run: curl -fsSL https://fvm.app/install.sh | bash
       - run: (cd app && fvm install)
       - uses: actions/cache@v4
@@ -62,7 +62,7 @@ jobs:
 
       # CHECK RUST
       - uses: taiki-e/install-action@cargo-machete
-      - uses: dtolnay/rust-toolchain@1.89.0
+      - uses: dtolnay/rust-toolchain@1.90.0
       - uses: cargo-bins/cargo-binstall@main
       - run: cargo binstall cargo-deny@0.18.5 --no-confirm
       - uses: Swatinem/rust-cache@v2
@@ -72,5 +72,5 @@ jobs:
       - run: just check-rust
 
       # TEST RUST
-      - run: just run-docker-compose
+      - run: just start-docker-compose
       - run: just test-rust
