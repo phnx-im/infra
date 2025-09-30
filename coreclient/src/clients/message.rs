@@ -138,53 +138,80 @@ impl CoreUser {
         Ok(())
     }
 
-    pub(crate) async fn send_delivery_receipts(
+    pub(crate) async fn send_delivery_receipts<'a>(
+        &self,
+        chat_id: ChatId,
+        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+    ) -> anyhow::Result<()> {
+        if let Some(task) = self.send_delivery_receipts_task(chat_id, statuses).await? {
+            task.await?;
+        }
+        Ok(())
+    }
+
+    /// Creates a task which sends delivery receipts for the given messages.
+    ///
+    /// The task is `Send` and can be executed as a background task.
+    ///
+    /// If there nothing to send, the task returns `Ok(None)`.
+    pub(crate) async fn send_delivery_receipts_task(
         &self,
         chat_id: ChatId,
         statuses: impl IntoIterator<Item = (&MimiId, MessageStatus)>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<impl Future<Output = anyhow::Result<()>> + Send + 'static>> {
         let Some(unsent_receipt) = UnsentReceipt::new(statuses)? else {
-            return Ok(()); // Nothing to send
+            return Ok(None); // Nothing to send
         };
 
         let chat = Chat::load(self.pool().acquire().await?.as_mut(), &chat_id)
             .await?
             .with_context(|| format!("Can't find chat with id {chat_id}"))?;
         if let ChatStatus::Blocked = chat.status() {
-            return Ok(());
+            return Ok(None);
         }
 
-        let (group, params) = self
-            .with_transaction(async |txn| {
+        let client = self.inner.api_clients.get(&chat.owner_domain())?;
+        let signing_key = self.signing_key().clone();
+
+        let user_id = self.user_id().clone();
+        let pool = self.pool().clone();
+        let mut notifier = self.store_notifier();
+
+        let task = async move {
+            // load group and create MLS message
+            let (group, params) = {
+                let mut txn = pool.begin().await?;
                 let group_id = chat.group_id();
-                let mut group = Group::load_clean(txn, group_id)
+                let mut group = Group::load_clean(&mut txn, group_id)
                     .await?
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
                 let params = group.create_message(
-                    &AirOpenMlsProvider::new(txn),
-                    self.signing_key(),
+                    &AirOpenMlsProvider::new(&mut txn),
+                    &signing_key,
                     unsent_receipt.content,
                 )?;
                 group.store_update(txn.as_mut()).await?;
-                Ok((group, params))
-            })
-            .await?;
+                txn.commit().await?;
+                (group, params)
+            };
 
-        self.inner
-            .api_clients
-            .get(&chat.owner_domain())?
-            .ds_send_message(params, self.signing_key(), group.group_state_ear_key())
-            .await?;
-
-        self.with_transaction_and_notifier(async |txn, notifier| {
-            StatusRecord::borrowed(self.user_id(), unsent_receipt.report, TimeStamp::now())
-                .store_report(txn, notifier)
+            // send MLS message to DS
+            client
+                .ds_send_message(params, &signing_key, group.group_state_ear_key())
                 .await?;
-            Ok(())
-        })
-        .await?;
 
-        Ok(())
+            // store delivery receipt report
+            let mut txn = pool.begin().await?;
+            StatusRecord::borrowed(&user_id, unsent_receipt.report, TimeStamp::now())
+                .store_report(&mut txn, &mut notifier)
+                .await?;
+            txn.commit().await?;
+            notifier.notify();
+
+            Ok(())
+        };
+
+        Ok(Some(task))
     }
 }
 
