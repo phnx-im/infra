@@ -78,5 +78,5 @@ jobs:
       - name: Upload Android app APK
         uses: actions/upload-artifact@v4
         with:
-          name: air-${{ steps.vars.outputs.sha_short }}
+          name: air-android-${{ steps.vars.outputs.sha_short }}
           path: app/build/app/outputs/flutter-apk/app-release.apk
