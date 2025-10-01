@@ -92,11 +92,39 @@ class MessageColors {
   final Color otherBackground;
   final Color selfText;
   final Color otherText;
+  final Color selfListPrefix;
+  final Color otherListPrefix;
+  final Color selfQuoteBorder;
+  final Color otherQuoteBorder;
+  final Color selfQuoteBackground;
+  final Color otherQuoteBackground;
+  final Color selfTableBorder;
+  final Color otherTableBorder;
+  final Color selfCheckboxBorder;
+  final Color otherCheckboxBorder;
+  final Color selfCheckboxFill;
+  final Color otherCheckboxFill;
+  final Color selfCheckboxCheck;
+  final Color otherCheckboxCheck;
 
   MessageColors({
     required this.selfBackground,
     required this.otherBackground,
     required this.selfText,
     required this.otherText,
+    required this.selfListPrefix,
+    required this.otherListPrefix,
+    required this.selfQuoteBorder,
+    required this.otherQuoteBorder,
+    required this.selfQuoteBackground,
+    required this.otherQuoteBackground,
+    required this.selfTableBorder,
+    required this.otherTableBorder,
+    required this.selfCheckboxBorder,
+    required this.otherCheckboxBorder,
+    required this.selfCheckboxFill,
+    required this.otherCheckboxFill,
+    required this.selfCheckboxCheck,
+    required this.otherCheckboxCheck,
   });
 }
