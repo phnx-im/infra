@@ -59,7 +59,7 @@ jobs:
       - name: Build iOS app
         if: ${{ steps.detect_fork.outputs.is_fork == 'true' }}
         run: |
-          cd app && fastlane ios build_ios
+          cd app && fastlane ios build_ios --verbose
 
       - name: Build and sign iOS app
         if: ${{ steps.detect_fork.outputs.is_fork == 'false' }}
@@ -74,18 +74,6 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: |
           cd app && fastlane ios beta_ios --verbose
-
-      - run: ls app/build/*
-      - run: ls app/build/ios/outputs
-      - run: ls app/build/ios/outputs/*
-      - run: ls app/build/ios/outputs/flutter-ios
-      - run: ls app/build/ios/outputs/flutter-ios/*
-
-      - name: Upload iOS app
-        uses: actions/upload-artifact@v4
-        with:
-          name: air-ios-${{ steps.vars.outputs.sha_short }}
-          path: app/build/app/outputs/flutter-ios/app-release.ipa
 
       - name: Upload build logs on failure
         if: failure()
