@@ -44,7 +44,7 @@ mod user_handle;
 // should do it, to minimize the amount of UI rebuilds in Flutter.
 //
 // See:
-// * <https://github.com/phnx-im/infra/issues/247>
+// * <https://github.com/phnx-im/air/issues/247>
 // * <https://github.com/fzyzcjy/flutter_rust_bridge/issues/2238>
 #[frb(opaque)]
 #[derive(Debug, Clone)]

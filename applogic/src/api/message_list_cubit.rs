@@ -60,7 +60,7 @@ impl MessageListState {
     /// the second message, and is discarded.
     ///
     /// The state is fully replaced. Note: This behavior will change when we will introduce loading
-    /// of additional messages via batching <https://github.com/phnx-im/infra/issues/287>.
+    /// of additional messages via batching <https://github.com/phnx-im/air/issues/287>.
     fn rebuild_from_messages(
         &mut self,
         mut new_messages: Vec<ChatMessage>,
@@ -149,7 +149,7 @@ impl MessageListState {
 ///
 /// Currently, only the last 1000 messages are loaded. This is subject to change ([#287]).
 ///
-/// [#287]: https://github.com/phnx-im/infra/issues/287
+/// [#287]: https://github.com/phnx-im/air/issues/287
 #[frb(opaque)]
 pub struct MessageListCubitBase {
     core: CubitCore<MessageListState>,
