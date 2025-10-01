@@ -269,19 +269,21 @@ class _MessageContent extends StatelessWidget {
                           right: Spacings.s,
                           bottom: Spacings.xxs,
                         ),
-                        child: Text(
-                          loc.textMessage_edited,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall!.copyWith(
-                            color:
-                                isSender
-                                    ? CustomColorScheme.of(
-                                      context,
-                                    ).message.selfEditedLabel
-                                    : CustomColorScheme.of(
-                                      context,
-                                    ).message.otherEditedLabel,
+                        child: SelectionContainer.disabled(
+                          child: Text(
+                            loc.textMessage_edited,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall!.copyWith(
+                              color:
+                                  isSender
+                                      ? CustomColorScheme.of(
+                                        context,
+                                      ).message.selfEditedLabel
+                                      : CustomColorScheme.of(
+                                        context,
+                                      ).message.otherEditedLabel,
+                            ),
                           ),
                         ),
                       ),
