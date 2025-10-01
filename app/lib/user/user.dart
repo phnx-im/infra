@@ -6,6 +6,7 @@
 library;
 
 export 'add_user_handle_screen.dart';
+export 'delete_account_screen.dart';
 export 'edit_display_name_screen.dart';
 export 'help_screen.dart';
 export 'loadable_user_cubit.dart';
