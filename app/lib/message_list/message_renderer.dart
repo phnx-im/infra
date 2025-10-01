@@ -168,7 +168,14 @@ Widget buildBlockElement(
               .toList(),
     ),
     BlockElement_Table(:final head, :final rows) => Table(
-      border: TableBorder.all(),
+      border: TableBorder.all(
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfTableBorder
+                : CustomColorScheme.of(context).message.otherTableBorder,
+        width: 2,
+        borderRadius: BorderRadius.circular(8),
+      ),
       defaultColumnWidth: const IntrinsicColumnWidth(),
       children: [
         TableRow(
@@ -177,7 +184,7 @@ Widget buildBlockElement(
                   .map(
                     (itemBlocks) => Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: Spacings.xxs,
+                        horizontal: Spacings.xs,
                         vertical: Spacings.xxxs,
                       ),
                       child: Column(
@@ -205,7 +212,7 @@ Widget buildBlockElement(
                     .map(
                       (itemBlocks) => Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: Spacings.xxs,
+                          horizontal: Spacings.xs,
                           vertical: Spacings.xxxs,
                         ),
                         child: Column(
