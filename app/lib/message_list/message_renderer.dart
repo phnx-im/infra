@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:air/theme/spacings.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/api/markdown.dart';
 import 'package:air/ui/colors/palette.dart';
@@ -55,7 +56,7 @@ Widget buildBlockElement(
         color: AppColors.blue[700],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children:
             field0
                 .map(
@@ -66,11 +67,12 @@ Widget buildBlockElement(
       ),
     ),
     BlockElement_UnorderedList(:final field0) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children:
           field0
               .map(
                 (items) => Row(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text.rich(
@@ -87,21 +89,19 @@ Widget buildBlockElement(
                         fontSize: BodyFontSize.base.size,
                       ),
                     ),
-                    Flexible(
-                      child: Column(
-                        spacing: 4.0,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children:
-                            items
-                                .map(
-                                  (item) => buildBlockElement(
-                                    context,
-                                    item.element,
-                                    isSender,
-                                  ),
-                                )
-                                .toList(),
-                      ),
+                    Column(
+                      spacing: 4.0,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children:
+                          items
+                              .map(
+                                (item) => buildBlockElement(
+                                  context,
+                                  item.element,
+                                  isSender,
+                                ),
+                              )
+                              .toList(),
                     ),
                   ],
                 ),
@@ -109,11 +109,12 @@ Widget buildBlockElement(
               .toList(),
     ),
     BlockElement_OrderedList(:final field0, :final field1) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children:
           field1.indexed
               .map(
                 (items) => Row(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text.rich(
@@ -132,39 +133,11 @@ Widget buildBlockElement(
                         ),
                       ),
                     ),
-                    Flexible(
-                      child: Column(
-                        spacing: 4.0,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children:
-                            items.$2
-                                .map(
-                                  (item) => buildBlockElement(
-                                    context,
-                                    item.element,
-                                    isSender,
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-              .toList(),
-    ),
-    BlockElement_Table(:final head, :final rows) => Table(
-      border: TableBorder.all(),
-      defaultColumnWidth: const FlexColumnWidth(),
-      children: [
-        TableRow(
-          children:
-              head
-                  .map(
-                    (itemBlocks) => Column(
+                    Column(
+                      spacing: Spacings.xxxs,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children:
-                          itemBlocks
+                          items.$2
                               .map(
                                 (item) => buildBlockElement(
                                   context,
@@ -174,15 +147,27 @@ Widget buildBlockElement(
                               )
                               .toList(),
                     ),
-                  )
-                  .toList(),
-        ),
-        ...rows.map(
-          (row) => TableRow(
-            children:
-                row
-                    .map(
-                      (itemBlocks) => Column(
+                  ],
+                ),
+              )
+              .toList(),
+    ),
+    BlockElement_Table(:final head, :final rows) => Table(
+      border: TableBorder.all(),
+      defaultColumnWidth: const IntrinsicColumnWidth(),
+      children: [
+        TableRow(
+          children:
+              head
+                  .map(
+                    (itemBlocks) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacings.xxs,
+                        vertical: Spacings.xxxs,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children:
                             itemBlocks
                                 .map(
@@ -194,17 +179,49 @@ Widget buildBlockElement(
                                 )
                                 .toList(),
                       ),
+                    ),
+                  )
+                  .toList(),
+        ),
+        ...rows.map(
+          (row) => TableRow(
+            children:
+                row
+                    .map(
+                      (itemBlocks) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacings.xxs,
+                          vertical: Spacings.xxxs,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              itemBlocks
+                                  .map(
+                                    (item) => buildBlockElement(
+                                      context,
+                                      item.element,
+                                      isSender,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      ),
                     )
                     .toList(),
           ),
         ),
       ],
     ),
-    BlockElement_HorizontalRule() => Divider(
-      color:
-          isSender
-              ? CustomColorScheme.of(context).message.selfText
-              : CustomColorScheme.of(context).message.otherText,
+    BlockElement_HorizontalRule() => SizedBox(
+      width: 100,
+      child: Divider(
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfText
+                : CustomColorScheme.of(context).message.otherText,
+      ),
     ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
