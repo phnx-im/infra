@@ -323,7 +323,7 @@ pub(super) struct Queue {
     sequence_number: i64,
 }
 
-mod persistence {
+pub(crate) mod persistence {
     use super::*;
 
     use airprotos::queue_service::v1::QueueMessage;
@@ -444,7 +444,7 @@ mod persistence {
             Ok(())
         }
 
-        pub(super) async fn fetch_into(
+        pub(crate) async fn fetch_into(
             executor: impl PgExecutor<'_>,
             queue_id: &QsClientId,
             sequence_number: u64,
