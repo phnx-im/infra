@@ -73,7 +73,20 @@ Widget buildBlockElement(
                 (items) => Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text.rich(TextSpan(text: " \u2022  ")),
+                    Text.rich(
+                      const TextSpan(text: " \u2022 "),
+                      style: TextStyle(
+                        color:
+                            isSender
+                                ? CustomColorScheme.of(
+                                  context,
+                                ).message.selfListPrefix
+                                : CustomColorScheme.of(
+                                  context,
+                                ).message.otherListPrefix,
+                        fontSize: BodyFontSize.base.size,
+                      ),
+                    ),
                     Flexible(
                       child: Column(
                         spacing: 4.0,
@@ -109,8 +122,12 @@ Widget buildBlockElement(
                         style: TextStyle(
                           color:
                               isSender
-                                  ? AppColors.blue[100]
-                                  : AppColors.blue[900],
+                                  ? CustomColorScheme.of(
+                                    context,
+                                  ).message.selfListPrefix
+                                  : CustomColorScheme.of(
+                                    context,
+                                  ).message.otherListPrefix,
                           fontSize: BodyFontSize.base.size,
                         ),
                       ),
