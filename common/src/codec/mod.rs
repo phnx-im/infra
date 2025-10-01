@@ -40,7 +40,7 @@ impl TryFrom<u8> for PersistenceCodec {
 }
 
 impl PersistenceCodec {
-    fn serialize_to_writer<T: Serialize>(
+    fn serialize_to_writer<T: ?Sized + Serialize>(
         &self,
         value: &T,
         writer: &mut impl std::io::Write,
@@ -55,7 +55,7 @@ impl PersistenceCodec {
         Ok(())
     }
 
-    fn serialize<T: Sized + Serialize>(
+    fn serialize<T: ?Sized + Serialize>(
         &self,
         value: &T,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync + 'static>> {
@@ -78,7 +78,7 @@ impl PersistenceCodec {
 
     pub fn to_vec<T>(value: &T) -> Result<Vec<u8>, Error>
     where
-        T: Sized + Serialize,
+        T: ?Sized + Serialize,
     {
         let codec_version = PersistenceCodec::default();
         let res = codec_version.serialize(value).map_err(|error| CodecError {

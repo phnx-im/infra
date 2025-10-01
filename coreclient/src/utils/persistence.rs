@@ -16,8 +16,10 @@ use sqlx::{
 };
 use tracing::{error, info};
 
-use crate::clients::store::ClientRecord;
 use crate::utils::data_migrations;
+use crate::{
+    clients::store::ClientRecord, groups::openmls_provider::storage_provider::SqliteStorageProvider,
+};
 
 pub(crate) const AIR_DB_NAME: &str = "air.db";
 
@@ -140,6 +142,10 @@ pub async fn open_client_db(user_id: &UserId, client_db_path: &str) -> sqlx::Res
 
     data_migrations::migrate(&pool).await?;
     migrate!().run(&pool).await?;
+    // Run OpenMLS specific migrations
+    let mut connection = pool.acquire().await?;
+    let mut provider = SqliteStorageProvider::new(&mut *connection);
+    provider.run_migrations()?;
 
     Ok(pool)
 }

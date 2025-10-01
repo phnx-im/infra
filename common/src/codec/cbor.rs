@@ -11,8 +11,8 @@ use super::Codec;
 pub(super) struct Cbor;
 
 impl Cbor {
-    pub(crate) fn to_writer(
-        value: &impl Serialize,
+    pub(crate) fn to_writer<T: ?Sized + Serialize>(
+        value: &T,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ciborium::ser::Error<std::io::Error>> {
         ciborium::into_writer(value, writer)

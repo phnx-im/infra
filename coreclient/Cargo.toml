@@ -30,6 +30,7 @@ image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
 mimi_content = { workspace = true }
+openmls_sqlx_storage = { version = "0.1.0", git = "https://github.com/openmls/openmls", branch = "konrad/sqlx_provider" }
 
 # Persistence
 serde = { version = "1", features = ["derive"] }

@@ -10,7 +10,7 @@ use crate::codec::PersistenceCodec;
 pub(super) struct Json;
 
 impl Json {
-    pub(crate) fn to_writer<W: std::io::Write, T: Serialize>(
+    pub(crate) fn to_writer<W: std::io::Write, T: ?Sized + Serialize>(
         value: &T,
         writer: &mut W,
     ) -> Result<(), serde_json::Error> {

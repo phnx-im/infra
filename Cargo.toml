@@ -50,12 +50,12 @@ thiserror = "2.0"
 blake3 = "1.8.2"
 sha2 = "0.10.9"
 
-openmls_traits = { version = "0.4.1" }
+openmls_traits = { version = "0.4.1", git = "https://github.com/openmls/openmls", branch = "konrad/sqlx_provider" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { version = "0.7.1" }
-openmls_memory_storage = { version = "0.4.1" }
-openmls_rust_crypto = { version = "0.4.1" }
+openmls = { version = "0.7.1", git = "https://github.com/openmls/openmls", branch = "konrad/sqlx_provider" }
+openmls_memory_storage = { version = "0.4.1", git = "https://github.com/openmls/openmls", branch = "konrad/sqlx_provider" }
+openmls_rust_crypto = { version = "0.4.1", git = "https://github.com/openmls/openmls", branch = "konrad/sqlx_provider" }
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
     "tracing-log",
