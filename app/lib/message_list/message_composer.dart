@@ -46,8 +46,7 @@ class _MessageComposerState extends State<MessageComposer>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _focusNode.onKeyEvent =
-        (focusNode, event) => _onKeyEvent(context.read(), focusNode, event);
+    _focusNode.onKeyEvent = _onKeyEvent;
     _inputController.addListener(_onTextChanged);
 
     _chatDetailsCubit = context.read<ChatDetailsCubit>();
@@ -199,11 +198,7 @@ class _MessageComposerState extends State<MessageComposer>
   }
 
   // Key events
-  KeyEventResult _onKeyEvent(
-    ChatDetailsCubit chatDetailCubit,
-    FocusNode node,
-    KeyEvent evt,
-  ) {
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent evt) {
     final modifierKeyPressed =
         HardwareKeyboard.instance.isShiftPressed ||
         HardwareKeyboard.instance.isAltPressed ||
@@ -213,12 +208,14 @@ class _MessageComposerState extends State<MessageComposer>
     if (!modifierKeyPressed &&
         evt.logicalKey == LogicalKeyboardKey.enter &&
         evt is KeyDownEvent) {
-      _submitMessage(chatDetailCubit);
+      final chatDetailsCubit = context.read<ChatDetailsCubit>();
+      _submitMessage(chatDetailsCubit);
       return KeyEventResult.handled;
     } else if (!modifierKeyPressed &&
         evt.logicalKey == LogicalKeyboardKey.arrowUp &&
         evt is KeyDownEvent) {
-      return _editMessage(chatDetailCubit)
+      final chatDetailsCubit = context.read<ChatDetailsCubit>();
+      return _editMessage(chatDetailsCubit)
           ? KeyEventResult.handled
           : KeyEventResult.ignored;
     } else {
