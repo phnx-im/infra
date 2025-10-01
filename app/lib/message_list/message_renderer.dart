@@ -187,19 +187,22 @@ Widget buildBlockElement(
                         horizontal: Spacings.xs,
                         vertical: Spacings.xxxs,
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:
-                            itemBlocks
-                                .map(
-                                  (item) => buildBlockElement(
-                                    context,
-                                    item.element,
-                                    isSender,
-                                  ),
-                                )
-                                .toList(),
+                      child: DefaultTextStyle(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              itemBlocks
+                                  .map(
+                                    (item) => buildBlockElement(
+                                      context,
+                                      item.element,
+                                      isSender,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
                       ),
                     ),
                   )
