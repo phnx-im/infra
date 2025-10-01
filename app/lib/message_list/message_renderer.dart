@@ -50,10 +50,25 @@ Widget buildBlockElement(
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacings.xs,
+        vertical: Spacings.xxs,
+      ),
       decoration: BoxDecoration(
-        border: const Border(left: BorderSide(color: AppColors.blue, width: 4)),
-        color: AppColors.blue[700],
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border(
+          left: BorderSide(
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfQuoteBorder
+                    : CustomColorScheme.of(context).message.otherQuoteBorder,
+            width: 4,
+          ),
+        ),
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfQuoteBackground
+                : CustomColorScheme.of(context).message.otherQuoteBackground,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
