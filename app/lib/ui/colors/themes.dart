@@ -75,6 +75,14 @@ final CustomColorScheme lightCustomColorScheme = CustomColorScheme(
     otherBackground: AppColors.neutral[50]!,
     selfText: AppColors.neutral[0]!,
     otherText: AppColors.neutral[1000]!,
+    selfListPrefix: AppColors.neutral[200]!,
+    otherListPrefix: AppColors.neutral[800]!,
+    selfQuoteBorder: AppColors.blue[400]!,
+    otherQuoteBorder: AppColors.blue[500]!,
+    selfQuoteBackground: AppColors.blue[700]!,
+    otherQuoteBackground: AppColors.blue[50]!,
+    selfTableBorder: AppColors.neutral[200]!,
+    otherTableBorder: AppColors.neutral[200]!,
   ),
 );
 
@@ -121,6 +129,14 @@ final CustomColorScheme darkCustomColorScheme = CustomColorScheme(
     otherBackground: AppColors.neutral[900]!,
     selfText: AppColors.neutral[900]!,
     otherText: AppColors.neutral[100]!,
+    selfListPrefix: AppColors.neutral[800]!,
+    otherListPrefix: AppColors.neutral[200]!,
+    selfQuoteBorder: AppColors.blue[300]!,
+    otherQuoteBorder: AppColors.blue[600]!,
+    selfQuoteBackground: AppColors.blue[200]!,
+    otherQuoteBackground: AppColors.blue[800]!,
+    selfTableBorder: AppColors.neutral[700]!,
+    otherTableBorder: AppColors.neutral[700]!,
   ),
 );
 
