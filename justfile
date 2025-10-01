@@ -5,7 +5,6 @@
 export RUST_LOG := "info"
 export RUST_BACKTRACE := "1"
 export SQLX_OFFLINE := "true"
-export DATABASE_URL := "postgres://postgres:password@localhost:5432/phnx_db"
 export RUSTFLAGS := "-D warnings"
 
 _default:
@@ -13,7 +12,7 @@ _default:
 
 # Reset and migrate databases.
 reset-dev:
-    cd coreclient && cargo sqlx database reset -y
+    cd coreclient && cargo sqlx database reset -y --database-url sqlite:client.db
     cd backend && cargo sqlx database reset -y
 
 # Run fast and simple Rust lints.
@@ -95,15 +94,15 @@ regenerate-l10n:
 
 
 # Run cargo build, clippy and test.
-@test-rust:
+@test-rust: start-docker-compose
     just _check-status "cargo clippy --locked --all-targets"
-    just _check-status "just start-docker-compose && cargo test --locked -q"
+    just _check-status "cargo test --locked -q"
     echo "{{BOLD}}test-rust done{{NORMAL}}"
 
 # Run flutter test.
 test-flutter:
     cd app && fvm flutter test
-    echo "{{BOLD}}test-flutter done{{NORMAL}}"
+    @echo "{{BOLD}}test-flutter done{{NORMAL}}"
 
 # Run all lints and tests.
 ci: check test
@@ -137,7 +136,7 @@ run-client *args='':
     cd app && fvm flutter run {{args}}
 
 # Start the client from the last debug build.
-run-client-no-rebuild device="macos":
+run-client-cached device="macos":
     #!/usr/bin/env -S bash -eu
     app/build/{{device}}/Build/Products/Debug/Air.app/Contents/*/Air
 
