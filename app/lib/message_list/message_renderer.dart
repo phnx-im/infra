@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:air/theme/spacings.dart';
+import 'package:air/ui/typography/monospace.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/api/markdown.dart';
 import 'package:air/ui/colors/palette.dart';
@@ -252,9 +253,8 @@ Widget buildBlockElement(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
         style: TextStyle(
-          fontFamily: 'SourceCodeProEmbedded',
+          fontFamily: getSystemMonospaceFontFamily(),
           fontSize: BodyFontSize.small2.size,
-          fontWeight: FontWeight.bold,
           color:
               isSender
                   ? CustomColorScheme.of(context).message.selfText
@@ -287,7 +287,10 @@ InlineSpan buildInlineElement(
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
       text: field0,
-      style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+      style: TextStyle(
+        fontFamily: getSystemMonospaceFontFamily(),
+        fontSize: BodyFontSize.small2.size,
+      ),
     ),
     InlineElement_Link(:final children) => TextSpan(
       children:
@@ -578,7 +581,10 @@ class CustomTextEditingController extends TextEditingController {
               )
               .toList(),
         ),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
@@ -603,7 +609,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Code() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
