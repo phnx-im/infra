@@ -33,6 +33,7 @@ Widget buildBlockElement(
           fontSize: BodyFontSize.base.size,
         ),
       ),
+      softWrap: true,
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
@@ -105,19 +106,22 @@ Widget buildBlockElement(
                         fontSize: BodyFontSize.base.size,
                       ),
                     ),
-                    Column(
-                      spacing: 4.0,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:
-                          items
-                              .map(
-                                (item) => buildBlockElement(
-                                  context,
-                                  item.element,
-                                  isSender,
-                                ),
-                              )
-                              .toList(),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Column(
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:
+                            items
+                                .map(
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
+                                )
+                                .toList(),
+                      ),
                     ),
                   ],
                 ),
@@ -149,19 +153,22 @@ Widget buildBlockElement(
                         ),
                       ),
                     ),
-                    Column(
-                      spacing: Spacings.xxxs,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:
-                          items.$2
-                              .map(
-                                (item) => buildBlockElement(
-                                  context,
-                                  item.element,
-                                  isSender,
-                                ),
-                              )
-                              .toList(),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Column(
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:
+                            items.$2
+                                .map(
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
+                                )
+                                .toList(),
+                      ),
                     ),
                   ],
                 ),
