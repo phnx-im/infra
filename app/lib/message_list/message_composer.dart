@@ -204,14 +204,20 @@ class _MessageComposerState extends State<MessageComposer>
     FocusNode node,
     KeyEvent evt,
   ) {
-    if (evt.logicalKey == LogicalKeyboardKey.enter &&
-        evt is KeyDownEvent &&
-        HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
+    final modifierKeyPressed =
+        HardwareKeyboard.instance.isShiftPressed ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+
+    if (!modifierKeyPressed &&
+        evt.logicalKey == LogicalKeyboardKey.enter &&
+        evt is KeyDownEvent) {
       _submitMessage(chatDetailCubit);
       return KeyEventResult.handled;
-    } else if (evt.logicalKey == LogicalKeyboardKey.arrowUp &&
-        evt is KeyDownEvent &&
-        HardwareKeyboard.instance.logicalKeysPressed.length == 1) {
+    } else if (!modifierKeyPressed &&
+        evt.logicalKey == LogicalKeyboardKey.arrowUp &&
+        evt is KeyDownEvent) {
       return _editMessage(chatDetailCubit)
           ? KeyEventResult.handled
           : KeyEventResult.ignored;
