@@ -58,7 +58,7 @@ pub enum DatabaseError {
 /// General error while accessing the requested queue.
 #[derive(Error, Debug, Display)]
 pub(super) enum QueueError {
-    /// Database error
+    /// {0:?}
     Storage(#[from] StorageError),
     /// Mismatching sequence numbers
     SequenceNumberMismatch,

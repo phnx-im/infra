@@ -17,7 +17,7 @@ use aircommon::{
     identifiers::{QsClientId, QsUserId},
     messages::{
         QueueMessage,
-        client_ds::{DsEventMessage, QsQueueRatchet},
+        client_ds::{DsEventMessage, QsQueueMessagePayload, QsQueueRatchet},
         push_token::{EncryptedPushToken, PushToken},
     },
     time::TimeStamp,
@@ -25,7 +25,7 @@ use aircommon::{
 use tracing::{error, info, trace, warn};
 
 use crate::{
-    errors::StorageError,
+    errors::{DatabaseError, StorageError},
     messages::intra_backend::DsFanOutPayload,
     qs::{
         PushNotificationError,
@@ -377,32 +377,8 @@ impl QsClientRecord {
             // Enqueue a queue message.
             // Serialize the message so that we can put it in the queue.
             DsFanOutPayload::QueueMessage(queue_message) => {
-                let mut txn = pool.begin().await?;
-
-                let mut client_record = Self::load(txn.as_mut(), &client_id)
-                    .await?
-                    .ok_or(EnqueueError::ClientNotFound)?;
-
-                // Encrypt the message under the current ratchet key.
-                let queue_message = client_record.ratchet_key.encrypt(queue_message)?;
-                let queue_message_proto: airprotos::queue_service::v1::QueueMessage =
-                    queue_message.into();
-
-                // TODO: Future work: PCS
-
-                trace!("Enqueueing message in storage provider");
-                let has_listener = queue_notifier
-                    .enqueue(txn.as_mut(), client_id, &queue_message_proto)
-                    .await?;
-
-                // We also update the client record in the storage provider, since we need to store
-                // the new ratchet key.
-                client_record.update(txn.as_mut()).await?;
-
-                // We have to commit the transaction before we can send the notification.
-                // Otherwise, the data might not be yet in the database, but because of the
-                // notification the recipient client might try to fetch it.
-                txn.commit().await?;
+                let (client_record, has_listener) =
+                    Self::do_enqueue(pool, client_id, queue_notifier, &queue_message).await?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if !has_listener {
@@ -499,5 +475,65 @@ impl QsClientRecord {
 
         // Success!
         Ok(())
+    }
+
+    async fn do_enqueue(
+        pool: &PgPool,
+        client_id: QsClientId,
+        queue_notifier: &impl QueueNotifier,
+        queue_message: &QsQueueMessagePayload,
+    ) -> Result<(QsClientRecord, bool), EnqueueError> {
+        const SERIALIZATION_FAILURE_CODE: &str = "40001";
+        loop {
+            match Self::try_do_enqueue(pool, client_id, queue_notifier, queue_message).await {
+                Ok(value) => return Ok(value),
+                // Err(EnqueueError::Storage(StorageError::Database(DatabaseError::Sqlx(error))))
+                //     if error.as_database_error().and_then(|e| e.code()).as_deref()
+                //         == Some(SERIALIZATION_FAILURE_CODE) =>
+                // {
+                //     // Transaction failed due to serialization failure
+                //     continue;
+                // }
+                other => return other,
+            }
+        }
+    }
+
+    async fn try_do_enqueue(
+        pool: &PgPool,
+        client_id: QsClientId,
+        queue_notifier: &impl QueueNotifier,
+        queue_message: &QsQueueMessagePayload,
+    ) -> Result<(QsClientRecord, bool), EnqueueError> {
+        let mut txn = pool
+            .begin_with("BEGIN ISOLATION LEVEL REPEATABLE READ")
+            .await?;
+
+        let mut client_record = Self::load(txn.as_mut(), &client_id)
+            .await?
+            .ok_or(EnqueueError::ClientNotFound)?;
+
+        // Encrypt the message under the current ratchet key.
+        let queue_message = client_record.ratchet_key.encrypt(queue_message)?;
+        info!(queue_message.sequence_number, "## created queue message");
+        let queue_message_proto: airprotos::queue_service::v1::QueueMessage = queue_message.into();
+
+        // TODO: Future work: PCS
+
+        trace!("Enqueueing message in storage provider");
+        let has_listener = queue_notifier
+            .enqueue(txn.as_mut(), client_id, &queue_message_proto)
+            .await?;
+
+        // We also update the client record in the storage provider, since we need to store
+        // the new ratchet key.
+        client_record.update(txn.as_mut()).await?;
+
+        // We have to commit the transaction before we can send the notification.
+        // Otherwise, the data might not be yet in the database, but because of the
+        // notification the recipient client might try to fetch it.
+        txn.commit().await?;
+
+        Ok((client_record, has_listener))
     }
 }
