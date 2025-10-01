@@ -248,7 +248,15 @@ Widget buildBlockElement(
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: 'SourceCodeProEmbedded',
+          fontSize: BodyFontSize.small2.size,
+          fontWeight: FontWeight.bold,
+          color:
+              isSender
+                  ? CustomColorScheme.of(context).message.selfText
+                  : CustomColorScheme.of(context).message.otherText,
+        ),
       ),
     ),
     BlockElement_Error(:final field0) => Container(
@@ -346,8 +354,8 @@ InlineSpan buildInlineElement(
             side: BorderSide(
               color:
                   isSender
-                      ? CustomColorScheme.of(context).message.selfText
-                      : CustomColorScheme.of(context).message.otherText,
+                      ? CustomColorScheme.of(context).message.selfCheckboxFill
+                      : CustomColorScheme.of(context).message.otherCheckboxFill,
               width: 2,
             ),
             fillColor: WidgetStateProperty.all(
