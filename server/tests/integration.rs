@@ -63,8 +63,10 @@ async fn send_message() {
     info!("Created alice");
     setup.add_user(&BOB).await;
     let chat_id = setup.connect_users(&ALICE, &BOB).await;
-    setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
-    setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
+    for i in 0..1000 {
+        setup.send_message(chat_id, &ALICE, vec![&BOB]).await;
+        setup.send_message(chat_id, &BOB, vec![&ALICE]).await;
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
