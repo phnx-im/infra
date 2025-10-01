@@ -326,11 +326,35 @@ InlineSpan buildInlineElement(
     InlineElement_TaskListMarker(:final field0) => WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: Padding(
-        padding: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.only(
+          left: Spacings.xxxs,
+          right: Spacings.xxs,
+        ),
         child: SizedBox(
           width: 20,
           height: 20,
-          child: Checkbox(value: field0, onChanged: null),
+          child: Checkbox(
+            value: field0,
+            onChanged: null,
+            side: BorderSide(
+              color:
+                  isSender
+                      ? CustomColorScheme.of(context).message.selfText
+                      : CustomColorScheme.of(context).message.otherText,
+              width: 2,
+            ),
+            fillColor: WidgetStateProperty.all(
+              field0
+                  ? isSender
+                      ? CustomColorScheme.of(context).message.selfCheckboxFill
+                      : CustomColorScheme.of(context).message.otherCheckboxFill
+                  : Colors.transparent,
+            ),
+            checkColor:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfCheckboxCheck
+                    : CustomColorScheme.of(context).message.otherCheckboxCheck,
+          ),
         ),
       ),
     ),

@@ -100,6 +100,12 @@ class MessageColors {
   final Color otherQuoteBackground;
   final Color selfTableBorder;
   final Color otherTableBorder;
+  final Color selfCheckboxBorder;
+  final Color otherCheckboxBorder;
+  final Color selfCheckboxFill;
+  final Color otherCheckboxFill;
+  final Color selfCheckboxCheck;
+  final Color otherCheckboxCheck;
 
   MessageColors({
     required this.selfBackground,
@@ -114,5 +120,11 @@ class MessageColors {
     required this.otherQuoteBackground,
     required this.selfTableBorder,
     required this.otherTableBorder,
+    required this.selfCheckboxBorder,
+    required this.otherCheckboxBorder,
+    required this.selfCheckboxFill,
+    required this.otherCheckboxFill,
+    required this.selfCheckboxCheck,
+    required this.otherCheckboxCheck,
   });
 }

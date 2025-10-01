@@ -83,6 +83,12 @@ final CustomColorScheme lightCustomColorScheme = CustomColorScheme(
     otherQuoteBackground: AppColors.blue[50]!,
     selfTableBorder: AppColors.neutral[200]!,
     otherTableBorder: AppColors.neutral[200]!,
+    selfCheckboxBorder: AppColors.neutral[200]!,
+    otherCheckboxBorder: AppColors.neutral[400]!,
+    selfCheckboxFill: AppColors.neutral[800]!,
+    otherCheckboxFill: AppColors.neutral[200]!,
+    selfCheckboxCheck: AppColors.neutral[0]!,
+    otherCheckboxCheck: AppColors.neutral[1000]!,
   ),
 );
 
@@ -137,6 +143,12 @@ final CustomColorScheme darkCustomColorScheme = CustomColorScheme(
     otherQuoteBackground: AppColors.blue[800]!,
     selfTableBorder: AppColors.neutral[700]!,
     otherTableBorder: AppColors.neutral[700]!,
+    selfCheckboxBorder: AppColors.neutral[800]!,
+    otherCheckboxBorder: AppColors.neutral[600]!,
+    selfCheckboxFill: AppColors.neutral[400]!,
+    otherCheckboxFill: AppColors.neutral[700]!,
+    selfCheckboxCheck: AppColors.neutral[1000]!,
+    otherCheckboxCheck: AppColors.neutral[0]!,
   ),
 );
 
