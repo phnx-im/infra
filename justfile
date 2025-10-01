@@ -16,7 +16,7 @@ run-services: generate-db-certs
         podman rm infra_minio-setup_1 -i 2>&1 /dev/null; \
         podman-compose --podman-run-args=--replace up -d; \
         podman-compose ps; \
-        podman logs infra_postgres_1; \
+        podman logs air_postgres_1; \
     else \
         docker compose up --wait --wait-timeout=300; \
         docker compose ps; \
