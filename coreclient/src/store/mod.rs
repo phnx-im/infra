@@ -45,6 +45,8 @@ pub trait Store {
 
     async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()>;
 
+    async fn delete_account(&self) -> anyhow::Result<()>;
+
     /// Loads a user setting
     ///
     /// If the setting is not found, or loading or decoding failed, `None` is returned.
