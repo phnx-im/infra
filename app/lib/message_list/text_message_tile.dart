@@ -278,10 +278,10 @@ class _MessageContent extends StatelessWidget {
                                 isSender
                                     ? CustomColorScheme.of(
                                       context,
-                                    ).text.quaternary
+                                    ).message.selfEditedLabel
                                     : CustomColorScheme.of(
                                       context,
-                                    ).text.tertiary,
+                                    ).message.otherEditedLabel,
                           ),
                         ),
                       ),
