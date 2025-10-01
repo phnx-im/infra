@@ -4,7 +4,6 @@
 
 export RUST_LOG := "info"
 export RUST_BACKTRACE := "1"
-export SQLX_OFFLINE := "true"
 export RUSTFLAGS := "-D warnings"
 
 _default:
@@ -12,7 +11,7 @@ _default:
 
 # Reset and migrate databases.
 reset-dev:
-    cd coreclient && cargo sqlx database reset -y --database-url sqlite:client.db
+    cd coreclient && cargo sqlx database reset -y --database-url sqlite:$PWD/client.db
     cd backend && cargo sqlx database reset -y
 
 # Run fast and simple Rust lints.
@@ -22,6 +21,8 @@ reset-dev:
     just _check-status "cargo metadata --format-version 1 --locked > /dev/null"
     just _check-status "cargo fmt -- --check"
     just _check-status "cargo deny check"
+    just _check-unstaged-changes "git diff"
+    just _check-unstaged-changes "just regenerate-sqlx || echo 'Database not configured?'"
     echo "{{BOLD}}check-rust done{{NORMAL}}"
 
 # Run fast and simple Flutter lints.
@@ -74,7 +75,7 @@ _log-error msg:
 
 
 # Regenerate frb and l10n.
-regenerate-glue: regenerate-frb regenerate-l10n
+regenerate: regenerate-frb regenerate-l10n regenerate-sqlx
 
 # Regenerate Flutter-Rust bridge files.
 [working-directory: 'app']
@@ -92,6 +93,9 @@ regenerate-frb:
 regenerate-l10n:
     cd app && fvm flutter gen-l10n
 
+regenerate-sqlx:
+    cd coreclient && cargo sqlx prepare --database-url sqlite:$PWD/client.db
+    cd backend && cargo sqlx prepare
 
 # Run cargo build, clippy and test.
 @test-rust: start-docker-compose
@@ -114,10 +118,10 @@ docker-is-podman := if `command -v podman || true` =~ ".*podman$" { "true" } els
 # Run docker compose services in the background.
 @start-docker-compose: _generate-db-certs
     if {{docker-is-podman}} == "true"; then \
-        podman rm infra_minio-setup_1 -i 2>&1 /dev/null; \
+        podman rm air_minio-setup_1 -i 2>&1 /dev/null; \
         podman-compose --podman-run-args=--replace up -d; \
         podman-compose ps; \
-        podman logs infra_postgres_1; \
+        podman logs air_postgres_1; \
     else \
         docker compose up --wait --wait-timeout=300; \
         docker compose ps; \
