@@ -23,14 +23,14 @@ class IntroScreen extends StatelessWidget {
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: Spacings.m),
+      body: SafeArea(
+        minimum: const EdgeInsets.only(
+          left: Spacings.m,
+          right: Spacings.m,
+          bottom: Spacings.l + Spacings.xxs,
+        ),
+        child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.end,
-            spacing: Spacings.m,
             children: [
               Expanded(
                 child: SvgPicture.asset(
@@ -55,17 +55,19 @@ class IntroScreen extends StatelessWidget {
                               context
                                   .read<NavigationCubit>()
                                   .openServerChoice(),
-                      style: buttonStyle(CustomColorScheme.of(context), true),
                       child: Text(loc.introScreen_signUp),
                     ),
                   ],
                 ),
+              if (!isUserLoading) const SizedBox(height: Spacings.xs),
               TextButton(
                 onPressed:
                     () =>
                         context.read<NavigationCubit>().openDeveloperSettings(),
-                style: dynamicTextButtonStyle(context, true, true),
-                child: Text(loc.settings_developerSettings),
+                child: Text(
+                  loc.settings_developerSettings,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

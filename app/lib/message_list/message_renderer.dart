@@ -5,6 +5,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:air/theme/spacings.dart';
+import 'package:air/ui/typography/monospace.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/api/markdown.dart';
 import 'package:air/ui/colors/palette.dart';
@@ -31,6 +33,7 @@ Widget buildBlockElement(
           fontSize: BodyFontSize.base.size,
         ),
       ),
+      softWrap: true,
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
@@ -49,13 +52,28 @@ Widget buildBlockElement(
       ),
     ),
     BlockElement_Quote(:final field0) => Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacings.xs,
+        vertical: Spacings.xxs,
+      ),
       decoration: BoxDecoration(
-        border: const Border(left: BorderSide(color: AppColors.blue, width: 4)),
-        color: AppColors.blue[700],
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border(
+          left: BorderSide(
+            color:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfQuoteBorder
+                    : CustomColorScheme.of(context).message.otherQuoteBorder,
+            width: 4,
+          ),
+        ),
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfQuoteBackground
+                : CustomColorScheme.of(context).message.otherQuoteBackground,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children:
             field0
                 .map(
@@ -66,18 +84,33 @@ Widget buildBlockElement(
       ),
     ),
     BlockElement_UnorderedList(:final field0) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children:
           field0
               .map(
                 (items) => Row(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text.rich(TextSpan(text: " \u2022  ")),
+                    Text.rich(
+                      const TextSpan(text: " \u2022 "),
+                      style: TextStyle(
+                        color:
+                            isSender
+                                ? CustomColorScheme.of(
+                                  context,
+                                ).message.selfListPrefix
+                                : CustomColorScheme.of(
+                                  context,
+                                ).message.otherListPrefix,
+                        fontSize: BodyFontSize.base.size,
+                      ),
+                    ),
                     Flexible(
+                      fit: FlexFit.loose,
                       child: Column(
-                        spacing: 4.0,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children:
                             items
                                 .map(
@@ -96,11 +129,12 @@ Widget buildBlockElement(
               .toList(),
     ),
     BlockElement_OrderedList(:final field0, :final field1) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children:
           field1.indexed
               .map(
                 (items) => Row(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text.rich(
@@ -109,17 +143,21 @@ Widget buildBlockElement(
                         style: TextStyle(
                           color:
                               isSender
-                                  ? AppColors.blue[100]
-                                  : AppColors.blue[900],
+                                  ? CustomColorScheme.of(
+                                    context,
+                                  ).message.selfListPrefix
+                                  : CustomColorScheme.of(
+                                    context,
+                                  ).message.otherListPrefix,
                           fontSize: BodyFontSize.base.size,
                         ),
                       ),
                     ),
                     Flexible(
+                      fit: FlexFit.loose,
                       child: Column(
-                        spacing: 4.0,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children:
                             items.$2
                                 .map(
@@ -138,24 +176,42 @@ Widget buildBlockElement(
               .toList(),
     ),
     BlockElement_Table(:final head, :final rows) => Table(
-      border: TableBorder.all(),
-      defaultColumnWidth: const FlexColumnWidth(),
+      border: TableBorder.all(
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfTableBorder
+                : CustomColorScheme.of(context).message.otherTableBorder,
+        width: 2,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      defaultColumnWidth: const IntrinsicColumnWidth(),
       children: [
         TableRow(
           children:
               head
                   .map(
-                    (itemBlocks) => Column(
-                      children:
-                          itemBlocks
-                              .map(
-                                (item) => buildBlockElement(
-                                  context,
-                                  item.element,
-                                  isSender,
-                                ),
-                              )
-                              .toList(),
+                    (itemBlocks) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacings.xs,
+                        vertical: Spacings.xxxs,
+                      ),
+                      child: DefaultTextStyle(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              itemBlocks
+                                  .map(
+                                    (item) => buildBlockElement(
+                                      context,
+                                      item.element,
+                                      isSender,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      ),
                     ),
                   )
                   .toList(),
@@ -165,17 +221,25 @@ Widget buildBlockElement(
             children:
                 row
                     .map(
-                      (itemBlocks) => Column(
-                        children:
-                            itemBlocks
-                                .map(
-                                  (item) => buildBlockElement(
-                                    context,
-                                    item.element,
-                                    isSender,
-                                  ),
-                                )
-                                .toList(),
+                      (itemBlocks) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacings.xs,
+                          vertical: Spacings.xxxs,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              itemBlocks
+                                  .map(
+                                    (item) => buildBlockElement(
+                                      context,
+                                      item.element,
+                                      isSender,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
                       ),
                     )
                     .toList(),
@@ -183,16 +247,26 @@ Widget buildBlockElement(
         ),
       ],
     ),
-    BlockElement_HorizontalRule() => Divider(
-      color:
-          isSender
-              ? CustomColorScheme.of(context).message.selfText
-              : CustomColorScheme.of(context).message.otherText,
+    BlockElement_HorizontalRule() => SizedBox(
+      width: 100,
+      child: Divider(
+        color:
+            isSender
+                ? CustomColorScheme.of(context).message.selfText
+                : CustomColorScheme.of(context).message.otherText,
+      ),
     ),
     BlockElement_CodeBlock(:final field0) => Text.rich(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+          color:
+              isSender
+                  ? CustomColorScheme.of(context).message.selfText
+                  : CustomColorScheme.of(context).message.otherText,
+        ),
       ),
     ),
     BlockElement_Error(:final field0) => Container(
@@ -220,7 +294,10 @@ InlineSpan buildInlineElement(
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
       text: field0,
-      style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+      style: TextStyle(
+        fontFamily: getSystemMonospaceFontFamily(),
+        fontSize: BodyFontSize.small2.size,
+      ),
     ),
     InlineElement_Link(:final children) => TextSpan(
       children:
@@ -277,11 +354,35 @@ InlineSpan buildInlineElement(
     InlineElement_TaskListMarker(:final field0) => WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       child: Padding(
-        padding: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.only(
+          left: Spacings.xxxs,
+          right: Spacings.xxs,
+        ),
         child: SizedBox(
           width: 20,
           height: 20,
-          child: Checkbox(value: field0, onChanged: null),
+          child: Checkbox(
+            value: field0,
+            onChanged: null,
+            side: BorderSide(
+              color:
+                  isSender
+                      ? CustomColorScheme.of(context).message.selfCheckboxFill
+                      : CustomColorScheme.of(context).message.otherCheckboxFill,
+              width: 2,
+            ),
+            fillColor: WidgetStateProperty.all(
+              field0
+                  ? isSender
+                      ? CustomColorScheme.of(context).message.selfCheckboxFill
+                      : CustomColorScheme.of(context).message.otherCheckboxFill
+                  : Colors.transparent,
+            ),
+            checkColor:
+                isSender
+                    ? CustomColorScheme.of(context).message.selfCheckboxCheck
+                    : CustomColorScheme.of(context).message.otherCheckboxCheck,
+          ),
         ),
       ),
     ),
@@ -487,7 +588,10 @@ class CustomTextEditingController extends TextEditingController {
               )
               .toList(),
         ),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
@@ -512,7 +616,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Code() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),

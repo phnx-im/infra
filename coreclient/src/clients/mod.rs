@@ -5,7 +5,10 @@
 use std::{collections::HashSet, sync::Arc};
 
 pub use airapiclient::as_api::ListenHandleResponder;
-use airapiclient::{ApiClient, ApiClientInitError, qs_api::ListenResponder};
+use airapiclient::{
+    ApiClient, ApiClientInitError,
+    qs_api::{ListenResponder, ListenResponderClosedError},
+};
 use aircommon::{
     DEFAULT_PORT_GRPC,
     credentials::{
@@ -34,7 +37,7 @@ use openmls::prelude::Ciphersuite;
 use own_client_info::OwnClientInfo;
 
 use serde::{Deserialize, Serialize};
-use sqlx::{SqliteConnection, SqlitePool};
+use sqlx::{Row, SqliteConnection, SqlitePool, SqliteTransaction, query};
 use store::ClientRecord;
 use thiserror::Error;
 use tls_codec::DeserializeBytes;
@@ -75,6 +78,7 @@ pub(crate) mod block_contact;
 pub mod chats;
 pub(crate) mod connection_offer;
 mod create_user;
+mod delete_account;
 mod invite_users;
 mod message;
 pub(crate) mod own_client_info;
@@ -350,19 +354,30 @@ impl CoreUser {
     async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
         let (stream, responder) = self.listen_queue().await?;
 
-        let messages: Vec<QueueMessage> = stream
+        let mut stream = stream
             .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
             .filter_map(|message| match message.event? {
                 queue_event::Event::Empty(_) => unreachable!(),
                 queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
                 queue_event::Event::Payload(_) => None,
-            })
-            .collect()
-            .await;
+            });
+
+        let mut messages: Vec<QueueMessage> = Vec::new();
+        while let Some(message) = stream.next().await {
+            messages.push(message);
+        }
 
         if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
-            responder.ack(max_sequence_number + 1).await;
+            responder
+                .ack(max_sequence_number + 1)
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to ack QS messages");
+                })
+                .ok();
         }
+
+        drop(stream); // must be alive until the ack is sent
 
         Ok(messages)
     }
@@ -716,6 +731,52 @@ impl CoreUser {
         notifier.notify();
         Ok(value)
     }
+
+    /// This function goes through all tables of the database and returns all columns that contain the query.
+    pub async fn scan_database(&self, query: &str, strict: bool) -> anyhow::Result<Vec<String>> {
+        self.with_transaction(async |txn: &mut SqliteTransaction| {
+            let tables = query!("SELECT name FROM sqlite_schema WHERE type='table'")
+                .fetch_all(&mut **txn)
+                .await?;
+
+            let mut result = Vec::new();
+
+            for table in tables {
+                for row in sqlx::query(&format!("SELECT * FROM '{}'", table.name.unwrap()))
+                    .fetch_all(&mut **txn)
+                    .await?
+                {
+                    for i in 0..row.len() {
+                        let string = if let Ok(column) = row.try_get::<String, _>(i) {
+                            column
+                        } else if let Ok(column) = row.try_get::<Vec<u8>, _>(i) {
+                            String::from_utf8_lossy(&column).to_string()
+                        } else {
+                            // Unable to decode this type
+                            continue;
+                        };
+
+                        if string.contains(query) {
+                            result.push(string.to_string());
+                            continue;
+                        }
+
+                        if !strict {
+                            // Try again without 0x18, because that's the CBOR unsigned byte indicator for Vec<u8>
+                            let string2 = string.replace('\x18', "");
+                            if string2.contains(query) {
+                                result.push(string.to_string());
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(result)
+        })
+        .await
+    }
 }
 
 #[derive(Debug)]
@@ -724,18 +785,23 @@ pub struct QsListenResponder {
     pool: SqlitePool,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum QsListenResponderError {
+    #[error(transparent)]
+    Closed(#[from] ListenResponderClosedError),
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+}
+
 impl QsListenResponder {
-    pub async fn ack(&self, up_to_sequence_number: u64) -> bool {
-        if self.responder.ack(up_to_sequence_number).await {
-            QueueType::Qs
-                .update_sequence_number(&self.pool, up_to_sequence_number)
-                .await
-                .inspect_err(|error| {
-                    error!(%error, "failed to update QS sequence number");
-                })
-                .is_ok()
-        } else {
-            false
-        }
+    pub async fn ack(&self, up_to_sequence_number: u64) -> Result<(), QsListenResponderError> {
+        self.responder.ack(up_to_sequence_number).await?;
+        QueueType::Qs
+            .update_sequence_number(&self.pool, up_to_sequence_number)
+            .await
+            .inspect_err(|error| {
+                error!(%error, "failed to update QS sequence number");
+            })?;
+        Ok(())
     }
 }

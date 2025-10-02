@@ -12,7 +12,9 @@ use aircoreclient::{ChatId, store::StoreNotification};
 use aircoreclient::{MessageId, clients::CoreUser, store::Store};
 use chrono::{DateTime, SubsecRound, Utc};
 use flutter_rust_bridge::frb;
-use mimi_content::{MessageStatus, MimiContent};
+use mimi_content::{
+    ByteBuf, Disposition, MessageStatus, MimiContent, NestedPart, NestedPartContent,
+};
 use mimi_room_policy::{MimiProposal, RoleIndex, VerifiedRoomState};
 use tls_codec::Serialize;
 use tokio::{sync::watch, time::sleep};
@@ -131,14 +133,60 @@ impl ChatDetailsCubitBase {
         Store::set_chat_picture(&self.context.store, self.context.chat_id, bytes.clone()).await
     }
 
+    pub async fn delete_message(&self) -> anyhow::Result<()> {
+        let mut draft = None;
+        self.core.state_tx().send_if_modified(|state| {
+            let Some(chat) = state.chat.as_mut() else {
+                return false;
+            };
+            draft = chat.draft.take();
+            draft.is_some()
+        });
+
+        let Some(draft) = draft else {
+            return Err(anyhow::anyhow!("You did not select a message to delete"));
+        };
+        if draft.editing_id.is_none() {
+            return Err(anyhow::anyhow!("You did not select a message to delete"));
+        }
+
+        // Remove stored draft
+        self.context
+            .store
+            .store_message_draft(self.context.chat_id, None)
+            .await?;
+
+        let editing_id = draft.editing_id;
+
+        let salt: [u8; 16] = RustCrypto::default().random_array()?;
+        let content = MimiContent {
+            salt: ByteBuf::from(salt),
+            replaces: None, // Replaces is set by store_unsent_message
+            topic_id: Default::default(),
+            expires: None,
+            in_reply_to: None,
+            extensions: Default::default(),
+            nested_part: NestedPart {
+                disposition: Disposition::Render,
+                language: "".to_owned(),
+                part: NestedPartContent::NullPart,
+            },
+        };
+
+        self.context
+            .store
+            .send_message(self.context.chat_id, content, editing_id)
+            .await
+            .inspect_err(|error| error!(%error, "Failed to send message"))?;
+
+        Ok(())
+    }
+
     /// Sends a message to the chat.
     ///
     /// The not yet sent message is immediately stored in the local store and then the message is
     /// send to the DS.
     pub async fn send_message(&self, message_text: String) -> anyhow::Result<()> {
-        let salt: [u8; 16] = RustCrypto::default().random_array()?;
-        let content = MimiContent::simple_markdown_message(message_text, salt);
-
         let mut draft = None;
         self.core.state_tx().send_if_modified(|state| {
             let Some(chat) = state.chat.as_mut() else {
@@ -156,6 +204,25 @@ impl ChatDetailsCubitBase {
                 .await?;
         }
         let editing_id = draft.and_then(|d| d.editing_id);
+
+        let salt: [u8; 16] = RustCrypto::default().random_array()?;
+        let content = if message_text == "delete" {
+            MimiContent {
+                salt: ByteBuf::from(salt),
+                replaces: None, // Replaces is set by store_unsent_message
+                topic_id: Default::default(),
+                expires: None,
+                in_reply_to: None,
+                extensions: Default::default(),
+                nested_part: NestedPart {
+                    disposition: Disposition::Render,
+                    language: "".to_owned(),
+                    part: NestedPartContent::NullPart,
+                },
+            }
+        } else {
+            MimiContent::simple_markdown_message(message_text, salt)
+        };
 
         self.context
             .store
@@ -337,7 +404,7 @@ impl ChatDetailsCubitBase {
                 return false;
             }
             draft.message = body.to_owned();
-            draft.editing_id.replace(message.id());
+            draft.editing_id = Some(message.id());
             true
         });
 

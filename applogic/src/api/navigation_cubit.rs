@@ -36,8 +36,7 @@ pub enum NavigationState {
 #[frb(dart_metadata = ("freezed"))]
 pub enum IntroScreenType {
     Intro,
-    ServerChoice,
-    DisplayNamePicture,
+    SignUp,
     DeveloperSettings(DeveloperSettingsScreenType),
 }
 
@@ -84,6 +83,7 @@ pub enum UserSettingsScreenType {
     EditDisplayName,
     AddUserHandle,
     Help,
+    DeleteAccount,
 }
 
 impl NavigationState {
@@ -323,7 +323,8 @@ impl NavigationCubitBase {
                             Some(
                                 UserSettingsScreenType::EditDisplayName
                                 | UserSettingsScreenType::AddUserHandle
-                                | UserSettingsScreenType::Help,
+                                | UserSettingsScreenType::Help
+                                | UserSettingsScreenType::DeleteAccount,
                             ),
                         ..
                     },

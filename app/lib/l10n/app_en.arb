@@ -7,6 +7,7 @@
   "userSettingsScreen_userNamesDescription": "Share usernames with others so they can connect with you. After the connection, usernames are not visible to others anymore. You can have up to 5 usernames.",
   "userSettingsScreen_interfaceScale": "Interface scale",
   "userSettingsScreen_help": "Help",
+  "userSettingsScreen_deleteAccount": "Delete Account",
 
   "removeUsernameDialog_title": "Remove Username",
   "removeUsernameDialog_content": "If you continue, your username will be removed and may be claimed by someone else. You’ll no longer be reachable through it.",
@@ -22,9 +23,7 @@
   "chatDetailsScreen_title": "Details",
   "chatDetailsScreen_unknownChat": "Unknown chat",
 
-  "blockedChatFooter_message": "You have blocked this chat. You will not get any messages, unless you unblock it.",
-  "blockedChatFooter_delete": "Delete",
-  "blockedChatFooter_unblock": "Unblock",
+  "blockedChatFooter_message": "You won’t receive messages from {displayName} unless you unblock them.",
 
   "chatScreen_emptyChat": "Select a chat to start messaging",
 
@@ -35,25 +34,35 @@
   "removeUserDialog_removeUser": "Remove User",
   "removeUserButton_text": "Remove User",
 
-  "blockConnectionButton_text": "Block Contact",
-  "blockConnectionDialog_title": "Block Contact",
-  "blockConnectionDialog_content": "Are you sure you want to block this contact? The user will not be able to send messages to you.",
-  "blockConnectionDialog_cancel": "Cancel",
-  "blockConnectionDialog_block": "Block",
+  "blockContactButton_text": "Block",
+  "blockContactDialog_title": "Block {displayName}?",
+  "blockContactDialog_content": "You won’t receive messages from {displayName} and they won’t be able to view any updates to your profile. They won’t be able to see that you blocked them. You can unblock them anytime.",
+  "blockContactDialog_cancel": "Cancel",
+  "blockContactDialog_block": "Block",
 
-  "unblockConnectionButton_text": "Unblock Contact",
-  "unblockConnectionDialog_title": "Unblock Contact",
-  "unblockConnectionDialog_content": "Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.",
-  "unblockConnectionDialog_cancel": "Cancel",
-  "unblockConnectionDialog_unblock": "Unblock",
+  "unblockContactButton_text": "Unblock",
+  "unblockContactDialog_title": "Unblock {displayName}?",
+  "unblockContactDialog_content": "You’ll be able to send and receive messages from {displayName} and they’ll be able to view your current profile.",
+  "unblockContactDialog_cancel": "Cancel",
+  "unblockContactDialog_unblock": "Unblock User",
 
-  "deleteConnectionButton_text": "Delete Connection",
-  "deleteConnectionDialog_title": "Delete Connection",
-  "deleteConnectionDialog_content": "Are you sure you want to delete this connection? The message history will be also deleted.",
-  "deleteConnectionDialog_cancel": "Cancel",
-  "deleteConnectionDialog_delete": "Delete",
+  "deleteContactButton_text": "Delete Air Contact",
+  "deleteContactDialog_title": "Delete Air Contact",
+  "deleteContactDialog_content": "Are you sure you want to delete your Air Contact {displayName}? If you do, the chat and its message history will be deleted.",
+  "deleteContactDialog_cancel": "Cancel",
+  "deleteContactDialog_delete": "Delete",
 
-  "introScreen_signUp": "Sign up",
+  "introScreen_signUp": "Sign Up",
+
+  "signUpScreen_title": "Sign Up",
+  "signUpScreen_actionButton": "Sign Up",
+  "signUpScreen_displayNameLabel": "Choose a picture and a display name.",
+  "signUpScreen_displayNameHint": "DISPLAY NAME",
+  "signUpScreen_serverLabel": "Choose a server where you want to create your account.",
+  "signUpScreen_serverHint": "DOMAIN NAME",
+  "signUpScreen_error_invalidDomain": "Domain is invalid",
+  "signUpScreen_error_emptyDisplayName": "Display name cannot be empty",
+  "signUpScreen_error_register": "Error when registering user: {error}",
 
   "userHandleScreen_title": "Username",
   "userHandleScreen_inputHint": "Username",
@@ -86,7 +95,7 @@
   "chatList_you": "You",
   "chatList_imageEmoji": "🖼️",
   "chatList_fileEmoji": "📎",
-  "chatList_blocked": "🚫 Blocked",
+  "chatList_blocked": "Blocked",
 
   "settings_profile": "Profile",
   "settings_developerSettings": "Settings (developer)",
@@ -125,6 +134,7 @@
 
   "textMessage_edited": "edited",
   "textMessage_hiddenPlaceholder": "Blocked contact, tap to reveal message",
+  "textMessage_deleted": "Deleted message",
 
   "reportSpamButton_text": "Report Spam",
   "reportSpamDialog_title": "Report Spam?",
@@ -144,17 +154,17 @@
   "contactUsScreen_title": "Contact",
   "contactUsScreen_subject": "Message subject",
   "contactUsScreen_body": "Body",
-  "contactUsScreen_composeEmail": "Compose Email",
+  "contactUsScreen_composeEmail": "Compose email",
 
   "contactUsScreen_subject_somethingNotWorking": "Something's not working",
   "contactUsScreen_subject_iHaveAQuestion": "I have a question",
   "contactUsScreen_subject_requestFeature": "Request a feature",
   "contactUsScreen_subject_other": "Other",
 
-  "contactUsScreen_subject_empty": "Please select a subject",
+  "contactUsScreen_subject_empty": "Select a subject",
   "contactUsScreen_body_empty": "Enter your message",
-  "contactUsScreen_body_tooShort": "Please provide more information",
-  "contactUsScreen_errorLaunchingEmail": "Could not launch email client",
+  "contactUsScreen_body_tooShort": "Provide more information",
+  "contactUsScreen_errorLaunchingEmail": "Couldn't launch email client",
 
   "groupDetails_members": "Members",
   "groupDetails_addMembers": "Add Members",
@@ -166,10 +176,11 @@
   "leaveChatDialog_cancel": "Cancel",
   "leaveChatDialog_leave": "Leave",
 
-  "deleteChatDialog_title": "Delete Chat",
-  "deleteChatDialog_content": "Are you sure you want to delete this chat? The message history will be also deleted.",
+  "deleteChatDialog_title": "Delete Chat?",
+  "deleteChatDialog_content": "This chat will be deleted. There is no way to undo this.",
   "deleteChatDialog_cancel": "Cancel",
   "deleteChatDialog_delete": "Delete",
+
   "byteUnit_B": "B",
   "byteUnit_KB": "KB",
   "byteUnit_MB": "MB",
@@ -178,5 +189,13 @@
   "byteUnit_PB": "PB",
   "byteUnit_EB": "EB",
   "byteUnit_ZB": "ZB",
-  "byteUnit_YB": "YB"
+  "byteUnit_YB": "YB",
+
+  "deleteAccountScreen_title": "Delete My Account",
+  "deleteAccountScreen_explanatoryText": "This will delete your Air account and reset the application. You will not be able to recover your account.",
+  "deleteAccountScreen_confirmationInputHint": "Confirmation",
+  "deleteAccountScreen_confirmationInputLabel": "Type 'delete' to confirm",
+  "deleteAccountScreen_confirmButtonText": "Delete Account",
+  "deleteAccountScreen_cancelButtonText": "Cancel",
+  "deleteAccountScreen_deleteAccountError": "Something went wrong on our end. Wait a moment, then try again."
 }

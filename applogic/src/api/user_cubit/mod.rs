@@ -44,7 +44,7 @@ mod user_handle;
 // should do it, to minimize the amount of UI rebuilds in Flutter.
 //
 // See:
-// * <https://github.com/phnx-im/infra/issues/247>
+// * <https://github.com/phnx-im/air/issues/247>
 // * <https://github.com/fzyzcjy/flutter_rust_bridge/issues/2238>
 #[frb(opaque)]
 #[derive(Debug, Clone)]
@@ -97,9 +97,10 @@ impl UiUser {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppState {
-    Background,
+    MobileBackground,
+    DesktopBackground,
     Foreground,
 }
 
@@ -117,10 +118,6 @@ pub enum AppState {
 pub struct UserCubitBase {
     core: CubitCore<UiUser>,
     context: CubitContext,
-    #[cfg_attr(
-        not(any(target_os = "android", target_os = "ios")),
-        expect(dead_code, reason = "app state only changes on mobile")
-    )]
     app_state_tx: watch::Sender<AppState>,
     background_listen_handle_tasks: HandleBackgroundTasks,
     cancel: CancellationToken,
@@ -283,13 +280,9 @@ impl UserCubitBase {
     }
 
     pub fn set_app_state(&self, _app_state: AppState) {
-        // Note: on Desktop, we consider the app to be always in foreground
-        #[cfg(any(target_os = "android", target_os = "ios"))]
-        {
-            let app_state = _app_state;
-            debug!(?app_state, "app state changed");
-            let _no_receivers = self.app_state_tx.send(app_state);
-        }
+        let app_state = _app_state;
+        debug!(?app_state, "app state changed");
+        let _no_receivers = self.app_state_tx.send(app_state);
     }
 
     pub async fn add_user_handle(&mut self, user_handle: UiUserHandle) -> anyhow::Result<bool> {
@@ -358,6 +351,10 @@ impl UserCubitBase {
 
     pub async fn unblock_contact(&self, user_id: UiUserId) -> anyhow::Result<()> {
         self.context.core_user.unblock_contact(user_id.into()).await
+    }
+
+    pub async fn delete_account(&self) -> anyhow::Result<()> {
+        self.context.core_user.delete_account().await
     }
 }
 
@@ -434,6 +431,11 @@ enum NotificationContext {
 impl CubitContext {
     /// Show OS notifications depending on the current navigation state and OS.
     async fn show_notifications(&self, mut notifications: Vec<NotificationContent>) {
+        const IS_DESKTOP: bool = cfg!(any(
+            target_os = "macos",
+            target_os = "windows",
+            target_os = "linux"
+        ));
         let notification_context = match &*self.navigation_state.borrow() {
             NavigationState::Intro { .. } => NotificationContext::Intro,
             NavigationState::Home {
@@ -452,11 +454,6 @@ impl CubitContext {
                         ..
                     },
             } => {
-                const IS_DESKTOP: bool = cfg!(any(
-                    target_os = "macos",
-                    target_os = "windows",
-                    target_os = "linux"
-                ));
                 if !IS_DESKTOP
                     && developer_settings_screen.is_none()
                     && user_settings_screen.is_none()
@@ -475,8 +472,13 @@ impl CubitContext {
                 return; // suppress all notifications
             }
             NotificationContext::Chat(chat_id) => {
-                // Remove notifications for the current chat
-                notifications.retain(|notification| notification.chat_id != Some(chat_id));
+                // We don't want to show notifications when
+                // - we are on mobile and the notification belongs to the currently open chat
+                // - we are on desktop, the app is in the foreground, and the notification belongs to the currently open chat
+                let app_state = *self.app_state.borrow();
+                if !IS_DESKTOP || app_state == AppState::Foreground {
+                    notifications.retain(|notification| notification.chat_id != Some(chat_id));
+                }
             }
             NotificationContext::Other => (),
         }

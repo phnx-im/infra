@@ -98,7 +98,7 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
         // whether the page was popped by the user or programmatically.
         //
         // Also see
-        //   * <https://github.com/phnx-im/infra/issues/244>
+        //   * <https://github.com/phnx-im/air/issues/244>
         //   * <https://github.com/flutter/flutter/issues/109494>
         //
         // ignore: deprecated_member_use
@@ -147,10 +147,7 @@ class AppBackButtonDispatcher extends RootBackButtonDispatcher {}
 extension on IntroScreenType {
   ValueKey<String> get key => switch (this) {
     IntroScreenType_Intro() => const ValueKey("intro-screen"),
-    IntroScreenType_ServerChoice() => const ValueKey("server-choice-screen"),
-    IntroScreenType_DisplayNamePicture() => const ValueKey(
-      "display-name-picture-screen",
-    ),
+    IntroScreenType_SignUp() => const ValueKey("sign-up-screen"),
     IntroScreenType_DeveloperSettings(field0: final screen) => ValueKey(
       "developer-settings-screen-$screen",
     ),
@@ -158,8 +155,7 @@ extension on IntroScreenType {
 
   Widget get screen => switch (this) {
     IntroScreenType_Intro() => const IntroScreen(),
-    IntroScreenType_ServerChoice() => const ServerChoice(),
-    IntroScreenType_DisplayNamePicture() => const DisplayNameAvatarChoice(),
+    IntroScreenType_SignUp() => const SignUpScreen(),
     IntroScreenType_DeveloperSettings(field0: final screen) => switch (screen) {
       DeveloperSettingsScreenType.root => const DeveloperSettingsScreen(),
       DeveloperSettingsScreenType.changeUser => const ChangeUserScreen(),
@@ -177,6 +173,9 @@ extension on HomeNavigationState {
       key: ValueKey("home-screen"),
       canPop: false,
       child: HomeScreen(),
+    );
+    debugPrint(
+      "NavigationState.home: pages: homeScreenPage=$userSettingsScreen",
     );
     return [
       homeScreenPage,
@@ -216,6 +215,16 @@ extension on HomeNavigationState {
           const MaterialPage(
             key: ValueKey("user-settings-screen-help"),
             child: HelpScreen(),
+          ),
+        ],
+        UserSettingsScreenType.deleteAccount => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-delete-account"),
+            child: DeleteAccountScreen(),
           ),
         ],
       },

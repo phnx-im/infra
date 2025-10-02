@@ -39,6 +39,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get userSettingsScreen_help => 'Hilfe';
 
   @override
+  String get userSettingsScreen_deleteAccount => 'Delete Account';
+
+  @override
   String get removeUsernameDialog_title => 'Benutzername entfernen';
 
   @override
@@ -74,14 +77,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatDetailsScreen_unknownChat => 'Unbekannte Unterhaltung';
 
   @override
-  String get blockedChatFooter_message =>
-      'You have blocked this chat. You will not get any messages, unless you unblock it.';
-
-  @override
-  String get blockedChatFooter_delete => 'Delete';
-
-  @override
-  String get blockedChatFooter_unblock => 'Unblock';
+  String blockedChatFooter_message(Object displayName) {
+    return 'You won’t receive messages from $displayName unless you unblock them.';
+  }
 
   @override
   String get chatScreen_emptyChat =>
@@ -107,55 +105,94 @@ class AppLocalizationsDe extends AppLocalizations {
   String get removeUserButton_text => 'Benutzer entfernen';
 
   @override
-  String get blockConnectionButton_text => 'Block Contact';
+  String get blockContactButton_text => 'Block';
 
   @override
-  String get blockConnectionDialog_title => 'Block Contact';
+  String blockContactDialog_title(Object displayName) {
+    return 'Block $displayName?';
+  }
 
   @override
-  String get blockConnectionDialog_content =>
-      'Are you sure you want to block this contact? The user will not be able to send messages to you.';
+  String blockContactDialog_content(Object displayName) {
+    return 'You won’t receive messages from $displayName and they won’t be able to view any updates to your profile. They won’t be able to see that you blocked them. You can unblock them anytime.';
+  }
 
   @override
-  String get blockConnectionDialog_cancel => 'Cancel';
+  String get blockContactDialog_cancel => 'Cancel';
 
   @override
-  String get blockConnectionDialog_block => 'Block';
+  String get blockContactDialog_block => 'Block';
 
   @override
-  String get unblockConnectionButton_text => 'Unblock Contact';
+  String get unblockContactButton_text => 'Unblock';
 
   @override
-  String get unblockConnectionDialog_title => 'Unblock Contact';
+  String unblockContactDialog_title(Object displayName) {
+    return 'Unblock $displayName?';
+  }
 
   @override
-  String get unblockConnectionDialog_content =>
-      'Are you sure you want to unblock this contact? The user will be able to send messages to you, and your profile will be visible to them.';
+  String unblockContactDialog_content(Object displayName) {
+    return 'You’ll be able to send and receive messages from $displayName and they’ll be able to view your current profile.';
+  }
 
   @override
-  String get unblockConnectionDialog_cancel => 'Cancel';
+  String get unblockContactDialog_cancel => 'Cancel';
 
   @override
-  String get unblockConnectionDialog_unblock => 'Unblock';
+  String get unblockContactDialog_unblock => 'Unblock User';
 
   @override
-  String get deleteConnectionButton_text => 'Delete Connection';
+  String get deleteContactButton_text => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_title => 'Delete Connection';
+  String get deleteContactDialog_title => 'Delete Air Contact';
 
   @override
-  String get deleteConnectionDialog_content =>
-      'Are you sure you want to delete this connection? The message history will be also deleted.';
+  String deleteContactDialog_content(Object displayName) {
+    return 'Are you sure you want to delete your Air Contact $displayName? If you do, the chat and its message history will be deleted.';
+  }
 
   @override
-  String get deleteConnectionDialog_cancel => 'Cancel';
+  String get deleteContactDialog_cancel => 'Cancel';
 
   @override
-  String get deleteConnectionDialog_delete => 'Delete';
+  String get deleteContactDialog_delete => 'Delete';
 
   @override
   String get introScreen_signUp => 'Registrieren';
+
+  @override
+  String get signUpScreen_title => 'Sign Up';
+
+  @override
+  String get signUpScreen_actionButton => 'Sign Up';
+
+  @override
+  String get signUpScreen_displayNameLabel =>
+      'Choose a picture and a display name.';
+
+  @override
+  String get signUpScreen_displayNameHint => 'DISPLAY NAME';
+
+  @override
+  String get signUpScreen_serverLabel =>
+      'Choose a server where you want to create your account.';
+
+  @override
+  String get signUpScreen_serverHint => 'DOMAIN NAME';
+
+  @override
+  String get signUpScreen_error_invalidDomain => 'Domain is invalid';
+
+  @override
+  String get signUpScreen_error_emptyDisplayName =>
+      'Display name cannot be empty';
+
+  @override
+  String signUpScreen_error_register(Object error) {
+    return 'Error when registering user: $error';
+  }
 
   @override
   String get userHandleScreen_title => 'Benutzername';
@@ -237,7 +274,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get chatList_fileEmoji => '📎';
 
   @override
-  String get chatList_blocked => '🚫 Blocked';
+  String get chatList_blocked => 'Blocked';
 
   @override
   String get settings_profile => 'Profil';
@@ -324,6 +361,9 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get textMessage_hiddenPlaceholder =>
       'Blocked contact, tap to reveal message';
+
+  @override
+  String get textMessage_deleted => 'Deleted message';
 
   @override
   String get reportSpamButton_text => 'Spam melden';
@@ -427,11 +467,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get leaveChatDialog_leave => 'Leave';
 
   @override
-  String get deleteChatDialog_title => 'Delete Chat';
+  String get deleteChatDialog_title => 'Delete Chat?';
 
   @override
   String get deleteChatDialog_content =>
-      'Are you sure you want to delete this chat? The message history will be also deleted.';
+      'This chat will be deleted. There is no way to undo this.';
 
   @override
   String get deleteChatDialog_cancel => 'Cancel';
@@ -465,4 +505,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get byteUnit_YB => 'YB';
+
+  @override
+  String get deleteAccountScreen_title => 'Delete My Account';
+
+  @override
+  String get deleteAccountScreen_explanatoryText =>
+      'This will delete your Air account and reset the application. You will not be able to recover your account.';
+
+  @override
+  String get deleteAccountScreen_confirmationInputHint => 'Confirmation';
+
+  @override
+  String get deleteAccountScreen_confirmationInputLabel =>
+      'Type \'delete\' to confirm';
+
+  @override
+  String get deleteAccountScreen_confirmButtonText => 'Delete Account';
+
+  @override
+  String get deleteAccountScreen_cancelButtonText => 'Cancel';
+
+  @override
+  String get deleteAccountScreen_deleteAccountError =>
+      'Something went wrong on our end. Wait a moment, then try again.';
 }

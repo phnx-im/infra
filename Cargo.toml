@@ -14,12 +14,14 @@ members = [
     "common",
     "applogic",
     "protos",
+    "mls-assist",
 ]
 
 [workspace.dependencies]
 # internal dependencies
 aircommon = { path = "./common" }
 airprotos = { path = "./protos" }
+mls-assist = { path = "./mls-assist" }
 
 uuid = "1.16.0"
 
@@ -48,14 +50,12 @@ thiserror = "2.0"
 blake3 = "1.8.2"
 sha2 = "0.10.9"
 
+openmls_traits = { version = "0.4.1" }
 privacypass = { git = "https://github.com/raphaelrobert/privacypass" }
 privacypass-middleware = { git = "https://github.com/phnx-im/pp-middleware" }
-openmls = { git = "https://github.com/openmls/openmls" }
-openmls_memory_storage = { git = "https://github.com/openmls/openmls" }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls" }
-openmls_traits = { git = "https://github.com/openmls/openmls" }
-mls-assist = { git = "https://github.com/phnx-im/mls-assist", rev = "cc59c498ea39acec148db847e4ccf7ad27f04ddd" }
-
+openmls = { version = "0.7.1" }
+openmls_memory_storage = { version = "0.4.1" }
+openmls_rust_crypto = { version = "0.4.1" }
 tracing-subscriber = { version = "0.3", features = [
     "env-filter",
     "tracing-log",
@@ -63,8 +63,8 @@ tracing-subscriber = { version = "0.3", features = [
 ] }
 
 tokio = { version = "1.18.2", features = ["macros"] }
-tokio-util = "0.7.13"
 tokio-stream = { version = "0.1.17", features = ["sync"] }
+tokio-util = "0.7.13"
 derive_more = { version = "0.99.19", features = ["from"] }
 displaydoc = "0.2.5"
 

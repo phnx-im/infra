@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/navigation/navigation.dart';
 import 'package:air/theme/theme.dart';
-import 'package:air/ui/colors/themes.dart';
 import 'package:air/user/user.dart';
 import 'package:air/widgets/widgets.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -72,7 +71,6 @@ class EditDisplayNameScreen extends HookWidget {
                 ),
                 const Spacer(),
                 OutlinedButton(
-                  style: buttonStyle(CustomColorScheme.of(context), true),
                   onPressed: () => _submit(context, controller.text),
                   child: Text(loc.editDisplayNameScreen_save),
                 ),

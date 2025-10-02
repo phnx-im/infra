@@ -87,9 +87,7 @@ sealed class IntroScreenType with _$IntroScreenType {
   const IntroScreenType._();
 
   const factory IntroScreenType.intro() = IntroScreenType_Intro;
-  const factory IntroScreenType.serverChoice() = IntroScreenType_ServerChoice;
-  const factory IntroScreenType.displayNamePicture() =
-      IntroScreenType_DisplayNamePicture;
+  const factory IntroScreenType.signUp() = IntroScreenType_SignUp;
   const factory IntroScreenType.developerSettings(
     DeveloperSettingsScreenType field0,
   ) = IntroScreenType_DeveloperSettings;
@@ -108,4 +106,10 @@ sealed class NavigationState with _$NavigationState {
   }) = NavigationState_Home;
 }
 
-enum UserSettingsScreenType { root, editDisplayName, addUserHandle, help }
+enum UserSettingsScreenType {
+  root,
+  editDisplayName,
+  addUserHandle,
+  help,
+  deleteAccount,
+}

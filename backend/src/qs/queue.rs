@@ -12,7 +12,7 @@ use airprotos::queue_service::v1::{
     QueueEmpty, QueueEvent, QueueEventPayload, QueueMessage, queue_event,
 };
 use futures_util::{Stream, stream};
-use sqlx::{Connection, PgConnection, PgExecutor, PgPool, query_scalar};
+use sqlx::{PgExecutor, PgPool, PgTransaction, query_scalar};
 use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
 use tokio_util::sync::CancellationToken;
@@ -20,7 +20,7 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    errors::{QueueError, StorageError},
+    errors::QueueError,
     pg_listen::{PgChannelName, PgListenerTaskHandle, spawn_pg_listener_task},
 };
 
@@ -34,10 +34,19 @@ pub(crate) struct Queues {
     pg_listener_task_handle: PgListenerTaskHandle<QsClientId>,
 }
 
+/// Context for a queue listener
+///
+/// Cancels background tasks when dropped.
 #[derive(Debug)]
 struct ListenerContext {
     cancel: CancellationToken,
     payload_tx: mpsc::Sender<QueueEventPayload>,
+}
+
+impl Drop for ListenerContext {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
 }
 
 impl Queues {
@@ -92,19 +101,19 @@ impl Queues {
 
     pub(crate) async fn enqueue(
         &self,
-        connection: &mut PgConnection,
+        txn: &mut PgTransaction<'_>,
         queue_id: QsClientId,
         message: &QueueMessage,
     ) -> Result<bool, QueueError> {
-        let mut txn = connection.begin().await?;
-
-        Queue::enqueue(&mut txn, queue_id, message).await?;
+        Queue::enqueue(txn.as_mut(), queue_id, message).await?;
         let query = format!(r#"NOTIFY "{}""#, pg_queue_label(queue_id));
         sqlx::query(&query).execute(txn.as_mut()).await?;
 
-        txn.commit().await?;
-
-        let is_listening = self.listeners.lock().await.contains_key(&queue_id);
+        let listeners = self.listeners.lock().await;
+        let is_listening = listeners
+            .get(&queue_id)
+            .map(|context| !context.cancel.is_cancelled())
+            .unwrap_or(false);
         Ok(is_listening)
     }
 
@@ -123,73 +132,7 @@ impl Queues {
         Ok(())
     }
 
-    async fn track_listener(
-        &self,
-        client_id: QsClientId,
-        payload_tx: mpsc::Sender<QueueEventPayload>,
-    ) -> sqlx::Result<CancellationToken> {
-        let mut listeners = self.listeners.lock().await;
-        for (id, _) in listeners.extract_if(|_, context| context.cancel.is_cancelled()) {
-            self.pg_listener_task_handle.unlisten(id).await;
-        }
-        let cancel = CancellationToken::new();
-        let context = ListenerContext {
-            cancel: cancel.clone(),
-            payload_tx,
-        };
-        if let Some(prev_context) = listeners.insert(client_id, context) {
-            prev_context.cancel.cancel();
-        } else {
-            self.pg_listener_task_handle.listen(client_id).await;
-        }
-        Ok(cancel)
-    }
-}
-
-impl PgChannelName for QsClientId {
-    fn pg_channel(&self) -> String {
-        format!("qs_{}", self.as_uuid())
-    }
-
-    fn from_pg_channel(channel: &str) -> Option<Self> {
-        let uuid: Uuid = channel.strip_prefix("qs_")?.parse().ok()?;
-        Some(uuid.into())
-    }
-}
-
-pub trait QueueNotifier {
-    /// Returns whether the queue id is currently listened to.
-    ///
-    /// Takes an additional `connection` parameter to allow to call this function as a part of a
-    /// transaction.
-    async fn enqueue(
-        &self,
-        connection: &mut PgConnection,
-        queue_id: QsClientId,
-        message: &QueueMessage,
-    ) -> Result<bool, QueueError>;
-
-    /// Sends a payload to the queue.
-    ///
-    /// The payload is only sent if the queue is listening.
-    async fn send_payload(
-        &self,
-        queue_id: QsClientId,
-        payload: QueueEventPayload,
-    ) -> Result<bool, QueueError>;
-}
-
-impl QueueNotifier for Queues {
-    async fn enqueue(
-        &self,
-        connection: &mut PgConnection,
-        queue_id: QsClientId,
-        message: &QueueMessage,
-    ) -> Result<bool, QueueError> {
-        self.enqueue(connection, queue_id, message).await
-    }
-
-    async fn send_payload(
+    pub(crate) async fn send_payload(
         &self,
         queue_id: QsClientId,
         payload: QueueEventPayload,
@@ -205,6 +148,46 @@ impl QueueNotifier for Queues {
         };
         tx.send(payload).await?;
         Ok(true)
+    }
+
+    async fn track_listener(
+        &self,
+        client_id: QsClientId,
+        payload_tx: mpsc::Sender<QueueEventPayload>,
+    ) -> sqlx::Result<CancellationToken> {
+        let mut listeners = self.listeners.lock().await;
+        for (id, _) in listeners.extract_if(|_, context| context.cancel.is_cancelled()) {
+            self.pg_listener_task_handle.unlisten(id).await;
+        }
+
+        let cancel = CancellationToken::new();
+        let context = ListenerContext {
+            cancel: cancel.clone(),
+            payload_tx,
+        };
+
+        if listeners.insert(client_id, context).is_none() {
+            self.pg_listener_task_handle.listen(client_id).await;
+        }
+
+        Ok(cancel)
+    }
+
+    pub(crate) async fn stop_listening(&self, queue_id: QsClientId) {
+        if let Some(context) = self.listeners.lock().await.remove(&queue_id) {
+            context.cancel.cancel();
+        }
+    }
+}
+
+impl PgChannelName for QsClientId {
+    fn pg_channel(&self) -> String {
+        format!("qs_{}", self.as_uuid())
+    }
+
+    fn from_pg_channel(channel: &str) -> Option<Self> {
+        let uuid: Uuid = channel.strip_prefix("qs_")?.parse().ok()?;
+        Some(uuid.into())
     }
 }
 
@@ -298,12 +281,9 @@ fn pg_queue_label(queue_id: QsClientId) -> String {
     format!("qs_{}", queue_id.as_uuid())
 }
 
-pub(super) struct Queue {
-    queue_id: QsClientId,
-    sequence_number: i64,
-}
+pub(super) struct Queue {}
 
-mod persistence {
+pub(crate) mod persistence {
     use super::*;
 
     use airprotos::queue_service::v1::QueueMessage;
@@ -350,81 +330,24 @@ mod persistence {
     }
 
     impl Queue {
-        pub(crate) async fn new_and_store<'a>(
-            queue_id: QsClientId,
-            connection: impl PgExecutor<'_>,
-        ) -> Result<Self, StorageError> {
-            let queue_data = Self {
-                queue_id,
-                sequence_number: 0,
-            };
-            queue_data.store(connection).await?;
-            Ok(queue_data)
-        }
-
-        pub(super) async fn store(
-            &self,
-            connection: impl PgExecutor<'_>,
-        ) -> Result<(), StorageError> {
-            sqlx::query!(
-                "INSERT INTO
-                    qs_queue_data
-                    (queue_id, sequence_number)
-                VALUES
-                    ($1, $2)",
-                &self.queue_id as &QsClientId,
-                self.sequence_number,
-            )
-            .execute(connection)
-            .await?;
-            Ok(())
-        }
-
         pub(super) async fn enqueue(
-            connection: &mut PgConnection,
+            executor: impl PgExecutor<'_>,
             queue_id: QsClientId,
             message: &QueueMessage,
         ) -> Result<(), QueueError> {
-            // Begin the transaction
-            let mut transaction = connection.begin().await?;
-
-            // Update and get the sequence number, saving one query
-            let sequence_number = sqlx::query_scalar!(
-                r#"WITH updated_sequence AS (
-                    -- Step 1: Update and return the current sequence number.
-                    UPDATE qs_queue_data
-                    SET sequence_number = sequence_number + 1
-                    WHERE queue_id = $1
-                    RETURNING sequence_number - 1 as sequence_number
-                )
-                -- Step 2: Insert the message with the new sequence number.
-                INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
-                SELECT $1, sequence_number, $2 FROM updated_sequence
-                RETURNING sequence_number
-                "#,
+            sqlx::query!(
+                "INSERT INTO qs_queues (queue_id, sequence_number, message_bytes)
+                VALUES ($1, $2, $3)",
                 queue_id as QsClientId,
+                message.sequence_number as i64,
                 SqlQueueMessageRef(message) as _,
             )
-            .fetch_one(&mut *transaction)
+            .execute(executor)
             .await?;
-
-            // Check if the sequence number matches the one we got from the query. If it doesn't,
-            // we return an error and automatically rollback the transaction.
-            if sequence_number != message.sequence_number as i64 {
-                tracing::warn!(
-                    "Sequence number mismatch. Message sequence number {}, queue sequence number {}",
-                    message.sequence_number,
-                    sequence_number
-                );
-                return Err(QueueError::SequenceNumberMismatch);
-            }
-
-            transaction.commit().await?;
-
             Ok(())
         }
 
-        pub(super) async fn fetch_into(
+        pub(crate) async fn fetch_into(
             executor: impl PgExecutor<'_>,
             queue_id: &QsClientId,
             sequence_number: u64,
