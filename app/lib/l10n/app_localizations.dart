@@ -148,6 +148,12 @@ abstract class AppLocalizations {
   /// **'Help'**
   String get userSettingsScreen_help;
 
+  /// No description provided for @userSettingsScreen_deleteAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get userSettingsScreen_deleteAccount;
+
   /// No description provided for @removeUsernameDialog_title.
   ///
   /// In en, this message translates to:
@@ -969,6 +975,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'YB'**
   String get byteUnit_YB;
+
+  /// No description provided for @deleteAccountScreen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete My Account'**
+  String get deleteAccountScreen_title;
+
+  /// No description provided for @deleteAccountScreen_explanatoryText.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete your Air account and reset the application. You will not be able to recover your account.'**
+  String get deleteAccountScreen_explanatoryText;
+
+  /// No description provided for @deleteAccountScreen_confirmationInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmation'**
+  String get deleteAccountScreen_confirmationInputHint;
+
+  /// No description provided for @deleteAccountScreen_confirmationInputLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Type \'delete\' to confirm'**
+  String get deleteAccountScreen_confirmationInputLabel;
+
+  /// No description provided for @deleteAccountScreen_confirmButtonText.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccountScreen_confirmButtonText;
+
+  /// No description provided for @deleteAccountScreen_cancelButtonText.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get deleteAccountScreen_cancelButtonText;
+
+  /// No description provided for @deleteAccountScreen_deleteAccountError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong on our end. Wait a moment, then try again.'**
+  String get deleteAccountScreen_deleteAccountError;
 }
 
 class _AppLocalizationsDelegate

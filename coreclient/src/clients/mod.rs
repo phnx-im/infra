@@ -78,6 +78,7 @@ pub(crate) mod block_contact;
 pub mod chats;
 pub(crate) mod connection_offer;
 mod create_user;
+mod delete_account;
 mod invite_users;
 mod message;
 pub(crate) mod own_client_info;
