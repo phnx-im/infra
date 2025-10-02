@@ -25,7 +25,9 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "ms.air"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Use the NDK version availble in GitHub Actions
+    // See <https://github.com/actions/runner-images/blob/ubuntu24/20250922.53/images/ubuntu/Ubuntu2404-Readme.md>
+    ndkVersion = "27.3.13750724"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
