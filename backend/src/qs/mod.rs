@@ -171,9 +171,10 @@ pub trait PushNotificationProvider: std::fmt::Debug + Send + Sync + 'static {
 }
 
 pub trait QsConnector: Sync + Send + std::fmt::Debug + 'static {
-    type EnqueueError: std::error::Error;
+    type EnqueueError: Send + std::error::Error;
+
     fn dispatch(
         &self,
         message: DsFanOutMessage,
-    ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send;
+    ) -> impl Future<Output = Result<(), Self::EnqueueError>> + Send + 'static;
 }
