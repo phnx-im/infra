@@ -49,6 +49,7 @@ use crate::{
     Asset, UserHandleRecord,
     contacts::HandleContact,
     groups::Group,
+    key_stores::queue_ratchets::StorableQsQueueRatchet,
     store::Store,
     utils::{image::resize_profile_image, persistence::delete_client_database},
 };
@@ -62,7 +63,7 @@ use crate::{
     clients::connection_offer::FriendshipPackage,
     contacts::Contact,
     groups::openmls_provider::AirOpenMlsProvider,
-    key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
+    key_stores::MemoryUserKeyStore,
     store::{StoreNotification, StoreNotifier},
     user_profiles::IndexedUserProfile,
     utils::persistence::{open_air_db, open_client_db, open_db_in_memory},
@@ -527,15 +528,13 @@ impl CoreUser {
     pub async fn listen_queue(
         &self,
     ) -> Result<(impl Stream<Item = QueueEvent> + use<>, QsListenResponder)> {
-        let sequence_number_start = QueueType::Qs.load_sequence_number(self.pool()).await?;
+        let queue_ratchet = StorableQsQueueRatchet::load(self.pool()).await?;
+        let sequence_number_start = queue_ratchet.sequence_number();
         let api_client = self.inner.api_clients.default_client()?;
         let (stream, responder) = api_client
             .listen_queue(self.inner.qs_client_id, sequence_number_start)
             .await?;
-        let responder = QsListenResponder {
-            responder,
-            pool: self.pool().clone(),
-        };
+        let responder = QsListenResponder { responder };
         Ok((stream, responder))
     }
 
@@ -782,7 +781,6 @@ impl CoreUser {
 #[derive(Debug)]
 pub struct QsListenResponder {
     responder: ListenResponder,
-    pool: SqlitePool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -796,12 +794,6 @@ pub enum QsListenResponderError {
 impl QsListenResponder {
     pub async fn ack(&self, up_to_sequence_number: u64) -> Result<(), QsListenResponderError> {
         self.responder.ack(up_to_sequence_number).await?;
-        QueueType::Qs
-            .update_sequence_number(&self.pool, up_to_sequence_number)
-            .await
-            .inspect_err(|error| {
-                error!(%error, "failed to update QS sequence number");
-            })?;
         Ok(())
     }
 }
