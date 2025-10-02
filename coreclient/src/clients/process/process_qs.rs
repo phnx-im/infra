@@ -80,13 +80,22 @@ struct ApplicationMessagesHandlerResult {
 
 impl CoreUser {
     /// Decrypt a `QueueMessage` received from the QS queue.
-    pub async fn decrypt_qs_queue_message(
+    pub(crate) async fn decrypt_qs_queue_message(
         &self,
         qs_message_ciphertext: QueueMessage,
     ) -> Result<ExtractedQsQueueMessage> {
         self.with_transaction(async |txn| {
             let mut qs_queue_ratchet = StorableQsQueueRatchet::load(txn.as_mut()).await?;
-            let payload = qs_queue_ratchet.decrypt(qs_message_ciphertext)?;
+            let seq_number = qs_message_ciphertext.sequence_number;
+            let qs_queue_ratchet_seq_number = qs_queue_ratchet.sequence_number();
+            let payload = qs_queue_ratchet
+                .decrypt(qs_message_ciphertext)
+                .with_context(|| {
+                    format!(
+                        "QS message with sequence number {seq_number}, \
+                        ratchet sequence number {qs_queue_ratchet_seq_number}"
+                    )
+                })?;
             qs_queue_ratchet.update_ratchet(txn.as_mut()).await?;
             Ok(payload.extract()?)
         })
