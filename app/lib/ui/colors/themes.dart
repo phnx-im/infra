@@ -89,6 +89,8 @@ final CustomColorScheme lightCustomColorScheme = CustomColorScheme(
     otherCheckboxFill: AppColors.neutral[200]!,
     selfCheckboxCheck: AppColors.neutral[0]!,
     otherCheckboxCheck: AppColors.neutral[1000]!,
+    selfEditedLabel: AppColors.neutral[400]!,
+    otherEditedLabel: AppColors.neutral[600]!,
   ),
 );
 
@@ -149,6 +151,8 @@ final CustomColorScheme darkCustomColorScheme = CustomColorScheme(
     otherCheckboxFill: AppColors.neutral[700]!,
     selfCheckboxCheck: AppColors.neutral[1000]!,
     otherCheckboxCheck: AppColors.neutral[0]!,
+    selfEditedLabel: AppColors.neutral[600]!,
+    otherEditedLabel: AppColors.neutral[400]!,
   ),
 );
 

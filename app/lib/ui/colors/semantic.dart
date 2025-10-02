@@ -106,6 +106,8 @@ class MessageColors {
   final Color otherCheckboxFill;
   final Color selfCheckboxCheck;
   final Color otherCheckboxCheck;
+  final Color selfEditedLabel;
+  final Color otherEditedLabel;
 
   MessageColors({
     required this.selfBackground,
@@ -126,5 +128,7 @@ class MessageColors {
     required this.otherCheckboxFill,
     required this.selfCheckboxCheck,
     required this.otherCheckboxCheck,
+    required this.selfEditedLabel,
+    required this.otherEditedLabel,
   });
 }
