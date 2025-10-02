@@ -87,9 +87,6 @@ class _MessageView extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We use this to make an indent on the side of the receiver
-    const flex = Flexible(child: SizedBox.shrink());
-
     final isRevealed = useState(false);
 
     final showMessageStatus =
@@ -98,68 +95,69 @@ class _MessageView extends HookWidget {
         status != UiMessageStatus.sending &&
         status != UiMessageStatus.hidden;
 
-    return Row(
-      mainAxisAlignment:
-          isSender ? MainAxisAlignment.end : MainAxisAlignment.start,
-      children: [
-        if (isSender) flex,
-        Flexible(
-          flex: 5,
-          child: Container(
-            padding: EdgeInsets.only(
-              top: flightPosition.isFirst ? 5 : 0,
-              bottom: flightPosition.isLast ? 5 : 0,
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  isSender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                InkWell(
-                  mouseCursor: SystemMouseCursors.basic,
-                  onTap: () => isRevealed.value = true,
-                  onLongPress:
-                      isSender
-                          ? () => context.read<ChatDetailsCubit>().editMessage(
-                            messageId: messageId,
-                          )
-                          : null,
-                  child: _MessageContent(
-                    content: contentMessage.content,
-                    isSender: isSender,
-                    flightPosition: flightPosition,
-                    isEdited: contentMessage.edited,
-                    isHidden:
-                        status == UiMessageStatus.hidden && !isRevealed.value,
-                  ),
-                ),
-                if (flightPosition.isLast) ...[
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisAlignment:
+    return Align(
+      alignment: isSender ? Alignment.centerRight : Alignment.centerLeft,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 5 / 6),
+            child: Container(
+              padding: EdgeInsets.only(
+                top: flightPosition.isFirst ? 5 : 0,
+                bottom: flightPosition.isLast ? 5 : 0,
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    isSender
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    mouseCursor: SystemMouseCursors.basic,
+                    onTap: () => isRevealed.value = true,
+                    onLongPress:
                         isSender
-                            ? MainAxisAlignment.end
-                            : MainAxisAlignment.start,
-                    children: [
-                      const SizedBox(width: Spacings.s),
-                      Timestamp(timestamp),
-                      if (showMessageStatus)
-                        const SizedBox(width: Spacings.xxxs),
-                      if (showMessageStatus)
-                        DoubleCheckIcon(
-                          size: LabelFontSize.small2.size,
-                          singleCheckIcon: status == UiMessageStatus.sent,
-                          inverted: status == UiMessageStatus.read,
-                        ),
-                      const SizedBox(width: Spacings.xs),
-                    ],
+                            ? () => context
+                                .read<ChatDetailsCubit>()
+                                .editMessage(messageId: messageId)
+                            : null,
+                    child: _MessageContent(
+                      content: contentMessage.content,
+                      isSender: isSender,
+                      flightPosition: flightPosition,
+                      isEdited: contentMessage.edited,
+                      isHidden:
+                          status == UiMessageStatus.hidden && !isRevealed.value,
+                    ),
                   ),
+                  if (flightPosition.isLast) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment:
+                          isSender
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                      children: [
+                        const SizedBox(width: Spacings.s),
+                        Timestamp(timestamp),
+                        if (showMessageStatus)
+                          const SizedBox(width: Spacings.xxxs),
+                        if (showMessageStatus)
+                          DoubleCheckIcon(
+                            size: LabelFontSize.small2.size,
+                            singleCheckIcon: status == UiMessageStatus.sent,
+                            inverted: status == UiMessageStatus.read,
+                          ),
+                        const SizedBox(width: Spacings.xs),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ),
-        if (!isSender) flex,
-      ],
+          );
+        },
+      ),
     );
   }
 }
@@ -210,7 +208,6 @@ class _MessageContent extends StatelessWidget {
                     isSender,
                   ),
                 ),
-
               if (content.attachments.firstOrNull case final attachment?)
                 switch (attachment.imageMetadata) {
                   null => _FileAttachmentContent(
@@ -233,19 +230,7 @@ class _MessageContent extends StatelessWidget {
                   child: buildBlockElement(context, inner.element, isSender),
                 ),
               ),
-              if (!isDeleted && isEdited)
-                Padding(
-                  padding: _messagePadding.copyWith(top: 0),
-                  child: Text(
-                    loc.textMessage_edited,
-                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                      color:
-                          isSender
-                              ? CustomColorScheme.of(context).text.quaternary
-                              : CustomColorScheme.of(context).text.tertiary,
-                    ),
-                  ),
-                ),
+              // The edited label is no longer included here
             ];
 
     return Padding(
@@ -266,9 +251,45 @@ class _MessageContent extends StatelessWidget {
                     : CustomColorScheme.of(context).message.otherBackground,
           ),
           child: DefaultTextStyle.merge(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: contentElements,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Main content (reserves space if edited)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: contentElements,
+                    ),
+                    if (!isDeleted && isEdited)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: Spacings.s,
+                          right: Spacings.s,
+                          bottom: Spacings.xxs,
+                        ),
+                        child: SelectionContainer.disabled(
+                          child: Text(
+                            loc.textMessage_edited,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall!.copyWith(
+                              color:
+                                  isSender
+                                      ? CustomColorScheme.of(
+                                        context,
+                                      ).message.selfEditedLabel
+                                      : CustomColorScheme.of(
+                                        context,
+                                      ).message.otherEditedLabel,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

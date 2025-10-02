@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:air/theme/spacings.dart';
+import 'package:air/ui/typography/monospace.dart';
 import 'package:flutter/material.dart';
 import 'package:air/core/api/markdown.dart';
 import 'package:air/ui/colors/palette.dart';
@@ -32,6 +33,7 @@ Widget buildBlockElement(
           fontSize: BodyFontSize.base.size,
         ),
       ),
+      softWrap: true,
     ),
     BlockElement_Heading(:final field0) => Text.rich(
       TextSpan(
@@ -104,19 +106,22 @@ Widget buildBlockElement(
                         fontSize: BodyFontSize.base.size,
                       ),
                     ),
-                    Column(
-                      spacing: 4.0,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:
-                          items
-                              .map(
-                                (item) => buildBlockElement(
-                                  context,
-                                  item.element,
-                                  isSender,
-                                ),
-                              )
-                              .toList(),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Column(
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:
+                            items
+                                .map(
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
+                                )
+                                .toList(),
+                      ),
                     ),
                   ],
                 ),
@@ -148,19 +153,22 @@ Widget buildBlockElement(
                         ),
                       ),
                     ),
-                    Column(
-                      spacing: Spacings.xxxs,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children:
-                          items.$2
-                              .map(
-                                (item) => buildBlockElement(
-                                  context,
-                                  item.element,
-                                  isSender,
-                                ),
-                              )
-                              .toList(),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Column(
+                        spacing: Spacings.xxxs,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children:
+                            items.$2
+                                .map(
+                                  (item) => buildBlockElement(
+                                    context,
+                                    item.element,
+                                    isSender,
+                                  ),
+                                )
+                                .toList(),
+                      ),
                     ),
                   ],
                 ),
@@ -187,19 +195,22 @@ Widget buildBlockElement(
                         horizontal: Spacings.xs,
                         vertical: Spacings.xxxs,
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:
-                            itemBlocks
-                                .map(
-                                  (item) => buildBlockElement(
-                                    context,
-                                    item.element,
-                                    isSender,
-                                  ),
-                                )
-                                .toList(),
+                      child: DefaultTextStyle(
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              itemBlocks
+                                  .map(
+                                    (item) => buildBlockElement(
+                                      context,
+                                      item.element,
+                                      isSender,
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
                       ),
                     ),
                   )
@@ -249,9 +260,8 @@ Widget buildBlockElement(
       TextSpan(
         text: field0.map((e) => e.value).join('\n'),
         style: TextStyle(
-          fontFamily: 'SourceCodeProEmbedded',
+          fontFamily: getSystemMonospaceFontFamily(),
           fontSize: BodyFontSize.small2.size,
-          fontWeight: FontWeight.bold,
           color:
               isSender
                   ? CustomColorScheme.of(context).message.selfText
@@ -284,7 +294,10 @@ InlineSpan buildInlineElement(
     InlineElement_Text(:final field0) => TextSpan(text: field0),
     InlineElement_Code(:final field0) => TextSpan(
       text: field0,
-      style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+      style: TextStyle(
+        fontFamily: getSystemMonospaceFontFamily(),
+        fontSize: BodyFontSize.small2.size,
+      ),
     ),
     InlineElement_Link(:final children) => TextSpan(
       children:
@@ -575,7 +588,10 @@ class CustomTextEditingController extends TextEditingController {
               )
               .toList(),
         ),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       BlockElement_Error() => TextSpan(
         text: utf8.decode(raw.sublist(block.start, block.end)),
@@ -600,7 +616,10 @@ class CustomTextEditingController extends TextEditingController {
       ),
       InlineElement_Code() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
-        style: const TextStyle(fontFamily: 'SourceCodeProEmbedded'),
+        style: TextStyle(
+          fontFamily: getSystemMonospaceFontFamily(),
+          fontSize: BodyFontSize.small2.size,
+        ),
       ),
       InlineElement_Link() => TextSpan(
         text: utf8.decode(raw.sublist(inline.start, inline.end)),
