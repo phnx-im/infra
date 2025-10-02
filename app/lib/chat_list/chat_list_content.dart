@@ -199,13 +199,18 @@ class _UnreadBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (count < 1) {
+      return const SizedBox.shrink();
+    }
+
     final currentChatId = context.select(
       (NavigationCubit cubit) => cubit.state.chatId,
     );
 
-    if (count < 1 || chatId == currentChatId) {
-      return const SizedBox();
-    }
+    final backgroundColor =
+        currentChatId == chatId
+            ? CustomColorScheme.of(context).backgroundBase.primary
+            : CustomColorScheme.of(context).backgroundBase.quaternary;
 
     final badgeText = count <= 100 ? "$count" : "100+";
     const double badgeSize = 26;
@@ -215,7 +220,7 @@ class _UnreadBadge extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(7, 0, 7, 2),
       height: badgeSize,
       decoration: BoxDecoration(
-        color: CustomColorScheme.of(context).backgroundBase.quaternary,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(badgeSize / 2),
       ),
       child: Text(
@@ -273,12 +278,10 @@ class _LastMessage extends StatelessWidget {
         showDraft
             ? draftStyle
             : readStyle.copyWith(
-              fontWeight: FontWeight.normal,
               color: CustomColorScheme.of(context).text.tertiary,
             );
 
-    final suffixStyle =
-        isCurrentChat && chat.unreadMessages > 0 ? unreadStyle : readStyle;
+    final suffixStyle = chat.unreadMessages > 0 ? unreadStyle : readStyle;
 
     final loc = AppLocalizations.of(context);
 
