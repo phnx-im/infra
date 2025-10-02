@@ -100,7 +100,7 @@ class _MessageView extends HookWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.8),
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 5 / 6),
             child: Container(
               padding: EdgeInsets.only(
                 top: flightPosition.isFirst ? 5 : 0,
