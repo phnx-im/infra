@@ -35,8 +35,6 @@ impl User {
                 queue_event::Event::Payload(_) => None,
             });
 
-        // Don't use `collect` here, to keep the stream open. This makes it possible to ack
-        // messages later with `responder`. Otherwise, the `responder` is closed on `stream` drop.
         let mut messages: Vec<QueueMessage> = Vec::new();
         while let Some(message) = stream.next().await {
             messages.push(message);

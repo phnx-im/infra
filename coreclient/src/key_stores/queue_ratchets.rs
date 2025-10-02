@@ -69,40 +69,6 @@ impl Decode<'_, Sqlite> for QueueType {
     }
 }
 
-impl QueueType {
-    pub(crate) async fn load_sequence_number(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-    ) -> sqlx::Result<u64> {
-        query_scalar!(
-            r#"SELECT
-                sequence_number AS "sequence_number: _"
-            FROM queue_ratchet WHERE queue_type = ?"#,
-            self
-        )
-        .fetch_one(executor)
-        .await
-    }
-
-    pub(crate) async fn update_sequence_number(
-        &self,
-        executor: impl SqliteExecutor<'_>,
-        sequence_number: u64,
-    ) -> sqlx::Result<()> {
-        let sequence_number: i64 = sequence_number
-            .try_into()
-            .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
-        query!(
-            "UPDATE queue_ratchet SET sequence_number = ? WHERE queue_type = ?",
-            sequence_number,
-            self
-        )
-        .execute(executor)
-        .await?;
-        Ok(())
-    }
-}
-
 pub(crate) struct StorableQueueRatchet<Ciphertext, Payload: RatchetPayload<Ciphertext>> {
     queue_type: QueueType,
     queue_ratchet: QueueRatchet<Ciphertext, Payload>,
@@ -166,10 +132,18 @@ where
     Payload: RatchetPayload<Ciphertext> + Unpin + Send,
 {
     async fn store(&self, executor: impl SqliteExecutor<'_>) -> sqlx::Result<()> {
+        let sequence_number: i64 = self
+            .queue_ratchet
+            .sequence_number()
+            .try_into()
+            .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
         query!(
-            "INSERT INTO queue_ratchet (queue_type, queue_ratchet) VALUES (?, ?)",
+            "INSERT INTO queue_ratchet
+                (queue_type, queue_ratchet, sequence_number)
+            VALUES (?, ?, ?)",
             self.queue_type,
             self.queue_ratchet,
+            sequence_number,
         )
         .execute(executor)
         .await?;
@@ -199,9 +173,17 @@ where
         executor: impl SqliteExecutor<'_>,
         queue_type: QueueType,
     ) -> sqlx::Result<()> {
+        let sequence_number: i64 = self
+            .queue_ratchet
+            .sequence_number()
+            .try_into()
+            .map_err(|error| sqlx::Error::Encode(Box::new(error)))?;
         query!(
-            "UPDATE queue_ratchet SET queue_ratchet = ? WHERE queue_type = ?",
+            "UPDATE queue_ratchet
+            SET queue_ratchet = ?, sequence_number = ?
+            WHERE queue_type = ?",
             self.queue_ratchet,
+            sequence_number,
             queue_type
         )
         .execute(executor)
