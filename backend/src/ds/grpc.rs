@@ -31,7 +31,9 @@ use mls_assist::{
     messages::{AssistedMessageIn, SerializedMlsMessage},
     openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
+use thiserror::Error;
 use tls_codec::DeserializeBytes;
+use tokio::task::{JoinError, JoinSet};
 use tonic::{Request, Response, Status, async_trait};
 use tracing::{error, warn};
 
@@ -51,6 +53,8 @@ pub struct GrpcDs<Qep: QsConnector> {
     ds: Ds,
     qs_connector: Qep,
 }
+
+const MAX_CONCURRENT_FANOUTS: usize = 128;
 
 impl<Qep: QsConnector> GrpcDs<Qep> {
     pub fn new(ds: Ds, qs_connector: Qep) -> Self {
@@ -137,22 +141,38 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
         &self,
         mls_message: SerializedMlsMessage,
         destination_clients: impl IntoIterator<Item = identifiers::QsReference>,
-    ) -> Result<TimeStamp, Status> {
+    ) -> TimeStamp {
         let queue_message_payload = QsQueueMessagePayload::from(mls_message);
         let timestamp = queue_message_payload.timestamp;
         let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
 
+        let mut join_set: JoinSet<Result<(), <Qep as QsConnector>::EnqueueError>> = JoinSet::new();
         for client_reference in destination_clients {
-            self.qs_connector
-                .dispatch(DsFanOutMessage {
-                    payload: fan_out_payload.clone(),
-                    client_reference,
-                })
-                .await
-                .map_err(DistributeMessageError)?;
+            while MAX_CONCURRENT_FANOUTS <= join_set.len() {
+                join_set
+                    .join_next()
+                    .await
+                    .expect("logic error")
+                    .map_err(DistributeMessageError::Join)
+                    .and_then(|result| result.map_err(DistributeMessageError::Connector))
+                    .inspect_err(|error| error!(%error, "Failed to dispatch message"))
+                    .ok();
+            }
+            join_set.spawn(self.qs_connector.dispatch(DsFanOutMessage {
+                payload: fan_out_payload.clone(),
+                client_reference,
+            }));
         }
 
-        Ok(timestamp)
+        while let Some(result) = join_set.join_next().await {
+            result
+                .map_err(DistributeMessageError::Join)
+                .and_then(|result| result.map_err(DistributeMessageError::Connector))
+                .inspect_err(|error| error!(%error, "Failed to dispatch message"))
+                .ok();
+        }
+
+        timestamp
     }
 
     async fn update_group_data(
@@ -484,7 +504,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(JoinConnectionGroupResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -521,7 +541,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(ResyncResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -558,7 +578,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(SelfRemoveResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -599,7 +619,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                 mls_message.into_serialized_mls_message(),
                 destination_clients,
             )
-            .await?;
+            .await;
 
         Ok(Response::new(SendMessageResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -637,7 +657,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         Ok(Response::new(DeleteGroupResponse {
             fanout_timestamp: Some(timestamp.into()),
@@ -685,13 +705,13 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
 
         let timestamp = self
             .fan_out_message(group_message, destination_clients)
-            .await?;
+            .await;
 
         for message in welcome_bundles {
             self.qs_connector
                 .dispatch(message)
                 .await
-                .map_err(DistributeMessageError)?;
+                .map_err(DistributeMessageError::Connector)?;
         }
 
         Ok(Response::new(GroupOperationResponse {
@@ -757,7 +777,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
                     client_reference,
                 })
                 .await
-                .map_err(DistributeMessageError)?;
+                .map_err(DistributeMessageError::Connector)?;
         }
 
         Ok(Response::new(UpdateProfileKeyResponse {}))
@@ -833,11 +853,17 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
     }
 }
 
-struct DistributeMessageError<E>(E);
+#[derive(Debug, Error)]
+enum DistributeMessageError<E> {
+    #[error(transparent)]
+    Join(JoinError),
+    #[error(transparent)]
+    Connector(E),
+}
 
 impl<E: std::error::Error> From<DistributeMessageError<E>> for Status {
-    fn from(e: DistributeMessageError<E>) -> Self {
-        error!(error =% e.0, "Failed to distribute message");
+    fn from(error: DistributeMessageError<E>) -> Self {
+        error!(%error, "Failed to distribute message");
         Status::internal("failed to distribute message")
     }
 }
