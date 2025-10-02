@@ -30,6 +30,8 @@ image = "0.25.1"
 kamadak-exif = "0.6.1"
 derive_more = { workspace = true }
 mimi_content = { workspace = true }
+flate2 = "1.1.0"
+tar = "0.4.44"
 
 # Persistence
 serde = { version = "1", features = ["derive"] }
