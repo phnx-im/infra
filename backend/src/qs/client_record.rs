@@ -5,7 +5,7 @@
 use airprotos::{convert::RefInto, queue_service::v1::QueueEventPayload};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-use sqlx::{Connection, PgConnection, PgPool};
+use sqlx::{PgConnection, PgPool};
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
 use aircommon::{
@@ -27,10 +27,7 @@ use tracing::{error, info, trace, warn};
 use crate::{
     errors::StorageError,
     messages::intra_backend::DsFanOutPayload,
-    qs::{
-        PushNotificationError,
-        queue::{Queue, QueueNotifier},
-    },
+    qs::{PushNotificationError, queue::Queues},
 };
 
 use super::{PushNotificationProvider, errors::EnqueueError};
@@ -72,9 +69,6 @@ impl QsClientRecord {
         ratchet_key: QsQueueRatchet,
     ) -> Result<Self, StorageError> {
         let client_id = QsClientId::random(rng);
-
-        let mut transaction = connection.begin().await?;
-
         let record = Self {
             user_id,
             client_id,
@@ -84,12 +78,7 @@ impl QsClientRecord {
             ratchet_key,
             activity_time: now,
         };
-        record.store(&mut *transaction).await?;
-
-        Queue::new_and_store(client_id, &mut *transaction).await?;
-
-        transaction.commit().await?;
-
+        record.store(connection).await?;
         Ok(record)
     }
 }
@@ -419,10 +408,10 @@ pub(crate) mod persistence {
 
 impl QsClientRecord {
     /// Put a message into the queue.
-    pub(crate) async fn enqueue<Q: QueueNotifier, P: PushNotificationProvider>(
+    pub(crate) async fn enqueue<P: PushNotificationProvider>(
         pool: &PgPool,
         client_id: QsClientId,
-        queue_notifier: &Q,
+        queues: &Queues,
         push_notification_provider: &P,
         msg: DsFanOutPayload,
         push_token_key_option: Option<PushTokenEarKey>,
@@ -432,7 +421,7 @@ impl QsClientRecord {
             // Serialize the message so that we can put it in the queue.
             DsFanOutPayload::QueueMessage(queue_message) => {
                 let (client_record, has_listener) =
-                    Self::do_enqueue(pool, client_id, queue_notifier, queue_message).await?;
+                    Self::do_enqueue(pool, client_id, queues, queue_message).await?;
 
                 // Try to send a notification over the websocket, otherwise use push tokens if available
                 if !has_listener {
@@ -523,7 +512,7 @@ impl QsClientRecord {
                     timestamp: Some(timestamp.into()),
                     payload,
                 };
-                queue_notifier.send_payload(client_id, payload).await?;
+                queues.send_payload(client_id, payload).await?;
             }
         }
 
@@ -534,7 +523,7 @@ impl QsClientRecord {
     async fn do_enqueue(
         pool: &PgPool,
         client_id: QsClientId,
-        queue_notifier: &impl QueueNotifier,
+        queues: &Queues,
         queue_message: QsQueueMessagePayload,
     ) -> Result<(QsClientRecord, bool), EnqueueError> {
         let mut txn = pool.begin().await?;
@@ -547,8 +536,8 @@ impl QsClientRecord {
         let queue_message_proto: airprotos::queue_service::v1::QueueMessage = queue_message.into();
         trace!("Enqueueing message in storage provider");
 
-        let has_listener = queue_notifier
-            .enqueue(txn.as_mut(), client_id, &queue_message_proto)
+        let has_listener = queues
+            .enqueue(&mut txn, client_id, &queue_message_proto)
             .await?;
 
         client_record.update_queue_ratchet(txn.as_mut()).await?;
@@ -568,7 +557,8 @@ mod tests {
     use tokio::task::JoinSet;
 
     use crate::qs::{
-        client_record::persistence::tests::store_random_client_record, queue::Queues,
+        client_record::persistence::tests::store_random_client_record,
+        queue::{Queue, Queues},
         user_record::persistence::tests::store_random_user_record,
     };
 
@@ -580,8 +570,6 @@ mod tests {
         let client_record = store_random_client_record(&pool, user_record.user_id).await?;
 
         let queue_notifier = Queues::new(pool.clone()).await?;
-
-        Queue::new_and_store(client_record.client_id, pool.acquire().await?.as_mut()).await?;
 
         let mut join_set = JoinSet::new();
 
