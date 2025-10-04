@@ -16,16 +16,12 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mobileLayout = Scaffold(
-      backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
-      body: const ChatListContainer(),
-    );
     const desktopLayout = HomeScreenDesktopLayout(
-      chatList: ChatListContainer(),
+      chatList: ChatListContainer(isStandalone: false),
       chat: ChatScreen(),
     );
-    return ResponsiveScreen(
-      mobile: mobileLayout,
+    return const ResponsiveScreen(
+      mobile: ChatListContainer(),
       tablet: desktopLayout,
       desktop: desktopLayout,
     );

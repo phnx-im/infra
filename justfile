@@ -193,3 +193,11 @@ run-app-linux *args='':
 [working-directory: 'coreclient']
 add-client-migration migration_name:
     sqlx migrate add {{migration_name}}
+
+product-shots-device := if os() == "macos" { "simulator" } else { "emulator" }
+
+# This recipe assumes that either an Android emulator or an iOS simulator is
+# running
+[working-directory: 'app']
+update-product-shots:
+    flutter test integration_test/product_shots.dart --update-goldens -d {{product-shots-device}}
