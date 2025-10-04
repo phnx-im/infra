@@ -122,7 +122,7 @@ class _Header extends StatelessWidget {
       width: double.infinity,
       height: 40,
       child: Padding(
-        padding: const EdgeInsets.only(left: 48.0, top: 8, right: 28),
+        padding: const EdgeInsets.only(left: 48.0, top: 8, right: 23),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -132,7 +132,7 @@ class _Header extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Row(
-                  spacing: 6,
+                  spacing: 5.5,
                   children: [
                     _IosSignalStrength(color: color),
                     _IosWifiSymbol(color: color),
@@ -158,11 +158,7 @@ class _IosTime extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       "9:41",
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.normal,
-        color: color,
-      ),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
     );
   }
 }
@@ -177,17 +173,37 @@ class _IosSignalStrength extends StatelessWidget {
     const height = 12.0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
-      spacing: height / 8,
+      spacing: height / 6,
       children: [
-        Container(width: height / 4, height: height * 0.4, color: color),
-        Container(width: height / 4, height: height * 0.6, color: color),
-        Container(width: height / 4, height: height * 0.8, color: color),
-        Container(
-          width: height / 4,
-          height: height * 1,
-          color: color.withAlpha(100),
-        ),
+        _IosSignalBar(color: color, height: height, fraction: 0.4),
+        _IosSignalBar(color: color, height: height, fraction: 0.6),
+        _IosSignalBar(color: color, height: height, fraction: 0.8),
+        _IosSignalBar(color: color, height: height, fraction: 1.0),
       ],
+    );
+  }
+}
+
+class _IosSignalBar extends StatelessWidget {
+  const _IosSignalBar({
+    required this.color,
+    required this.height,
+    required this.fraction,
+  });
+
+  final Color color;
+  final double height;
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: height / 4,
+      height: height * fraction,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(height / 15),
+        color: color,
+      ),
     );
   }
 }
@@ -200,9 +216,9 @@ class _IosWifiSymbol extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 24,
-      height: 12,
-      child: CustomPaint(painter: _WifiPainter(color: color, strokeWidth: 3)),
+      width: 22,
+      height: 14,
+      child: CustomPaint(painter: _WifiPainter(color: color, strokeWidth: 2.8)),
     );
   }
 }
@@ -215,21 +231,26 @@ class _WifiPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height - strokeWidth / 1.5);
+    const double startAngle = -pi / 2 - pi / 4;
+    const double sweepAngle = pi / 2;
+
     final paint =
         Paint()
           ..color = color
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth
           ..strokeCap = StrokeCap.square;
-
-    final center = Offset(size.width / 2, size.height - strokeWidth / 1.5);
-    const double startAngle = -pi / 2 - pi / 4;
-    const double sweepAngle = pi / 2;
-
     final maxR = size.height;
 
-    for (double i = 0.1; i <= 3; i++) {
+    for (double i = 0.01; i <= .4; i += .2) {
       final r = maxR * (i / 3);
+      final rect = Rect.fromCircle(center: center, radius: r);
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+    }
+
+    for (double i = 1; i <= 2; i++) {
+      final r = maxR * (i / 3) + 1;
       final rect = Rect.fromCircle(center: center, radius: r);
       canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
     }
@@ -248,30 +269,73 @@ class _IosBattery extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const width = 22.0;
-    const height = 12.0;
+    const width = 25.0;
+    const height = 14.0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
+      spacing: width / 20,
       children: [
         Container(
           width: width,
           height: height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(width / 10),
-            border: Border.all(color: color, width: width / 20),
+            borderRadius: BorderRadius.circular(width / 6),
+            border: Border.all(color: color.withAlpha(127), width: width / 20),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(width / 20),
+            padding: const EdgeInsets.all(width / 22),
             child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(width / 10),
+                color: color,
+              ),
               width: width * 0.9,
               height: height * 0.9,
-              color: color,
             ),
           ),
         ),
-        Container(width: width / 20, height: height / 3, color: color),
+        SizedBox(
+          width: width / 20,
+          height: height / 3.5,
+          child: CustomPaint(
+            painter: _BatteryCapPainter(color: color.withAlpha(127)),
+          ),
+        ),
       ],
     );
+  }
+}
+
+class _BatteryCapPainter extends CustomPainter {
+  const _BatteryCapPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+
+    final rect = Offset.zero & size;
+    final radius = Radius.circular(size.width / 1.2);
+    final rrect = RRect.fromRectAndCorners(
+      rect,
+      topRight: radius,
+      bottomRight: radius,
+    );
+
+    canvas.drawRRect(rrect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BatteryCapPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

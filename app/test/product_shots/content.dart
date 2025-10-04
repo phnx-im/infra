@@ -36,9 +36,9 @@ final chats = [
           sent: true,
           edited: false,
           content: UiMimiContent(
-            plainBody: 'Hey Alice, sorry for all the spam',
+            plainBody: 'Hey Alice! Sorry for all the spam',
             topicId: Uint8List(0),
-            content: simpleMessage('Hey Alice, sorry for all the spam'),
+            content: simpleMessage('Hey Alice! Sorry for all the spam'),
             attachments: [],
           ),
         ),
