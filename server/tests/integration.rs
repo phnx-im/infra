@@ -17,10 +17,13 @@ use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use aircommon::{
     assert_matches,
     identifiers::{UserHandle, UserId},
+    messages::QueueMessage,
 };
 use aircoreclient::{
     Asset, BlockedContactError, ChatId, ChatMessage, DisplayName, DownloadProgressEvent,
-    UserProfile, clients::CoreUser, store::Store,
+    UserProfile,
+    clients::{CoreUser, queue_event},
+    store::Store,
 };
 use airserver::RateLimitsConfig;
 use airserver_test_harness::utils::setup::{TestBackend, TestUser};
@@ -607,7 +610,21 @@ async fn mark_as_read() {
     // Alice sees the delivery receipt
     let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test_user.user;
-    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    // Eventually collect 10 delivery receipts (delivery receipts are sent asynchronously)
+    let (alice_qs_stream, _responder) = alice.listen_queue().await.unwrap();
+    let qs_messages: Vec<QueueMessage> = tokio::time::timeout(
+        Duration::from_secs(1),
+        alice_qs_stream
+            .filter_map(|message| match message.event {
+                Some(queue_event::Event::Message(message)) => Some(message.try_into().unwrap()),
+                _ => None,
+            })
+            .take(number_of_messages)
+            .collect(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(qs_messages.len(), number_of_messages);
     alice.fully_process_qs_messages(qs_messages).await.unwrap();
     let last_message = alice.last_message(alice_bob_chat).await.unwrap().unwrap();
     assert_eq!(last_message.status(), MessageStatus::Delivered);
