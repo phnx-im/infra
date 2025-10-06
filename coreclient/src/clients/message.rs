@@ -138,10 +138,10 @@ impl CoreUser {
         Ok(())
     }
 
-    pub(crate) async fn send_delivery_receipts<'a>(
+    pub(crate) async fn send_delivery_receipts(
         &self,
         chat_id: ChatId,
-        statuses: impl IntoIterator<Item = (&'a MimiId, MessageStatus)> + Send,
+        statuses: impl IntoIterator<Item = (&MimiId, MessageStatus)> + Send,
     ) -> anyhow::Result<()> {
         if let Some(task) = self.send_delivery_receipts_task(chat_id, statuses).await? {
             task.await?;
