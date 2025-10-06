@@ -22,15 +22,9 @@ class IosStatusBar extends StatelessWidget {
     final columnSpacing = height * 6.0 / 40.0;
     final rowSpacing = height * 5.5 / 40.0;
     final signalHeight = height * 12.0 / 40.0;
-    final wifiSize = Size(
-      height * 22.0 / 40.0,
-      height * 14.0 / 40.0,
-    );
+    final wifiSize = Size(height * 22.0 / 40.0, height * 14.0 / 40.0);
     final wifiStrokeWidth = height * 2.8 / 40.0;
-    final batterySize = Size(
-      height * 25.0 / 40.0,
-      height * 14.0 / 40.0,
-    );
+    final batterySize = Size(height * 25.0 / 40.0, height * 14.0 / 40.0);
 
     return SizedBox(
       width: double.infinity,
@@ -77,7 +71,11 @@ class _IosTime extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       "9:41",
-      style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: color),
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+        color: color,
+      ),
     );
   }
 }
@@ -144,7 +142,9 @@ class _IosWifiSymbol extends StatelessWidget {
     return SizedBox(
       width: size.width,
       height: size.height,
-      child: CustomPaint(painter: _WifiPainter(color: color, strokeWidth: strokeWidth)),
+      child: CustomPaint(
+        painter: _WifiPainter(color: color, strokeWidth: strokeWidth),
+      ),
     );
   }
 }
@@ -161,11 +161,12 @@ class _WifiPainter extends CustomPainter {
     const double startAngle = -pi / 2 - pi / 4;
     const double sweepAngle = pi / 2;
 
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.square;
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..strokeCap = StrokeCap.square;
     final maxR = size.height;
 
     for (double i = 0.01; i <= .4; i += .2) {
@@ -245,9 +246,10 @@ class _BatteryCapPainter extends CustomPainter {
       return;
     }
 
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
 
     final rect = Offset.zero & size;
     final radius = Radius.circular(size.width / 1.2);
