@@ -149,11 +149,15 @@ impl CoreUser {
         Ok(())
     }
 
-    /// Creates a task which sends delivery receipts for the given messages.
+    /// Creates a task which sends delivery receipts for statuses in a chat.
     ///
-    /// The task is `Send` and can be executed as a background task.
+    /// Note that the MLS message corresponding to the delivery receipts is created immediately.
+    /// The task sends the MLS message to the DS and stores the delivery receipts in the local
+    /// database.
     ///
-    /// If there nothing to send, the task returns `Ok(None)`.
+    /// The returned future is `Send` and can be executed as a background task.
+    ///
+    /// If there nothing to send, `Ok(None)` is returned.
     pub(crate) async fn send_delivery_receipts_task(
         &self,
         chat_id: ChatId,
@@ -170,6 +174,23 @@ impl CoreUser {
             return Ok(None);
         }
 
+        // load group and create MLS message
+        let (group_state_ear_key, params) = self
+            .with_transaction(async |txn| {
+                let group_id = chat.group_id();
+                let mut group = Group::load_clean(txn.as_mut(), group_id)
+                    .await?
+                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
+                let params = group.create_message(
+                    &AirOpenMlsProvider::new(txn.as_mut()),
+                    &signing_key,
+                    unsent_receipt.content,
+                )?;
+                group.store_update(txn.as_mut()).await?;
+                Ok((group.group_state_ear_key().clone(), params))
+            })
+            .await?;
+
         let client = self.inner.api_clients.get(&chat.owner_domain())?;
         let signing_key = self.signing_key().clone();
 
@@ -178,26 +199,9 @@ impl CoreUser {
         let mut notifier = self.store_notifier();
 
         let task = async move {
-            // load group and create MLS message
-            let (group, params) = {
-                let mut txn = pool.begin().await?;
-                let group_id = chat.group_id();
-                let mut group = Group::load_clean(&mut txn, group_id)
-                    .await?
-                    .with_context(|| format!("Can't find group with id {group_id:?}"))?;
-                let params = group.create_message(
-                    &AirOpenMlsProvider::new(&mut txn),
-                    &signing_key,
-                    unsent_receipt.content,
-                )?;
-                group.store_update(txn.as_mut()).await?;
-                txn.commit().await?;
-                (group, params)
-            };
-
             // send MLS message to DS
             client
-                .ds_send_message(params, &signing_key, group.group_state_ear_key())
+                .ds_send_message(params, &signing_key, &group_state_ear_key)
                 .await?;
 
             // store delivery receipt report
