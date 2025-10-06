@@ -28,7 +28,7 @@ use chrono::TimeDelta;
 use mimi_room_policy::VerifiedRoomState;
 use mls_assist::{
     group::Group,
-    messages::{AssistedMessageIn, SerializedMlsMessage},
+    messages::AssistedMessageIn,
     openmls::prelude::{LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, RatchetTreeIn, Sender},
 };
 use thiserror::Error;
@@ -137,14 +137,17 @@ impl<Qep: QsConnector> GrpcDs<Qep> {
         Ok((group_data, group_state))
     }
 
+    /// Fans out a message to the given clients (concurrently).
+    ///
+    /// The parallelism is limited by a constant. Logs failures but does not fail the whole
+    /// operation.
     async fn fan_out_message(
         &self,
-        mls_message: SerializedMlsMessage,
+        fan_out_payload: impl Into<DsFanOutPayload>,
         destination_clients: impl IntoIterator<Item = identifiers::QsReference>,
     ) -> TimeStamp {
-        let queue_message_payload = QsQueueMessagePayload::from(mls_message);
-        let timestamp = queue_message_payload.timestamp;
-        let fan_out_payload = DsFanOutPayload::QueueMessage(queue_message_payload);
+        let fan_out_payload = fan_out_payload.into();
+        let timestamp = fan_out_payload.timestamp();
 
         let mut join_set: JoinSet<Result<(), <Qep as QsConnector>::EnqueueError>> = JoinSet::new();
         for client_reference in destination_clients {
@@ -707,6 +710,7 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             .fan_out_message(group_message, destination_clients)
             .await;
 
+        // TODO: Should we fan out the welcome bundles concurrently?
         for message in welcome_bundles {
             self.qs_connector
                 .dispatch(message)
@@ -757,28 +761,21 @@ impl<Qep: QsConnector> DeliveryService for GrpcDs<Qep> {
             sender_index,
             user_profile_key,
         };
-        let fan_out_payload = DsFanOutPayload::QueueMessage(
-            QsQueueMessagePayload::try_from(&params).tls_failed("QsQueueMessagePayload")?,
-        );
+
+        let fan_out_payload =
+            QsQueueMessagePayload::try_from(&params).tls_failed("QsQueueMessagePayload")?;
+
+        group_state.update_user_profile_key(sender_index, params.user_profile_key)?;
 
         let destination_clients: Vec<_> = group_state
             .other_destination_clients(sender_index)
             .collect();
 
-        group_state.update_user_profile_key(sender_index, params.user_profile_key)?;
-
         self.update_group_data(group_data, group_state, &ear_key)
             .await?;
 
-        for client_reference in destination_clients {
-            self.qs_connector
-                .dispatch(DsFanOutMessage {
-                    payload: fan_out_payload.clone(),
-                    client_reference,
-                })
-                .await
-                .map_err(DistributeMessageError::Connector)?;
-        }
+        self.fan_out_message(fan_out_payload, destination_clients)
+            .await;
 
         Ok(Response::new(UpdateProfileKeyResponse {}))
     }
