@@ -45,6 +45,11 @@ pub trait Store {
 
     async fn report_spam(&self, spammer_id: UserId) -> anyhow::Result<()>;
 
+    /// Delete the account on the server and locally.
+    ///
+    /// If `db_path` is provided, the client database is also deleted.
+    async fn delete_account(&self, db_path: Option<&str>) -> anyhow::Result<()>;
+
     /// Loads a user setting
     ///
     /// If the setting is not found, or loading or decoding failed, `None` is returned.

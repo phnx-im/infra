@@ -46,7 +46,7 @@ impl From<PlatformPushToken> for PushToken {
 // TODO: Most likely, it makes sense to move this to the `user_cubit` module. The loading and
 // creation can be free functions there. The other functionality can be attach to the `UserCubit`.
 //
-// See <https://github.com/phnx-im/infra/issues/297>
+// See <https://github.com/phnx-im/air/issues/297>
 pub struct User {
     pub(crate) user: CoreUser,
 }

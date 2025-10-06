@@ -44,7 +44,7 @@ mod user_handle;
 // should do it, to minimize the amount of UI rebuilds in Flutter.
 //
 // See:
-// * <https://github.com/phnx-im/infra/issues/247>
+// * <https://github.com/phnx-im/air/issues/247>
 // * <https://github.com/fzyzcjy/flutter_rust_bridge/issues/2238>
 #[frb(opaque)]
 #[derive(Debug, Clone)]
@@ -351,6 +351,10 @@ impl UserCubitBase {
 
     pub async fn unblock_contact(&self, user_id: UiUserId) -> anyhow::Result<()> {
         self.context.core_user.unblock_contact(user_id.into()).await
+    }
+
+    pub async fn delete_account(&self, db_path: &str) -> anyhow::Result<()> {
+        self.context.core_user.delete_account(Some(db_path)).await
     }
 }
 

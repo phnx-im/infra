@@ -98,7 +98,7 @@ class AppRouterDelegate extends RouterDelegate<EmptyConfig> {
         // whether the page was popped by the user or programmatically.
         //
         // Also see
-        //   * <https://github.com/phnx-im/infra/issues/244>
+        //   * <https://github.com/phnx-im/air/issues/244>
         //   * <https://github.com/flutter/flutter/issues/109494>
         //
         // ignore: deprecated_member_use
@@ -212,6 +212,16 @@ extension on HomeNavigationState {
           const MaterialPage(
             key: ValueKey("user-settings-screen-help"),
             child: HelpScreen(),
+          ),
+        ],
+        UserSettingsScreenType.deleteAccount => [
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-root"),
+            child: UserSettingsScreen(),
+          ),
+          const MaterialPage(
+            key: ValueKey("user-settings-screen-delete-account"),
+            child: DeleteAccountScreen(),
           ),
         ],
       },

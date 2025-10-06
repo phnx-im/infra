@@ -83,6 +83,7 @@ pub enum UserSettingsScreenType {
     EditDisplayName,
     AddUserHandle,
     Help,
+    DeleteAccount,
 }
 
 impl NavigationState {
@@ -322,7 +323,8 @@ impl NavigationCubitBase {
                             Some(
                                 UserSettingsScreenType::EditDisplayName
                                 | UserSettingsScreenType::AddUserHandle
-                                | UserSettingsScreenType::Help,
+                                | UserSettingsScreenType::Help
+                                | UserSettingsScreenType::DeleteAccount,
                             ),
                         ..
                     },

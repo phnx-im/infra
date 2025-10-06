@@ -39,6 +39,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get userSettingsScreen_help => 'Hilfe';
 
   @override
+  String get userSettingsScreen_deleteAccount => 'Delete Account';
+
+  @override
   String get removeUsernameDialog_title => 'Benutzername entfernen';
 
   @override
@@ -502,4 +505,28 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get byteUnit_YB => 'YB';
+
+  @override
+  String get deleteAccountScreen_title => 'Delete My Account';
+
+  @override
+  String get deleteAccountScreen_explanatoryText =>
+      'This will delete your Air account and reset the application. You will not be able to recover your account.';
+
+  @override
+  String get deleteAccountScreen_confirmationInputHint => 'Confirmation';
+
+  @override
+  String get deleteAccountScreen_confirmationInputLabel =>
+      'Type \'delete\' to confirm';
+
+  @override
+  String get deleteAccountScreen_confirmButtonText => 'Delete Account';
+
+  @override
+  String get deleteAccountScreen_cancelButtonText => 'Cancel';
+
+  @override
+  String get deleteAccountScreen_deleteAccountError =>
+      'Something went wrong on our end. Wait a moment, then try again.';
 }

@@ -439,7 +439,7 @@ impl PersistedUserState {
         let inner = Arc::new(CoreUserInner {
             pool,
             key_store,
-            _qs_user_id: qs_user_id,
+            qs_user_id,
             qs_client_id,
             api_clients: api_clients.clone(),
             http_client: reqwest::Client::new(),

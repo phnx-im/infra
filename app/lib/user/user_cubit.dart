@@ -11,7 +11,7 @@ import 'package:air/navigation/navigation.dart';
 
 /// Wrapper of the [UserCubitBase] that implements a [StateStreamableSource]
 ///
-// See <https://github.com/phnx-im/infra/issues/248>
+// See <https://github.com/phnx-im/air/issues/248>
 class UserCubit implements StateStreamableSource<UiUser> {
   UserCubit({
     required CoreClient coreClient,
@@ -83,4 +83,7 @@ class UserCubit implements StateStreamableSource<UiUser> {
 
   Future<void> reportSpam(UiUserId spammerId) =>
       _impl.reportSpam(spammerId: spammerId);
+
+  Future<void> deleteAccount() async =>
+      _impl.deleteAccount(dbPath: await dbPath());
 }
