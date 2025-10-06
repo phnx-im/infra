@@ -109,7 +109,7 @@ struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,
     http_client: reqwest::Client,
-    _qs_user_id: QsUserId,
+    qs_user_id: QsUserId,
     qs_client_id: QsClientId,
     key_store: MemoryUserKeyStore,
     store_notifications_tx: StoreNotificationsSender,

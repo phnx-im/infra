@@ -16,7 +16,7 @@ void main() {
           debugShowCheckedModeBanner: false,
           theme: themeData(MediaQuery.platformBrightnessOf(context)),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          home: const DeleteAccountView(isConfirmed: true),
+          home: const DeleteAccountScreen(),
         );
       },
     );
