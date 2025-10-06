@@ -109,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
         qs_connector,
         rate_limits: RateLimitsConfig {
             period: Duration::from_millis(500),
-            burst_size: 20,
+            burst_size: 100,
         },
     })
     .await;
