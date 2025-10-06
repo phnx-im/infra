@@ -353,8 +353,8 @@ impl UserCubitBase {
         self.context.core_user.unblock_contact(user_id.into()).await
     }
 
-    pub async fn delete_account(&self) -> anyhow::Result<()> {
-        self.context.core_user.delete_account().await
+    pub async fn delete_account(&self, db_path: &str) -> anyhow::Result<()> {
+        self.context.core_user.delete_account(Some(db_path)).await
     }
 }
 

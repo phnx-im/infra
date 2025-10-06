@@ -383,6 +383,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUserCubitUserCubitBaseDeleteAccount({
     required UserCubitBase that,
+    required String dbPath,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseDeleteChat({
@@ -3112,6 +3113,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUserCubitUserCubitBaseDeleteAccount({
     required UserCubitBase that,
+    required String dbPath,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -3121,6 +3123,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
+          sse_encode_String(dbPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3133,7 +3136,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseDeleteAccountConstMeta,
-        argValues: [that],
+        argValues: [that, dbPath],
         apiImpl: this,
       ),
     );
@@ -3142,7 +3145,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUserCubitUserCubitBaseDeleteAccountConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_delete_account",
-        argNames: ["that"],
+        argNames: ["that", "dbPath"],
       );
 
   @override
@@ -12263,8 +12266,8 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
   Future<List<UiContact>> get contacts =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseContacts(that: this);
 
-  Future<void> deleteAccount() => RustLib.instance.api
-      .crateApiUserCubitUserCubitBaseDeleteAccount(that: this);
+  Future<void> deleteAccount({required String dbPath}) => RustLib.instance.api
+      .crateApiUserCubitUserCubitBaseDeleteAccount(that: this, dbPath: dbPath);
 
   Future<void> deleteChat(ChatId chatId) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseDeleteChat(that: this, chatId: chatId);
