@@ -14,17 +14,24 @@ class IosStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const baseHeight = 40.0;
     final padding = EdgeInsets.only(
-      left: height * 48.0 / 40.0,
-      top: height * 8.0 / 40.0,
-      right: height * 23.0 / 40.0,
+      left: height * 48.0 / baseHeight,
+      top: height * 16.0 / baseHeight,
+      right: height * 28.0 / baseHeight,
     );
-    final columnSpacing = height * 6.0 / 40.0;
-    final rowSpacing = height * 5.5 / 40.0;
-    final signalHeight = height * 12.0 / 40.0;
-    final wifiSize = Size(height * 22.0 / 40.0, height * 14.0 / 40.0);
-    final wifiStrokeWidth = height * 2.8 / 40.0;
-    final batterySize = Size(height * 25.0 / 40.0, height * 14.0 / 40.0);
+    final columnSpacing = height * 6.0 / baseHeight;
+    final rowSpacing = height * 5.5 / baseHeight;
+    final signalHeight = height * 12.0 / baseHeight;
+    final wifiSize = Size(
+      height * 22.0 / baseHeight,
+      height * 14.0 / baseHeight,
+    );
+    final wifiStrokeWidth = height * 2.8 / baseHeight;
+    final batterySize = Size(
+      height * 25.0 / baseHeight,
+      height * 14.0 / baseHeight,
+    );
 
     return SizedBox(
       width: double.infinity,
@@ -35,7 +42,7 @@ class IosStatusBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _IosTime(color: color, fontSize: height * 18.0 / 40.0),
+            _IosTime(color: color, fontSize: height * 18.0 / baseHeight),
             Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
