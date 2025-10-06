@@ -23,6 +23,8 @@ void main() {
 
     testWidgets('renders correctly', (tester) async {
       await tester.pumpWidget(buildSubject());
+      await tester.enterText(find.byType(TextField), 'delete');
+      await tester.pumpAndSettle();
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/delete_account_screen.png'),
