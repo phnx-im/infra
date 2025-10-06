@@ -183,7 +183,7 @@ impl CoreUser {
                     .with_context(|| format!("Can't find group with id {group_id:?}"))?;
                 let params = group.create_message(
                     &AirOpenMlsProvider::new(txn.as_mut()),
-                    &signing_key,
+                    self.signing_key(),
                     unsent_receipt.content,
                 )?;
                 group.store_update(txn.as_mut()).await?;
