@@ -14,18 +14,18 @@ import 'product_shot_device.dart';
 class ProductShot extends StatelessWidget {
   const ProductShot({
     super.key,
-    required this.widthPx,
-    required this.heightPx,
+    required this.size,
     required this.backgroundColor,
-    required this.label,
+    required this.header,
+    required this.subheader,
     required this.child,
     this.device,
   });
 
-  final int widthPx;
-  final int heightPx;
+  final Size size;
   final Color backgroundColor;
-  final String label;
+  final String header;
+  final String subheader;
   final ProductShotDevice? device;
   final Widget child;
 
@@ -46,8 +46,8 @@ class ProductShot extends StatelessWidget {
 
     return Center(
       child: SizedBox(
-        width: widthPx.toDouble(),
-        height: heightPx.toDouble(),
+        width: size.width,
+        height: size.height,
         child: DecoratedBox(
           // Light metallic grey effect using a subtle vertical gradient.
           decoration: BoxDecoration(
@@ -74,7 +74,7 @@ class ProductShot extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(height: topSpacer),
-                    _ShotTitle(text: label),
+                    _ShotTitle(text: header),
                     const SizedBox(height: 56),
                     Expanded(
                       child: Transform.translate(
