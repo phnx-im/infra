@@ -74,7 +74,7 @@ class ProductShot extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(height: topSpacer),
-                    _ShotTitle(text: header),
+                    _ShotTitle(text: "$header\n$subheader"),
                     const SizedBox(height: 56),
                     Expanded(
                       child: Transform.translate(
@@ -179,7 +179,7 @@ _FrameStyle _frameStyleFor(ProductShotPlatform platform) {
         cornerRadius: 48,
         frameColor: Color(0xFF1C262F),
         screenBackgroundColor: Colors.black,
-        verticalOffsetFactor: 0.18,
+        verticalOffsetFactor: 0.14,
       );
     case ProductShotPlatform.ios:
       return const _FrameStyle(
@@ -187,7 +187,7 @@ _FrameStyle _frameStyleFor(ProductShotPlatform platform) {
         cornerRadius: 64,
         frameColor: Color(0xFFF2F4F6),
         screenBackgroundColor: Colors.black,
-        verticalOffsetFactor: 0.18,
+        verticalOffsetFactor: 0.14,
       );
     case ProductShotPlatform.macos:
       return const _FrameStyle(
@@ -195,7 +195,7 @@ _FrameStyle _frameStyleFor(ProductShotPlatform platform) {
         cornerRadius: 48,
         frameColor: Color(0xFF1F1F23),
         screenBackgroundColor: Color(0xFF121212),
-        verticalOffsetFactor: 0.18,
+        verticalOffsetFactor: 0.14,
       );
     case ProductShotPlatform.windows:
     case ProductShotPlatform.linux:

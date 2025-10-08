@@ -39,7 +39,7 @@ void main() {
     const size = Size(1242, 2000);
     const backgroundColor = Color.fromARGB(255, 221, 227, 234);
     const header = 'Easy private messaging.';
-    const subheader = 'Every message in Air is end-to-end encrypted.';
+    const subheader = 'Every message encrypted.';
 
     late MockNavigationCubit navigationCubit;
     late MockChatListCubit chatListCubit;
@@ -137,6 +137,7 @@ void main() {
     late MockChatDetailsCubit chatDetailsCubit;
     late MockMessageListCubit messageListCubit;
     late MockUserSettingsCubit userSettingsCubit;
+    late MockAttachmentsRepository attachmentsRepository;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
@@ -145,20 +146,20 @@ void main() {
       chatDetailsCubit = MockChatDetailsCubit();
       messageListCubit = MockMessageListCubit();
       userSettingsCubit = MockUserSettingsCubit();
+      attachmentsRepository = MockAttachmentsRepository();
+
+      final chat = chats[0];
 
       when(() => navigationCubit.state).thenReturn(
-        NavigationState.home(home: HomeNavigationState(chatId: chats[2].id)),
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
       );
-      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: ownIdx));
       when(
         () => contactsCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
-      when(() => chatDetailsCubit.state).thenReturn(
-        ChatDetailsState(
-          chat: chats[2],
-          members: [1.userId(), 2.userId(), 3.userId()],
-        ),
-      );
+      when(
+        () => chatDetailsCubit.state,
+      ).thenReturn(ChatDetailsState(chat: chat, members: [fredId]));
       when(
         () => chatDetailsCubit.markAsRead(
           untilMessageId: any(named: "untilMessageId"),
@@ -171,57 +172,61 @@ void main() {
         ),
       ).thenAnswer((_) async => Future.value());
       when(() => userSettingsCubit.state).thenReturn(const UserSettings());
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(fredMessages));
     });
 
-    Widget buildSubject(ProductShotPlatform platform) => MultiBlocProvider(
-      providers: [
-        BlocProvider<NavigationCubit>.value(value: navigationCubit),
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
-        BlocProvider<MessageListCubit>.value(value: messageListCubit),
-        BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          final shot = ProductShot(
-            size: size,
-            backgroundColor: backgroundColor,
-            header: header,
-            subheader: subheader,
-            device: ProductShotDevices.forPlatform(platform),
-            child: const ChatScreenView(
-              createMessageCubit: createMockMessageCubit,
-            ),
-          );
+    Widget buildSubject(ProductShotPlatform platform) =>
+        RepositoryProvider<AttachmentsRepository>.value(
+          value: attachmentsRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<NavigationCubit>.value(value: navigationCubit),
+              BlocProvider<UserCubit>.value(value: userCubit),
+              BlocProvider<UsersCubit>.value(value: contactsCubit),
+              BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
+              BlocProvider<MessageListCubit>.value(value: messageListCubit),
+              BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
+            ],
+            child: Builder(
+              builder: (context) {
+                final shot = ProductShot(
+                  size: size,
+                  backgroundColor: backgroundColor,
+                  header: header,
+                  subheader: subheader,
+                  device: ProductShotDevices.forPlatform(platform),
+                  child: const ChatScreenView(
+                    createMessageCubit: createMockMessageCubit,
+                  ),
+                );
 
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            themeMode: ThemeMode.light,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: Material(
-              child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(platformBrightness: Brightness.light),
-                child: shot,
-              ),
+                return MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: lightTheme,
+                  themeMode: ThemeMode.light,
+                  localizationsDelegates:
+                      AppLocalizations.localizationsDelegates,
+                  home: Material(
+                    child: MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(platformBrightness: Brightness.light),
+                      child: shot,
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
 
     testProductShot(
       "Private Chat (iOS)",
       hostPlatform: "macos",
       physicalSize: iosPhysicalSize,
       (tester) async {
-        when(
-          () => messageListCubit.state,
-        ).thenReturn(MockMessageListState(messages));
-
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
@@ -237,10 +242,6 @@ void main() {
       hostPlatform: "linux",
       physicalSize: androidPhysicalSize,
       (tester) async {
-        when(
-          () => messageListCubit.state,
-        ).thenReturn(MockMessageListState(messages));
-
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));
@@ -264,6 +265,7 @@ void main() {
     late MockChatDetailsCubit chatDetailsCubit;
     late MockMessageListCubit messageListCubit;
     late MockUserSettingsCubit userSettingsCubit;
+    late MockAttachmentsRepository attachmentsRepository;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
@@ -272,19 +274,19 @@ void main() {
       chatDetailsCubit = MockChatDetailsCubit();
       messageListCubit = MockMessageListCubit();
       userSettingsCubit = MockUserSettingsCubit();
+      attachmentsRepository = MockAttachmentsRepository();
+
+      final chat = chats[4];
 
       when(() => navigationCubit.state).thenReturn(
-        NavigationState.home(home: HomeNavigationState(chatId: chats[2].id)),
+        NavigationState.home(home: HomeNavigationState(chatId: chat.id)),
       );
-      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
+      when(() => userCubit.state).thenReturn(MockUiUser(id: ownIdx));
       when(
         () => contactsCubit.state,
       ).thenReturn(MockUsersState(profiles: userProfiles));
       when(() => chatDetailsCubit.state).thenReturn(
-        ChatDetailsState(
-          chat: chats[2],
-          members: [1.userId(), 2.userId(), 3.userId()],
-        ),
+        ChatDetailsState(chat: chat, members: gardeningPartyMembers),
       );
       when(
         () => chatDetailsCubit.markAsRead(
@@ -298,57 +300,61 @@ void main() {
         ),
       ).thenAnswer((_) async => Future.value());
       when(() => userSettingsCubit.state).thenReturn(const UserSettings());
+      when(
+        () => messageListCubit.state,
+      ).thenReturn(MockMessageListState(gardeningPartyMessages));
     });
 
-    Widget buildSubject(ProductShotPlatform platform) => MultiBlocProvider(
-      providers: [
-        BlocProvider<NavigationCubit>.value(value: navigationCubit),
-        BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
-        BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
-        BlocProvider<MessageListCubit>.value(value: messageListCubit),
-        BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
-      ],
-      child: Builder(
-        builder: (context) {
-          final shot = ProductShot(
-            size: size,
-            backgroundColor: backgroundColor,
-            header: header,
-            subheader: subheader,
-            device: ProductShotDevices.forPlatform(platform),
-            child: const ChatScreenView(
-              createMessageCubit: createMockMessageCubit,
-            ),
-          );
+    Widget buildSubject(ProductShotPlatform platform) =>
+        RepositoryProvider<AttachmentsRepository>.value(
+          value: attachmentsRepository,
+          child: MultiBlocProvider(
+            providers: [
+              BlocProvider<NavigationCubit>.value(value: navigationCubit),
+              BlocProvider<UserCubit>.value(value: userCubit),
+              BlocProvider<UsersCubit>.value(value: contactsCubit),
+              BlocProvider<ChatDetailsCubit>.value(value: chatDetailsCubit),
+              BlocProvider<MessageListCubit>.value(value: messageListCubit),
+              BlocProvider<UserSettingsCubit>.value(value: userSettingsCubit),
+            ],
+            child: Builder(
+              builder: (context) {
+                final shot = ProductShot(
+                  size: size,
+                  backgroundColor: backgroundColor,
+                  header: header,
+                  subheader: subheader,
+                  device: ProductShotDevices.forPlatform(platform),
+                  child: const ChatScreenView(
+                    createMessageCubit: createMockMessageCubit,
+                  ),
+                );
 
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            themeMode: ThemeMode.light,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            home: Material(
-              child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(platformBrightness: Brightness.light),
-                child: shot,
-              ),
+                return MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: lightTheme,
+                  themeMode: ThemeMode.light,
+                  localizationsDelegates:
+                      AppLocalizations.localizationsDelegates,
+                  home: Material(
+                    child: MediaQuery(
+                      data: MediaQuery.of(
+                        context,
+                      ).copyWith(platformBrightness: Brightness.light),
+                      child: shot,
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
 
     testProductShot(
       "Group Chat (iOS)",
       hostPlatform: "macos",
       physicalSize: iosPhysicalSize,
       (tester) async {
-        when(
-          () => messageListCubit.state,
-        ).thenReturn(MockMessageListState(messages));
-
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
@@ -364,10 +370,6 @@ void main() {
       hostPlatform: "linux",
       physicalSize: androidPhysicalSize,
       (tester) async {
-        when(
-          () => messageListCubit.state,
-        ).thenReturn(MockMessageListState(messages));
-
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));

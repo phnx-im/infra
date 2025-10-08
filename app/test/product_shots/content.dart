@@ -9,9 +9,10 @@ import 'package:air/core/core.dart';
 
 import '../helpers.dart';
 
-final ownId = 10.userId();
+const ownIdx = 1;
+final ownId = ownIdx.userId();
 
-final samId = 1.userId();
+final samId = ownId;
 final fredId = 2.userId();
 final jessicaId = 3.userId();
 final daveId = 4.userId();
@@ -30,12 +31,12 @@ final ireneChatId = 7.chatId();
 final kamalChatId = 8.chatId();
 
 final scienceClubId = 10.chatId();
-final gardeningClubId = 11.chatId();
+final gardeningPartyId = 11.chatId();
 final dinnerPartyId = 12.chatId();
 
 final ownProfile = UiUserProfile(userId: ownId, displayName: 'Ellie');
 final samProfile = UiUserProfile(userId: samId, displayName: 'Sam');
-final fredProfile = UiUserProfile(userId: fredId, displayName: 'Bob');
+final fredProfile = UiUserProfile(userId: fredId, displayName: 'Fred');
 final jessicaProfile = UiUserProfile(userId: jessicaId, displayName: 'Jessica');
 final daveProfile = UiUserProfile(userId: daveId, displayName: 'Dave');
 final frankProfile = UiUserProfile(userId: frankId, displayName: 'Frank');
@@ -58,16 +59,20 @@ final userProfiles = [
 var messageIdx = 1;
 
 final chats = [
-  // Sam
+  // Fred
   UiChatDetails(
-    id: samChatId,
+    id: fredChatId,
     status: const UiChatStatus.active(),
-    chatType: UiChatType_Connection(samProfile),
-    unreadMessages: 0,
+    chatType: UiChatType_Connection(fredProfile),
+    unreadMessages: 1,
     messagesCount: 1,
-    attributes: const UiChatAttributes(title: 'Sam', picture: null),
+    attributes: const UiChatAttributes(title: 'Fred', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
-    lastMessage: _lastChatMessage(samChatId, samId, 'Hi! How are you?'),
+    lastMessage: _lastChatMessage(
+      fredChatId,
+      fredId,
+      'My favorite planet is Saturn. It has such cool rings. But I also like Venus a lot.',
+    ),
   ),
   // Jessica
   UiChatDetails(
@@ -89,14 +94,14 @@ final chats = [
     id: scienceClubId,
     status: const UiChatStatus.active(),
     chatType: const UiChatType_Group(),
-    unreadMessages: 2,
-    messagesCount: 2,
+    unreadMessages: 0,
+    messagesCount: 0,
     attributes: const UiChatAttributes(title: 'Science club', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: _lastChatMessage(
       scienceClubId,
       samId,
-      "My favorite planet is Saturn. It has such cool rings. But I also like Venus a lot.",
+      "Riemanian Zeta function is one of the most important mathematical functions in the history of mathematics.",
     ),
   ),
   // Dave
@@ -116,7 +121,7 @@ final chats = [
   ),
   // Gardening club
   UiChatDetails(
-    id: gardeningClubId,
+    id: gardeningPartyId,
     status: const UiChatStatus.active(),
     chatType: const UiChatType_Group(),
     unreadMessages: 0,
@@ -124,9 +129,9 @@ final chats = [
     attributes: const UiChatAttributes(title: 'Gardening club', picture: null),
     lastUsed: '2023-01-01T00:00:00.000Z',
     lastMessage: _lastChatMessage(
-      gardeningClubId,
+      gardeningPartyId,
       samId,
-      "Blueberries are the best",
+      "Last year I grew 5 different varieties of carrots! Let me if I can find a good primer about how to grow them...",
     ),
   ),
   // Frank
@@ -241,3 +246,150 @@ MessageContent _simpleMessage(String msg) {
     ],
   );
 }
+
+final fredMessages = [
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: fredChatId,
+    timestamp: '2023-01-01T20:13:00.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: ownId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage("Hey Fred, what’s your favorite planet?"),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
+  ),
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: fredChatId,
+    timestamp: '2023-01-01T00:00:00.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: fredId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage(
+            "My favorite planet is Saturn. It has such cool rings. But I also like Venus a lot.",
+          ),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.start,
+    status: UiMessageStatus.sent,
+  ),
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: fredChatId,
+    timestamp: '2023-01-01T20:14:00.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: fredId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage("Isn't it beautiful?"),
+          attachments: [
+            UiAttachment(
+              attachmentId: 1.attachmentId(),
+              filename: "saturn.png",
+              contentType: "application/png",
+              size: 1024,
+              description: "Saturn",
+              imageMetadata: const UiImageMetadata(
+                blurhash: "LEHLk~WB2yk8pyo0adR*.7kCMdnj",
+                width: 400,
+                height: 300,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.end,
+    status: UiMessageStatus.sent,
+  ),
+];
+
+final gardeningPartyMembers = [samId, fredId, jessicaId];
+
+final gardeningPartyMessages = [
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: gardeningPartyId,
+    timestamp: '2023-01-01T20:14:00.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: samId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage(
+            'Does anyone know the best time of year to plant carrots?',
+          ),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.read,
+  ),
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: gardeningPartyId,
+    timestamp: '2023-01-01T20:14:01.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: fredId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage('I don’t know, I’ve never tried it.'),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
+  ),
+  UiChatMessage(
+    id: (messageIdx++).messageId(),
+    chatId: gardeningPartyId,
+    timestamp: '2023-01-01T20:15:02.000Z',
+    message: UiMessage_Content(
+      UiContentMessage(
+        sender: jessicaId,
+        sent: true,
+        edited: false,
+        content: UiMimiContent(
+          plainBody: "",
+          topicId: Uint8List(0),
+          content: _simpleMessage(
+            'Last year I grew 5 different varieties of carrots! Let me if I can find a good primer about how to grow them...',
+          ),
+          attachments: [],
+        ),
+      ),
+    ),
+    position: UiFlightPosition.single,
+    status: UiMessageStatus.sent,
+  ),
+];
