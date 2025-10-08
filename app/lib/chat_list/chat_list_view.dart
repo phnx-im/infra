@@ -13,19 +13,23 @@ import 'chat_list_cubit.dart';
 import 'chat_list_header.dart';
 
 class ChatListContainer extends StatelessWidget {
-  const ChatListContainer({super.key});
+  const ChatListContainer({super.key, this.isStandalone = false});
+
+  final bool isStandalone;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => ChatListCubit(userCubit: context.read<UserCubit>()),
-      child: const ChatListView(),
+      child: ChatListView(scaffold: isStandalone),
     );
   }
 }
 
 class ChatListView extends StatelessWidget {
-  const ChatListView({super.key});
+  const ChatListView({super.key, this.scaffold = false});
+
+  final bool scaffold;
 
   double _topPadding() {
     return isPointer() ? Spacings.l : kToolbarHeight;
@@ -33,7 +37,7 @@ class ChatListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final widget = Container(
       color: CustomColorScheme.of(context).backgroundBase.primary,
       padding: EdgeInsets.only(top: _topPadding()),
       child: const Column(
@@ -41,5 +45,11 @@ class ChatListView extends StatelessWidget {
         children: [ChatListHeader(), Expanded(child: ChatListContent())],
       ),
     );
+    return scaffold
+        ? Scaffold(
+          backgroundColor: CustomColorScheme.of(context).backgroundBase.primary,
+          body: widget,
+        )
+        : widget;
   }
 }
