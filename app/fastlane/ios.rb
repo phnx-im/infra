@@ -86,6 +86,15 @@ platform :ios do
           skip_waiting_for_build_processing: true,
           distribute_external: false,
         )
+
+        # Do a precheck for known issues
+        precheck(
+          api_key: api_key,
+          app_identifier: app_identifier,
+          team_id: team_id,
+          platform: "ios",
+          include_in_app_purchases: false
+        )
       end
     end
   
