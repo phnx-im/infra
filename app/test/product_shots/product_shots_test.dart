@@ -13,7 +13,6 @@ import 'package:air/message_list/message_list.dart';
 import 'package:air/navigation/navigation_cubit.dart';
 import 'package:air/theme/theme_data.dart';
 import 'package:air/user/user.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,8 +99,8 @@ void main() {
     );
 
     testProductShot(
+      "Chat List (iOS)",
       hostPlatform: 'macos',
-      targetPlatform: TargetPlatform.iOS,
       physicalSize: iosPhysicalSize,
       (tester) async {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
@@ -113,8 +112,8 @@ void main() {
     );
 
     testProductShot(
+      "Chat List (Android)",
       hostPlatform: 'linux',
-      targetPlatform: TargetPlatform.android,
       physicalSize: androidPhysicalSize,
       (tester) async {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));
@@ -215,8 +214,8 @@ void main() {
     );
 
     testProductShot(
+      "Private Chat (iOS)",
       hostPlatform: "macos",
-      targetPlatform: TargetPlatform.iOS,
       physicalSize: iosPhysicalSize,
       (tester) async {
         when(
@@ -234,8 +233,8 @@ void main() {
     );
 
     testProductShot(
+      "Private Chat (Android)",
       hostPlatform: "linux",
-      targetPlatform: TargetPlatform.android,
       physicalSize: androidPhysicalSize,
       (tester) async {
         when(
@@ -342,8 +341,8 @@ void main() {
     );
 
     testProductShot(
+      "Group Chat (iOS)",
       hostPlatform: "macos",
-      targetPlatform: TargetPlatform.iOS,
       physicalSize: iosPhysicalSize,
       (tester) async {
         when(
@@ -361,8 +360,8 @@ void main() {
     );
 
     testProductShot(
+      "Group Chat (Android)",
       hostPlatform: "linux",
-      targetPlatform: TargetPlatform.android,
       physicalSize: androidPhysicalSize,
       (tester) async {
         when(
@@ -382,14 +381,13 @@ void main() {
 }
 
 void testProductShot(
+  String description,
   WidgetTesterCallback callback, {
   required String hostPlatform,
-  required TargetPlatform targetPlatform,
   required Size physicalSize,
 }) async {
-  testWidgets(targetPlatform.toString(), (tester) async {
+  testWidgets(description, (tester) async {
     debugDisableShadows = false;
-    debugDefaultTargetPlatformOverride = targetPlatform;
 
     tester.view.physicalSize = androidPhysicalSize;
     tester.view.devicePixelRatio = 1.0;
@@ -402,7 +400,6 @@ void testProductShot(
       await callback(tester);
     } finally {
       debugDisableShadows = true;
-      debugDefaultTargetPlatformOverride = null;
     }
   }, skip: Platform.operatingSystem != hostPlatform);
 }
