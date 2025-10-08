@@ -16,13 +16,15 @@ void main() {
           debugShowCheckedModeBanner: false,
           theme: themeData(MediaQuery.platformBrightnessOf(context)),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          home: const DeleteAccountView(isConfirmed: true),
+          home: const DeleteAccountScreen(),
         );
       },
     );
 
     testWidgets('renders correctly', (tester) async {
       await tester.pumpWidget(buildSubject());
+      await tester.enterText(find.byType(TextField), 'delete');
+      await tester.pumpAndSettle();
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/delete_account_screen.png'),

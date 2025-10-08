@@ -30,5 +30,8 @@ pub use crate::{
     contacts::Contact,
     user_handles::UserHandleRecord,
     user_profiles::{Asset, DisplayName, DisplayNameError, UserProfile},
-    utils::persistence::{delete_client_database, delete_databases, open_client_db},
+    utils::persistence::{
+        delete_client_database, delete_databases, export_client_database, import_client_database,
+        open_client_db,
+    },
 };

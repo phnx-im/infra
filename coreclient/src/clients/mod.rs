@@ -49,6 +49,7 @@ use crate::{
     Asset, UserHandleRecord,
     contacts::HandleContact,
     groups::Group,
+    key_stores::queue_ratchets::StorableQsQueueRatchet,
     store::Store,
     utils::{image::resize_profile_image, persistence::delete_client_database},
 };
@@ -62,7 +63,7 @@ use crate::{
     clients::connection_offer::FriendshipPackage,
     contacts::Contact,
     groups::openmls_provider::AirOpenMlsProvider,
-    key_stores::{MemoryUserKeyStore, queue_ratchets::QueueType},
+    key_stores::MemoryUserKeyStore,
     store::{StoreNotification, StoreNotifier},
     user_profiles::IndexedUserProfile,
     utils::persistence::{open_air_db, open_client_db, open_db_in_memory},
@@ -108,7 +109,7 @@ struct CoreUserInner {
     pool: SqlitePool,
     api_clients: ApiClients,
     http_client: reqwest::Client,
-    _qs_user_id: QsUserId,
+    qs_user_id: QsUserId,
     qs_client_id: QsClientId,
     key_store: MemoryUserKeyStore,
     store_notifications_tx: StoreNotificationsSender,
@@ -347,41 +348,6 @@ impl CoreUser {
             .unwrap_or_else(|| UserProfile::from_user_id(user_id))
     }
 
-    /// Streams all messages from the queue and acks them.
-    ///
-    /// The batch of messages is returned. The stream is closed. This function is intended to be
-    /// called in the background service or tests.
-    async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
-        let (stream, responder) = self.listen_queue().await?;
-
-        let mut stream = stream
-            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
-            .filter_map(|message| match message.event? {
-                queue_event::Event::Empty(_) => unreachable!(),
-                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
-                queue_event::Event::Payload(_) => None,
-            });
-
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        while let Some(message) = stream.next().await {
-            messages.push(message);
-        }
-
-        if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
-            responder
-                .ack(max_sequence_number + 1)
-                .await
-                .inspect_err(|error| {
-                    error!(%error, "failed to ack QS messages");
-                })
-                .ok();
-        }
-
-        drop(stream); // must be alive until the ack is sent
-
-        Ok(messages)
-    }
-
     /// Fetch and process messages from all user handle queues.
     ///
     /// Returns the list of [`ChatId`]s of any newly created chats.
@@ -440,8 +406,21 @@ impl CoreUser {
         Ok(messages)
     }
 
+    /// Fetches all messages from the QS queue.
+    ///
+    /// Must *not* be used outside of integration tests, because the messages are not acked.
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue().await
+        let (stream, _responder) = self.listen_queue().await?;
+        let messages = stream
+            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
+            .filter_map(|message| match message.event? {
+                queue_event::Event::Empty(_) => unreachable!(),
+                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
+                queue_event::Event::Payload(_) => None,
+            })
+            .collect()
+            .await;
+        Ok(messages)
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {
@@ -527,15 +506,13 @@ impl CoreUser {
     pub async fn listen_queue(
         &self,
     ) -> Result<(impl Stream<Item = QueueEvent> + use<>, QsListenResponder)> {
-        let sequence_number_start = QueueType::Qs.load_sequence_number(self.pool()).await?;
+        let queue_ratchet = StorableQsQueueRatchet::load(self.pool()).await?;
+        let sequence_number_start = queue_ratchet.sequence_number();
         let api_client = self.inner.api_clients.default_client()?;
         let (stream, responder) = api_client
             .listen_queue(self.inner.qs_client_id, sequence_number_start)
             .await?;
-        let responder = QsListenResponder {
-            responder,
-            pool: self.pool().clone(),
-        };
+        let responder = QsListenResponder { responder };
         Ok((stream, responder))
     }
 
@@ -782,7 +759,6 @@ impl CoreUser {
 #[derive(Debug)]
 pub struct QsListenResponder {
     responder: ListenResponder,
-    pool: SqlitePool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -796,12 +772,6 @@ pub enum QsListenResponderError {
 impl QsListenResponder {
     pub async fn ack(&self, up_to_sequence_number: u64) -> Result<(), QsListenResponderError> {
         self.responder.ack(up_to_sequence_number).await?;
-        QueueType::Qs
-            .update_sequence_number(&self.pool, up_to_sequence_number)
-            .await
-            .inspect_err(|error| {
-                error!(%error, "failed to update QS sequence number");
-            })?;
         Ok(())
     }
 }

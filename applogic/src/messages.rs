@@ -3,9 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use aircommon::messages::QueueMessage;
-use aircoreclient::{ChatId, clients::process::process_qs::ProcessedQsMessages};
+use aircoreclient::{
+    ChatId,
+    clients::{process::process_qs::ProcessedQsMessages, queue_event},
+};
 use anyhow::Result;
-use tracing::debug;
+use tokio_stream::StreamExt;
+use tracing::{debug, error};
 
 use crate::{api::user::User, notifications::NotificationContent};
 
@@ -22,15 +26,40 @@ impl User {
 
     /// Fetch and process QS messages
     async fn fetch_and_process_qs_messages(&self) -> Result<ProcessedQsMessages> {
-        let qs_messages = self.user.qs_fetch_messages().await?;
-        self.user.fully_process_qs_messages(qs_messages).await
-    }
+        let (stream, responder) = self.user.listen_queue().await?;
+        let mut stream = stream
+            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
+            .filter_map(|message| match message.event? {
+                queue_event::Event::Empty(_) => unreachable!(),
+                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
+                queue_event::Event::Payload(_) => None,
+            });
 
-    pub(crate) async fn process_qs_messages(
-        &self,
-        qs_messages: Vec<QueueMessage>,
-    ) -> Result<ProcessedQsMessages> {
-        self.user.fully_process_qs_messages(qs_messages).await
+        let mut messages: Vec<QueueMessage> = Vec::new();
+        while let Some(message) = stream.next().await {
+            messages.push(message);
+        }
+
+        // Invariant: messages are sorted by sequence number
+        let max_sequence_number = messages.last().map(|m| m.sequence_number);
+
+        let processed_messages = self.user.fully_process_qs_messages(messages).await?;
+
+        if let Some(max_sequence_number) = max_sequence_number {
+            // We received some messages, so we can ack them *after* they were fully
+            // processed. In particular, the queue ratchet sequence number was written back
+            // into the database.
+            responder
+                .ack(max_sequence_number + 1)
+                .await
+                .inspect_err(|error| {
+                    error!(%error, "failed to ack QS messages");
+                })
+                .ok();
+        }
+        drop(stream); // must be alive until the ack is sent
+
+        Ok(processed_messages)
     }
 
     /// Fetch and process both QS and AS messages

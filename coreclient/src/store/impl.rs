@@ -43,8 +43,8 @@ impl Store for CoreUser {
         self.report_spam(spammer_id).await
     }
 
-    async fn delete_account(&self) -> anyhow::Result<()> {
-        self.delete_account().await
+    async fn delete_account(&self, db_path: Option<&str>) -> anyhow::Result<()> {
+        self.delete_account(db_path).await
     }
 
     async fn user_setting<T: UserSetting>(&self) -> Option<T> {

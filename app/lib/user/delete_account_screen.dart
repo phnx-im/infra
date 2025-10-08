@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:air/core/core.dart';
 import 'package:air/l10n/l10n.dart';
 import 'package:air/main.dart';
 import 'package:air/theme/theme.dart';
@@ -23,19 +24,8 @@ class DeleteAccountScreen extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confirmationText = useState("");
-    final isConfirmed = confirmationText.value == _confirmationText;
-    return DeleteAccountView(isConfirmed: isConfirmed);
-  }
-}
+    final isConfirmed = useState(false);
 
-class DeleteAccountView extends HookWidget {
-  const DeleteAccountView({required this.isConfirmed, super.key});
-
-  final bool isConfirmed;
-
-  @override
-  Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
     final dangerColor = CustomColorScheme.of(context).function.danger;
@@ -73,7 +63,9 @@ class DeleteAccountView extends HookWidget {
                     const SizedBox(height: Spacings.l),
 
                     TextField(
-                      onChanged: (value) => isConfirmed,
+                      onChanged:
+                          (value) =>
+                              isConfirmed.value = value == _confirmationText,
                       decoration: InputDecoration(
                         hintText: loc.deleteAccountScreen_confirmationInputHint,
                       ),
@@ -106,7 +98,7 @@ class DeleteAccountView extends HookWidget {
                             width:
                                 isSmallScreen(context) ? double.infinity : null,
                             child: _DeleteAccountButton(
-                              isConfirmed: isConfirmed,
+                              isConfirmed: isConfirmed.value,
                             ),
                           ),
                           SizedBox(
@@ -166,8 +158,10 @@ class _DeleteAccountButton extends StatelessWidget {
     isDeleting.value = true;
 
     final userCubit = context.read<UserCubit>();
+    final coreClient = context.read<CoreClient>();
     try {
       await userCubit.deleteAccount();
+      coreClient.logout();
     } catch (e) {
       _log.severe("Failed to delete account: $e");
       if (context.mounted) {

@@ -80,7 +80,7 @@ impl<CT, Payload: RatchetPayload<CT>> QueueRatchet<CT, Payload> {
     }
 
     /// Encrypt the given payload.
-    pub fn encrypt(&mut self, payload: Payload) -> Result<QueueMessage, EncryptionError> {
+    pub fn encrypt(&mut self, payload: &Payload) -> Result<QueueMessage, EncryptionError> {
         // TODO: We want domain separation: FQDN, UserID & ClientID.
         let ciphertext = payload.encrypt(&self.key)?.into();
 

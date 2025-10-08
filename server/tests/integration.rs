@@ -17,10 +17,13 @@ use rand::{Rng, distributions::Alphanumeric, rngs::OsRng};
 use aircommon::{
     assert_matches,
     identifiers::{UserHandle, UserId},
+    messages::QueueMessage,
 };
 use aircoreclient::{
     Asset, BlockedContactError, ChatId, ChatMessage, DisplayName, DownloadProgressEvent,
-    UserProfile, clients::CoreUser, store::Store,
+    UserProfile,
+    clients::{CoreUser, queue_event},
+    store::Store,
 };
 use airserver::RateLimitsConfig;
 use airserver_test_harness::utils::setup::{TestBackend, TestUser};
@@ -607,7 +610,21 @@ async fn mark_as_read() {
     // Alice sees the delivery receipt
     let alice_test_user = setup.users.get_mut(&ALICE).unwrap();
     let alice = &mut alice_test_user.user;
-    let qs_messages = alice.qs_fetch_messages().await.unwrap();
+    // Eventually collect 10 delivery receipts (delivery receipts are sent asynchronously)
+    let (alice_qs_stream, _responder) = alice.listen_queue().await.unwrap();
+    let qs_messages: Vec<QueueMessage> = tokio::time::timeout(
+        Duration::from_secs(1),
+        alice_qs_stream
+            .filter_map(|message| match message.event {
+                Some(queue_event::Event::Message(message)) => Some(message.try_into().unwrap()),
+                _ => None,
+            })
+            .take(number_of_messages)
+            .collect(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(qs_messages.len(), number_of_messages);
     alice.fully_process_qs_messages(qs_messages).await.unwrap();
     let last_message = alice.last_message(alice_bob_chat).await.unwrap().unwrap();
     assert_eq!(last_message.status(), MessageStatus::Delivered);
@@ -1205,4 +1222,61 @@ async fn group_with_blocked_contact() {
     setup
         .send_message(chat_id, &ALICE, vec![&BOB, &CHARLIE])
         .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+#[tracing::instrument(name = "Delete account", skip_all)]
+async fn delete_account() {
+    let mut setup = TestBackend::single().await;
+
+    setup.add_user(&ALICE).await;
+    setup.get_user_mut(&ALICE).add_user_handle().await.unwrap();
+
+    setup.add_user(&BOB).await;
+
+    let contact_chat_id = setup.connect_users(&ALICE, &BOB).await;
+
+    // Create a group with Alice and Bob
+    let chat_id = setup.create_group(&ALICE).await;
+    setup.invite_to_group(chat_id, &ALICE, vec![&BOB]).await;
+
+    // Delete the account
+    let db_path = None;
+    setup
+        .get_user(&ALICE)
+        .user
+        .delete_account(db_path)
+        .await
+        .unwrap();
+
+    // Check that Alice left the group
+    let bob_test_user = setup.users.get_mut(&BOB).unwrap();
+    let bob = &mut bob_test_user.user;
+    let qs_messages = bob.qs_fetch_messages().await.unwrap();
+    bob.fully_process_qs_messages(qs_messages).await.unwrap();
+
+    let participants = setup
+        .get_user(&BOB)
+        .user
+        .chat_participants(contact_chat_id)
+        .await
+        .unwrap();
+    assert_eq!(participants, [BOB.clone()].into_iter().collect());
+
+    let participants = setup
+        .get_user(&BOB)
+        .user
+        .chat_participants(chat_id)
+        .await
+        .unwrap();
+    assert_eq!(participants, [BOB.clone()].into_iter().collect());
+
+    // After deletion, adding the user again should work.
+    // Note: Since the user is ephemeral, there is nothing to test on the client side.
+    let mut new_alice = TestUser::try_new(&ALICE, Some("localhost".into()), setup.grpc_port())
+        .await
+        .unwrap();
+    // Adding a user handle to the new user should work, because the previous user handle was
+    // deleted.
+    new_alice.add_user_handle().await.unwrap();
 }

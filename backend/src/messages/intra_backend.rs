@@ -8,6 +8,7 @@
 use aircommon::{
     identifiers::QsReference,
     messages::client_ds::{DsEventMessage, QsQueueMessagePayload},
+    time::TimeStamp,
 };
 use tls_codec::{TlsDeserializeBytes, TlsSerialize, TlsSize};
 
@@ -26,4 +27,19 @@ pub struct DsFanOutMessage {
 pub enum DsFanOutPayload {
     QueueMessage(QsQueueMessagePayload),
     EventMessage(DsEventMessage),
+}
+
+impl DsFanOutPayload {
+    pub(crate) fn timestamp(&self) -> TimeStamp {
+        match self {
+            DsFanOutPayload::QueueMessage(payload) => payload.timestamp,
+            DsFanOutPayload::EventMessage(payload) => payload.timestamp,
+        }
+    }
+}
+
+impl<T: Into<QsQueueMessagePayload>> From<T> for DsFanOutPayload {
+    fn from(value: T) -> Self {
+        Self::QueueMessage(value.into())
+    }
 }

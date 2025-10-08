@@ -84,8 +84,11 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                 let core_user = self.cubit_context.core_user.clone();
                 let user = User::from_core_user(core_user);
 
+                // Invariant: messages are sorted by sequence number
+                let max_sequence_number = self.messages.last().map(|m| m.sequence_number);
+
                 let messages = std::mem::take(&mut self.messages);
-                match user.process_qs_messages(messages).await {
+                match user.user.fully_process_qs_messages(messages).await {
                     Ok(ProcessedQsMessages {
                         new_chats,
                         changed_chats: _,
@@ -104,6 +107,24 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
                         error!(%error, "failed to process QS message");
                     }
                 }
+
+                if let Some(max_sequence_number) = max_sequence_number {
+                    // We received some messages, so we can ack them *after* they were fully
+                    // processed. In particular, the queue ratchet sequence number was written back
+                    // into the database.
+                    let responder = self
+                        .responder
+                        .as_ref()
+                        .expect("logic error: no responder")
+                        .clone();
+                    responder
+                        .ack(max_sequence_number + 1)
+                        .await
+                        .inspect_err(|error| {
+                            error!(%error, "failed to ack QS messages");
+                        })
+                        .ok();
+                }
             }
             None => {}
         }
@@ -114,7 +135,12 @@ impl BackgroundStreamContext<QueueEvent> for QueueContext {
             .cubit_context
             .app_state
             .clone()
-            .wait_for(|app_state| matches!(app_state, AppState::Foreground))
+            .wait_for(|app_state| {
+                matches!(
+                    app_state,
+                    AppState::Foreground | AppState::DesktopBackground
+                )
+            })
             .await;
     }
 

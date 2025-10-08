@@ -84,7 +84,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1908945154;
+  int get rustContentHash => -1282177426;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -383,6 +383,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUserCubitUserCubitBaseDeleteAccount({
     required UserCubitBase that,
+    required String dbPath,
   });
 
   Future<void> crateApiUserCubitUserCubitBaseDeleteChat({
@@ -563,10 +564,20 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiUtilsDeleteDatabases({required String dbPath});
 
+  Future<Uint8List> crateApiUtilsExportClientDatabase({
+    required String dbPath,
+    required UiUserId userId,
+  });
+
   Future<HomeNavigationState>
   crateApiNavigationCubitHomeNavigationStateDefault();
 
   String crateApiTypesImageDataComputeHash({required List<int> bytes});
+
+  Future<void> crateApiUtilsImportClientDatabase({
+    required String dbPath,
+    required List<int> tarGzBytes,
+  });
 
   LogWriter crateApiLoggingInitRustLogging({required String logFile});
 
@@ -3102,6 +3113,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateApiUserCubitUserCubitBaseDeleteAccount({
     required UserCubitBase that,
+    required String dbPath,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -3111,6 +3123,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
+          sse_encode_String(dbPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -3123,7 +3136,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta: kCrateApiUserCubitUserCubitBaseDeleteAccountConstMeta,
-        argValues: [that],
+        argValues: [that, dbPath],
         apiImpl: this,
       ),
     );
@@ -3132,7 +3145,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiUserCubitUserCubitBaseDeleteAccountConstMeta =>
       const TaskConstMeta(
         debugName: "UserCubitBase_delete_account",
-        argNames: ["that"],
+        argNames: ["that", "dbPath"],
       );
 
   @override
@@ -4701,6 +4714,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "delete_databases", argNames: ["dbPath"]);
 
   @override
+  Future<Uint8List> crateApiUtilsExportClientDatabase({
+    required String dbPath,
+    required UiUserId userId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_box_autoadd_ui_user_id(userId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 111,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiUtilsExportClientDatabaseConstMeta,
+        argValues: [dbPath, userId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiUtilsExportClientDatabaseConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_client_database",
+        argNames: ["dbPath", "userId"],
+      );
+
+  @override
   Future<HomeNavigationState>
   crateApiNavigationCubitHomeNavigationStateDefault() {
     return handler.executeNormal(
@@ -4710,7 +4758,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 111,
+            funcId: 112,
             port: port_,
           );
         },
@@ -4742,7 +4790,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 112,
+            funcId: 113,
           )!;
         },
         codec: SseCodec(
@@ -4763,6 +4811,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiUtilsImportClientDatabase({
+    required String dbPath,
+    required List<int> tarGzBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_list_prim_u_8_loose(tarGzBytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 114,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiUtilsImportClientDatabaseConstMeta,
+        argValues: [dbPath, tarGzBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiUtilsImportClientDatabaseConstMeta =>
+      const TaskConstMeta(
+        debugName: "import_client_database",
+        argNames: ["dbPath", "tarGzBytes"],
+      );
+
+  @override
   LogWriter crateApiLoggingInitRustLogging({required String logFile}) {
     return handler.executeSync(
       SyncTask(
@@ -4772,7 +4855,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 113,
+            funcId: 115,
           )!;
         },
         codec: SseCodec(
@@ -4805,7 +4888,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 114,
+            funcId: 116,
             port: port_,
           );
         },
@@ -4838,7 +4921,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 115,
+            funcId: 117,
             port: port_,
           );
         },
@@ -4871,7 +4954,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 116,
+            funcId: 118,
           )!;
         },
         codec: SseCodec(
@@ -4900,7 +4983,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 117,
+            funcId: 119,
             port: port_,
           );
         },
@@ -4928,7 +5011,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 118,
+            funcId: 120,
             port: port_,
           );
         },
@@ -4959,7 +5042,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 119,
+            funcId: 121,
             port: port_,
           );
         },
@@ -4989,7 +5072,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 120,
+            funcId: 122,
           )!;
         },
         codec: SseCodec(
@@ -12183,8 +12266,8 @@ class UserCubitBaseImpl extends RustOpaque implements UserCubitBase {
   Future<List<UiContact>> get contacts =>
       RustLib.instance.api.crateApiUserCubitUserCubitBaseContacts(that: this);
 
-  Future<void> deleteAccount() => RustLib.instance.api
-      .crateApiUserCubitUserCubitBaseDeleteAccount(that: this);
+  Future<void> deleteAccount({required String dbPath}) => RustLib.instance.api
+      .crateApiUserCubitUserCubitBaseDeleteAccount(that: this, dbPath: dbPath);
 
   Future<void> deleteChat(ChatId chatId) => RustLib.instance.api
       .crateApiUserCubitUserCubitBaseDeleteChat(that: this, chatId: chatId);
