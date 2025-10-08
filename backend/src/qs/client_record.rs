@@ -532,7 +532,7 @@ impl QsClientRecord {
             .await?
             .ok_or(EnqueueError::ClientNotFound)?;
 
-        let queue_message = client_record.ratchet_key.encrypt(queue_message)?;
+        let queue_message = client_record.ratchet_key.encrypt(&queue_message)?;
         let queue_message_proto: airprotos::queue_service::v1::QueueMessage = queue_message.into();
         trace!("Enqueueing message in storage provider");
 

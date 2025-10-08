@@ -348,41 +348,6 @@ impl CoreUser {
             .unwrap_or_else(|| UserProfile::from_user_id(user_id))
     }
 
-    /// Streams all messages from the queue and acks them.
-    ///
-    /// The batch of messages is returned. The stream is closed. This function is intended to be
-    /// called in the background service or tests.
-    async fn fetch_messages_from_queue(&self) -> Result<Vec<QueueMessage>> {
-        let (stream, responder) = self.listen_queue().await?;
-
-        let mut stream = stream
-            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
-            .filter_map(|message| match message.event? {
-                queue_event::Event::Empty(_) => unreachable!(),
-                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
-                queue_event::Event::Payload(_) => None,
-            });
-
-        let mut messages: Vec<QueueMessage> = Vec::new();
-        while let Some(message) = stream.next().await {
-            messages.push(message);
-        }
-
-        if let Some(max_sequence_number) = messages.last().map(|m| m.sequence_number) {
-            responder
-                .ack(max_sequence_number + 1)
-                .await
-                .inspect_err(|error| {
-                    error!(%error, "failed to ack QS messages");
-                })
-                .ok();
-        }
-
-        drop(stream); // must be alive until the ack is sent
-
-        Ok(messages)
-    }
-
     /// Fetch and process messages from all user handle queues.
     ///
     /// Returns the list of [`ChatId`]s of any newly created chats.
@@ -441,8 +406,21 @@ impl CoreUser {
         Ok(messages)
     }
 
+    /// Fetches all messages from the QS queue.
+    ///
+    /// Must *not* be used outside of integration tests, because the messages are not acked.
     pub async fn qs_fetch_messages(&self) -> Result<Vec<QueueMessage>> {
-        self.fetch_messages_from_queue().await
+        let (stream, _responder) = self.listen_queue().await?;
+        let messages = stream
+            .take_while(|message| !matches!(message.event, Some(queue_event::Event::Empty(_))))
+            .filter_map(|message| match message.event? {
+                queue_event::Event::Empty(_) => unreachable!(),
+                queue_event::Event::Message(queue_message) => queue_message.try_into().ok(),
+                queue_event::Event::Payload(_) => None,
+            })
+            .collect()
+            .await;
+        Ok(messages)
     }
 
     pub async fn contacts(&self) -> sqlx::Result<Vec<Contact>> {

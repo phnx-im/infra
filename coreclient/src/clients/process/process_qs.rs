@@ -354,8 +354,16 @@ impl CoreUser {
                 None
             }
         });
-        self.send_delivery_receipts(chat_id, delivered_receipts)
+        let task = self
+            .send_delivery_receipts_task(chat_id, delivered_receipts)
             .await?;
+        if let Some(task) = task {
+            tokio::spawn(async move {
+                if let Err(error) = task.await {
+                    error!(%error, "Failed to send delivery receipts");
+                }
+            });
+        }
 
         let res = match (messages, chat_changed) {
             (messages, true) => ProcessQsMessageResult::ChatChanged(chat_id, messages),
