@@ -42,7 +42,6 @@ Future<void> _loadFonts() async {
   if (!usesSanFrancisco) {
     fonts["Roboto"] = "assets/fonts/Roboto-Regular.ttf";
   }
-  print(fonts);
   for (final entry in fonts.entries) {
     final bytes = rootBundle.load(entry.value);
     final fontLoader = FontLoader(entry.key)..addFont(bytes);
