@@ -45,40 +45,29 @@ void main() {
     late MockNavigationCubit navigationCubit;
     late MockChatListCubit chatListCubit;
     late MockUserCubit userCubit;
-    late MockUsersCubit contactsCubit;
-    late MockChatDetailsCubit chatDetailsCubit;
+    late MockUsersCubit usersCubit;
 
     setUp(() async {
       navigationCubit = MockNavigationCubit();
       userCubit = MockUserCubit();
       chatListCubit = MockChatListCubit();
-      contactsCubit = MockUsersCubit();
-      chatDetailsCubit = MockChatDetailsCubit();
+      usersCubit = MockUsersCubit();
 
       when(
         () => navigationCubit.state,
       ).thenReturn(const NavigationState.home());
-      when(() => userCubit.state).thenReturn(MockUiUser(id: 1));
-      when(() => contactsCubit.state).thenReturn(
-        MockUsersState(
-          profiles: [UiUserProfile(userId: 1.userId(), displayName: "alice")],
-        ),
+      when(() => userCubit.state).thenReturn(MockUiUser(id: 10));
+      when(() => usersCubit.state).thenReturn(
+        MockUsersState(profiles: userProfiles, defaultUserId: ownId),
       );
-      when(
-        () => chatDetailsCubit.state,
-      ).thenReturn(ChatDetailsState(chat: chats[1], members: [1.userId()]));
-      when(() => chatListCubit.state).thenReturn(
-        ChatListState(
-          chats: List.generate(20, (index) => chats[index % chats.length]),
-        ),
-      );
+      when(() => chatListCubit.state).thenReturn(ChatListState(chats: chats));
     });
 
     Widget buildSubject(ProductShotPlatform platform) => MultiBlocProvider(
       providers: [
         BlocProvider<NavigationCubit>.value(value: navigationCubit),
         BlocProvider<UserCubit>.value(value: userCubit),
-        BlocProvider<UsersCubit>.value(value: contactsCubit),
+        BlocProvider<UsersCubit>.value(value: usersCubit),
         BlocProvider<ChatListCubit>.value(value: chatListCubit),
       ],
       child: Builder(
