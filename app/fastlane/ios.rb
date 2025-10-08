@@ -134,7 +134,8 @@ platform :ios do
         screenshots_path: "./stores/ios/screenshots",
         precheck_include_in_app_purchases: false,
         overwrite_screenshots: true,
-        skip_binary_upload: true
+        skip_binary_upload: true,
+        force: true
       )
     end
   end
