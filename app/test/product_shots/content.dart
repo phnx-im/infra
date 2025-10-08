@@ -58,6 +58,8 @@ final userProfiles = [
 
 var messageIdx = 1;
 
+final now = DateTime.now();
+
 final chats = [
   // Fred
   UiChatDetails(
@@ -67,7 +69,7 @@ final chats = [
     unreadMessages: 1,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Fred', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.toIso8601String(),
     lastMessage: _lastChatMessage(
       fredChatId,
       fredId,
@@ -82,7 +84,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Jessica', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(minutes: 1)).toIso8601String(),
     lastMessage: _lastChatMessage(
       jessicaChatId,
       jessicaId,
@@ -97,7 +99,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 0,
     attributes: const UiChatAttributes(title: 'Science club', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(minutes: 10)).toIso8601String(),
     lastMessage: _lastChatMessage(
       scienceClubId,
       samId,
@@ -112,7 +114,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Dave', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(minutes: 15)).toIso8601String(),
     lastMessage: _lastChatMessage(
       daveChatId,
       daveId,
@@ -127,7 +129,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Gardening club', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(minutes: 20)).toIso8601String(),
     lastMessage: _lastChatMessage(
       gardeningPartyId,
       samId,
@@ -142,7 +144,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Frank', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(minutes: 30)).toIso8601String(),
     lastMessage: _lastChatMessage(
       frankChatId,
       frankId,
@@ -157,7 +159,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Alex', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(days: 1)).toIso8601String(),
     lastMessage: _lastChatMessage(alexChatId, alexId, "See you there."),
   ),
   // Irene
@@ -168,7 +170,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Irene', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(days: 1)).toIso8601String(),
     lastMessage: _lastChatMessage(
       ireneChatId,
       ireneId,
@@ -183,7 +185,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Dinner party', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(days: 1)).toIso8601String(),
     lastMessage: _lastChatMessage(
       dinnerPartyId,
       ownId,
@@ -198,7 +200,7 @@ final chats = [
     unreadMessages: 0,
     messagesCount: 1,
     attributes: const UiChatAttributes(title: 'Kamal', picture: null),
-    lastUsed: '2023-01-01T00:00:00.000Z',
+    lastUsed: now.subtract(const Duration(days: 1)).toIso8601String(),
     lastMessage: _lastChatMessage(
       kamalChatId,
       ownId,
@@ -251,7 +253,7 @@ final fredMessages = [
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: fredChatId,
-    timestamp: '2023-01-01T20:13:00.000Z',
+    timestamp: now.subtract(const Duration(minutes: 1)).toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: ownId,
@@ -266,12 +268,12 @@ final fredMessages = [
       ),
     ),
     position: UiFlightPosition.single,
-    status: UiMessageStatus.sent,
+    status: UiMessageStatus.read,
   ),
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: fredChatId,
-    timestamp: '2023-01-01T00:00:00.000Z',
+    timestamp: now.toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: fredId,
@@ -293,7 +295,7 @@ final fredMessages = [
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: fredChatId,
-    timestamp: '2023-01-01T20:14:00.000Z',
+    timestamp: now.toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: fredId,
@@ -331,7 +333,7 @@ final gardeningPartyMessages = [
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: gardeningPartyId,
-    timestamp: '2023-01-01T20:14:00.000Z',
+    timestamp: now.subtract(const Duration(minutes: 23)).toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: samId,
@@ -353,7 +355,7 @@ final gardeningPartyMessages = [
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: gardeningPartyId,
-    timestamp: '2023-01-01T20:14:01.000Z',
+    timestamp: now.subtract(const Duration(minutes: 21)).toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: fredId,
@@ -373,7 +375,7 @@ final gardeningPartyMessages = [
   UiChatMessage(
     id: (messageIdx++).messageId(),
     chatId: gardeningPartyId,
-    timestamp: '2023-01-01T20:15:02.000Z',
+    timestamp: now.subtract(const Duration(minutes: 20)).toIso8601String(),
     message: UiMessage_Content(
       UiContentMessage(
         sender: jessicaId,
