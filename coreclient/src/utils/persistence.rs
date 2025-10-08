@@ -52,7 +52,7 @@ pub(crate) async fn open_air_db(db_path: &str) -> sqlx::Result<SqlitePool> {
     Ok(pool)
 }
 
-pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
+pub(crate) async fn open_db_in_memory() -> anyhow::Result<SqlitePool> {
     let opts = SqliteConnectOptions::new()
         .journal_mode(SqliteJournalMode::Wal)
         .in_memory(true);
@@ -66,7 +66,12 @@ pub(crate) async fn open_db_in_memory() -> sqlx::Result<SqlitePool> {
         .acquire_timeout(Duration::from_secs(3))
         .connect_with(opts)
         .await?;
-    sqlx::migrate!().run(&pool).await?;
+    let mut connection = pool.acquire().await?;
+    // Create OpenMLS specific tables
+    sqlx::migrate!().run(&mut connection).await?;
+    let mut provider = SqliteStorageProvider::new(&mut connection);
+    provider.run_migrations()?;
+
     Ok(pool)
 }
 
