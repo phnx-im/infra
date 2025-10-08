@@ -3,6 +3,26 @@ require 'plist'
 require 'yaml'
 
 platform :ios do
+    before_all do
+      @app_store_params = {
+        key_id: ENV['APP_STORE_KEY_ID'],
+        issuer_id: ENV['APP_STORE_ISSUER_ID'],
+        key_content: ENV['APP_STORE_KEY_P8_BASE64'],
+        team_id: ENV['TEAM_ID'],
+        match_type: 'appstore',
+        app_identifier: 'ms.air',
+        app_identifier_nse: 'ms.air.nse',
+      }
+
+      @app_store_api_key = app_store_connect_api_key(
+        key_id: @app_store_params[:key_id],
+        issuer_id: @app_store_params[:issuer_id],
+        key_content: @app_store_params[:key_content],
+        is_key_content_base64: true,
+        in_house: false
+      )
+    end
+
     desc "Build iOS app for TestFlight"
     lane :beta_ios do |options|
       # Set up CI
@@ -10,22 +30,16 @@ platform :ios do
       upload_to_test_flight = options[:upload_to_test_flight]
 
       # Set parameters
-      key_id = ENV['APP_STORE_KEY_ID']
-      issuer_id = ENV['APP_STORE_ISSUER_ID']
-      key_content = ENV['APP_STORE_KEY_P8_BASE64']
-      team_id = ENV['TEAM_ID']
-      matchType = "appstore"
-      app_identifier = "ms.air"
-      app_identifier_nse = "ms.air.nse"
+      key_id = @app_store_params[:key_id]
+      issuer_id = @app_store_params[:issuer_id]
+      key_content = @app_store_params[:key_content]
+      team_id = @app_store_params[:team_id]
+      matchType = @app_store_params[:match_type]
+      app_identifier = @app_store_params[:app_identifier]
+      app_identifier_nse = @app_store_params[:app_identifier_nse]
     
       # Load the app store connect API key
-      api_key = app_store_connect_api_key(
-        key_id: key_id,
-        issuer_id: issuer_id,
-        key_content: key_content,
-        is_key_content_base64: true,
-        in_house: false
-      )
+      api_key = @app_store_api_key
     
       # Read app version from pubspec.yaml
       pubspec = YAML.load_file("../pubspec.yaml")
@@ -104,6 +118,23 @@ platform :ios do
         skip_package_ipa: skip_signing,
         skip_archive: skip_signing,
         export_method: "app-store",
+      )
+    end
+
+    desc "Upload metadata & screenshots to App Store Connect"
+    lane :upload_metadata do
+      app_identifier = @app_store_params[:app_identifier]
+      api_key = @app_store_api_key
+
+      # Upload metadata and screenshots
+      upload_to_app_store(
+        api_key: api_key,
+        app_identifier: app_identifier,
+        metadata_path: "./stores/ios/metadata",
+        screenshots_path: "./stores/ios/screenshots",
+        precheck_include_in_app_purchases: false,
+        overwrite_screenshots: true,
+        skip_binary_upload: true
       )
     end
   end
