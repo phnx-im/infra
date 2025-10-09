@@ -13,7 +13,7 @@ import 'chat_list_cubit.dart';
 import 'chat_list_header.dart';
 
 class ChatListContainer extends StatelessWidget {
-  const ChatListContainer({super.key, this.isStandalone = false});
+  const ChatListContainer({required this.isStandalone, super.key});
 
   final bool isStandalone;
 
