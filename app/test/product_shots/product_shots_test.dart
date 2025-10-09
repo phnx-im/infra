@@ -33,6 +33,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(0.messageId());
     registerFallbackValue(0.userId());
+    registerFallbackValue(0.attachmentId());
   });
 
   group('Chat List Product Shots', () {
@@ -104,6 +105,9 @@ void main() {
       physicalSize: iosPhysicalSize,
       (tester) async {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/chat_list.ios.png"),
@@ -117,6 +121,9 @@ void main() {
       physicalSize: androidPhysicalSize,
       (tester) async {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/chat_list.android.png"),
@@ -175,6 +182,12 @@ void main() {
       when(
         () => messageListCubit.state,
       ).thenReturn(MockMessageListState(fredMessages));
+      when(
+        () => attachmentsRepository.loadImageAttachment(
+          attachmentId: any(named: "attachmentId"),
+          chunkEventCallback: any(named: "chunkEventCallback"),
+        ),
+      ).thenAnswer((_) => Future.value(jupiterAttachmentImage.data));
     });
 
     Widget buildSubject(ProductShotPlatform platform) =>
@@ -230,6 +243,9 @@ void main() {
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/private_chat.ios.png"),
@@ -245,6 +261,9 @@ void main() {
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/private_chat.android.png"),
@@ -358,6 +377,9 @@ void main() {
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/group_chat.ios.png"),
@@ -373,6 +395,9 @@ void main() {
         VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
         await tester.pumpWidget(buildSubject(ProductShotPlatform.android));
+        await _precacheImages(tester);
+        await tester.pumpAndSettle();
+
         await expectLater(
           find.byType(ProductShot),
           matchesGoldenFile("goldens/group_chat.android.png"),
@@ -404,4 +429,29 @@ void testProductShot(
       debugDisableShadows = true;
     }
   }, skip: Platform.operatingSystem != hostPlatform);
+}
+
+/// Preload all images in the widget tree.
+///
+/// This is necessary in tests, otherwise the images will not be rendered.
+///
+/// Will be called inside `tester.runAsync`. Otherwise, `precacheImage` will never complete due
+/// to fake-async.
+Future<void> _precacheImages(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    final elements = tester.elementList(find.byType(DecoratedBox));
+    for (Element element in elements) {
+      DecoratedBox widget = element.widget as DecoratedBox;
+      BoxDecoration decoration = widget.decoration as BoxDecoration;
+      if (decoration.image != null) {
+        await precacheImage(decoration.image!.image, element);
+      }
+    }
+
+    final attachmentElements = tester.elementList(find.byType(Image));
+    for (Element element in attachmentElements) {
+      final image = element.widget as Image;
+      await precacheImage(image.image, element);
+    }
+  });
 }
