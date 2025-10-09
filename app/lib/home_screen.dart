@@ -21,7 +21,7 @@ class HomeScreen extends StatelessWidget {
       chat: ChatScreen(),
     );
     return const ResponsiveScreen(
-      mobile: ChatListContainer(),
+      mobile: ChatListContainer(isStandalone: true),
       tablet: desktopLayout,
       desktop: desktopLayout,
     );
