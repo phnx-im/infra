@@ -1324,13 +1324,13 @@ async fn update_and_send_message(
     alice: &UserId,
     bob: &UserId,
 ) -> ProcessedQsMessages {
-    let get_user_mut = setup.get_user_mut(&alice);
+    let get_user_mut = setup.get_user_mut(alice);
     let alice_test_user = get_user_mut;
     let alice_user = &mut alice_test_user.user;
     // alice creates an update and sends it to the ds
     alice_user.update_key(contact_chat_id).await.unwrap();
     // bob creates a message based on his (old) epoch for alice
-    let bob = setup.get_user_mut(&bob);
+    let bob = setup.get_user_mut(bob);
     let bob_user = &mut bob.user;
     let msg = MimiContent::simple_markdown_message("message".to_owned(), [0; 16]);
     bob_user
@@ -1338,7 +1338,7 @@ async fn update_and_send_message(
         .await
         .unwrap();
     // alice fetches and processes bob's message
-    let alice = setup.get_user_mut(&alice);
+    let alice = setup.get_user_mut(alice);
     let alice_user = &mut alice.user;
     let qs_messages = alice_user.qs_fetch_messages().await.unwrap();
     alice_user
