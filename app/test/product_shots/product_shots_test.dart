@@ -26,8 +26,25 @@ import 'content.dart';
 import 'product_shot.dart';
 import 'product_shot_device.dart';
 
-const androidPhysicalSize = Size(1080, 1920);
-const iosPhysicalSize = Size(1260, 2736);
+const androidPhysicalSize = Size(2160, 3840);
+const iosPhysicalSize = Size(1290, 2796);
+
+const androidProductShotSize = Size(2160, 3840);
+const iosProductShotSize = Size(1290, 2796);
+const _defaultProductShotSize = Size(1242, 2000);
+
+Size _productShotSizeFor(ProductShotPlatform platform) {
+  switch (platform) {
+    case ProductShotPlatform.android:
+      return androidProductShotSize;
+    case ProductShotPlatform.ios:
+      return iosProductShotSize;
+    case ProductShotPlatform.macos:
+    case ProductShotPlatform.windows:
+    case ProductShotPlatform.linux:
+      return _defaultProductShotSize;
+  }
+}
 
 void main() {
   setUpAll(() {
@@ -36,7 +53,6 @@ void main() {
   });
 
   group('Chat List Product Shots', () {
-    const size = Size(1242, 2000);
     const backgroundColor = Color.fromARGB(255, 221, 227, 234);
     const header = 'Easy private messaging.';
     const subheader = 'Every message encrypted.';
@@ -71,8 +87,9 @@ void main() {
       ],
       child: Builder(
         builder: (context) {
+          final shotSize = _productShotSizeFor(platform);
           final shot = ProductShot(
-            size: size,
+            size: shotSize,
             backgroundColor: backgroundColor,
             header: header,
             subheader: subheader,
@@ -106,6 +123,7 @@ void main() {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/ios/en-US/screenshots
           matchesGoldenFile("goldens/chat_list.ios.png"),
         );
       },
@@ -126,7 +144,6 @@ void main() {
   });
 
   group("Private Chat", () {
-    const size = Size(1242, 2000);
     const backgroundColor = Color.fromARGB(255, 236, 226, 215);
     const header = 'Connect with friends.';
     const subheader = 'Send messages in private chats.';
@@ -191,8 +208,9 @@ void main() {
             ],
             child: Builder(
               builder: (context) {
+                final shotSize = _productShotSizeFor(platform);
                 final shot = ProductShot(
-                  size: size,
+                  size: shotSize,
                   backgroundColor: backgroundColor,
                   header: header,
                   subheader: subheader,
@@ -232,6 +250,7 @@ void main() {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/ios/en-US/screenshots
           matchesGoldenFile("goldens/private_chat.ios.png"),
         );
       },
@@ -254,7 +273,6 @@ void main() {
   });
 
   group("Group Chat", () {
-    const size = Size(1242, 2000);
     const backgroundColor = Color.fromARGB(255, 219, 231, 217);
     const header = 'Create groups to chat.';
     const subheader = 'Chat in groups with multiple people.';
@@ -319,8 +337,9 @@ void main() {
             ],
             child: Builder(
               builder: (context) {
+                final shotSize = _productShotSizeFor(platform);
                 final shot = ProductShot(
-                  size: size,
+                  size: shotSize,
                   backgroundColor: backgroundColor,
                   header: header,
                   subheader: subheader,
@@ -360,6 +379,7 @@ void main() {
         await tester.pumpWidget(buildSubject(ProductShotPlatform.ios));
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/ios/en-US/screenshots
           matchesGoldenFile("goldens/group_chat.ios.png"),
         );
       },
@@ -391,7 +411,7 @@ void testProductShot(
   testWidgets(description, (tester) async {
     debugDisableShadows = false;
 
-    tester.view.physicalSize = androidPhysicalSize;
+    tester.view.physicalSize = physicalSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
