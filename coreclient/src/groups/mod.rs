@@ -197,6 +197,7 @@ impl Group {
             .with_group_id(group_id.clone())
             .with_capabilities(leaf_node_capabilities)
             .with_group_context_extensions(gc_extensions)?
+            .max_past_epochs(MAX_PAST_EPOCHS)
             .with_wire_format_policy(PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
             .build(provider, signer, credential_with_key)
             .map_err(|e| anyhow!("Error while creating group: {:?}", e))?;
