@@ -144,6 +144,7 @@ void main() {
 
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/android/metadata/en-US/images/phone-screenshots
           matchesGoldenFile("goldens/chat_list.android.png"),
         );
       },
@@ -285,6 +286,7 @@ void main() {
 
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/android/metadata/en-US/screenshots
           matchesGoldenFile("goldens/private_chat.android.png"),
         );
       },
@@ -420,6 +422,7 @@ void main() {
 
         await expectLater(
           find.byType(ProductShot),
+          // Do not change the file name, as it is referenced in stores/android/metadata/en-US/screenshots
           matchesGoldenFile("goldens/group_chat.android.png"),
         );
       },
