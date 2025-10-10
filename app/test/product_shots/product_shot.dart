@@ -76,13 +76,21 @@ class ProductShot extends StatelessWidget {
                     height: headerHeight,
                     child: Center(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _ShotTitle(text: title, color: titleColor),
-                          SizedBox(height: headerHeight * 0.05),
-                          _ShotSubtitle(text: subtitle, color: subtitleColor),
                           SizedBox(height: headerHeight * 0.1),
+                          _ShotTitle(
+                            text: title,
+                            color: titleColor,
+                            size: size.width,
+                          ),
+                          SizedBox(height: headerHeight * 0.05),
+                          _ShotSubtitle(
+                            text: subtitle,
+                            color: subtitleColor,
+                            size: size.width,
+                          ),
                         ],
                       ),
                     ),
@@ -117,22 +125,28 @@ class ProductShot extends StatelessWidget {
 
 /// Large store headline used in product shots.
 class _ShotTitle extends StatelessWidget {
-  const _ShotTitle({required this.text, required this.color});
+  const _ShotTitle({
+    required this.text,
+    required this.color,
+    required this.size,
+  });
 
   final String text;
   final Color color;
-
-  static const _style = TextStyle(
-    fontSize: 64,
-    fontWeight: FontWeight.w800,
-    height: 1.5,
-    letterSpacing: -0.5,
-  );
+  final double size;
 
   @override
   Widget build(BuildContext context) {
+    final fontSize = size / 16;
+    final textStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w800,
+      height: 1.5,
+      letterSpacing: -fontSize / 128,
+      color: color,
+    );
     return DefaultTextStyle.merge(
-      style: _style.copyWith(color: color),
+      style: textStyle,
       child: Text(
         text,
         maxLines: 2,
@@ -145,22 +159,28 @@ class _ShotTitle extends StatelessWidget {
 
 /// Large store headline used in product shots.
 class _ShotSubtitle extends StatelessWidget {
-  const _ShotSubtitle({required this.text, required this.color});
+  const _ShotSubtitle({
+    required this.text,
+    required this.color,
+    required this.size,
+  });
 
   final String text;
   final Color color;
-
-  static const _style = TextStyle(
-    fontSize: 48,
-    fontWeight: FontWeight.w500,
-    height: 1.5,
-    letterSpacing: -0.5,
-  );
+  final double size;
 
   @override
   Widget build(BuildContext context) {
+    final fontSize = size / 24;
+    final textStyle = TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w500,
+      height: 1.5,
+      letterSpacing: -fontSize / 128,
+      color: color,
+    );
     return DefaultTextStyle.merge(
-      style: _style.copyWith(color: color),
+      style: textStyle,
       child: Text(
         text,
         maxLines: 2,
